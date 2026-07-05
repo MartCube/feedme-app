@@ -84,7 +84,8 @@ only these four names.
 Each theme is a small block in `app/assets/css/main.css` assigning the `--ui-*` variables:
 `:root, .dark` carries Ink (the default), and `html[data-theme='claude']` overrides for
 Claude. The active theme lives in the `settings` Pinia store (`app/stores/settings.ts`),
-persisted to localStorage via `pinia-plugin-persistedstate`, and is exposed to components
+persisted to a cookie via `pinia-plugin-persistedstate` (its Nuxt default — cookies let the
+server render the chosen theme, so a reload doesn't flash Ink), and is exposed to components
 only through `useTheme()` (`app/composables/useTheme.ts`) — current theme, the theme list,
 and `setTheme()`. `app.vue` applies the store's value as the `data-theme` attribute on
 `<html>` via `useHead`, so a theme change re-colors everything reactively and a new theme

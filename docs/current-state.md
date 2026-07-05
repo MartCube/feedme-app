@@ -19,7 +19,7 @@ entirely on static mock data in `app/assets/data.ts`, served through the `feeds`
   type scale (`text-title/subtitle/body/caption`) and `shadow-elevated`. See
   [design-system.md](./design-system.md).
 - **Theme switch** — Settings → Appearance picks Ink or Claude via the persisted Pinia
-  `settings` store (`pinia-plugin-persistedstate`, localStorage) behind `useTheme()`;
+  `settings` store (`pinia-plugin-persistedstate`, cookie) behind `useTheme()`;
   `app.vue` applies `data-theme` on `<html>` via `useHead`.
 - **Navbar** — `app/components/Navbar.vue` (menu → `/settings`, add → `/add`).
 - **IconButton** — `app/components/ui/IconButton.vue` (round soft-fill button, accent press
