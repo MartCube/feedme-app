@@ -1,0 +1,152 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+@theme static {
+  --font-sora: "Sora", system-ui, sans-serif;
+
+  /* Primary teal — 400 = primary (#2DD4BF). Dark-only for now. */
+  --color-teal-50: #f0fdfa;
+  --color-teal-100: #ccfbf1;
+  --color-teal-200: #99f6e4;
+  --color-teal-300: #5eead4;
+  --color-teal-400: #2dd4bf;
+  --color-teal-500: #14b8a6;
+  --color-teal-600: #0d9488;
+  --color-teal-700: #0f766e;
+  --color-teal-800: #115e59;
+  --color-teal-900: #134e4a;
+  --color-teal-950: #042f2e;
+
+  /* Neutral (ink) — dark-mode focused.
+     900 = page bg (#1F1F21), 800 = surface (#252527),
+     700 = placeholder / avatar bg (#3A3A3C),
+     400 = muted text (#9A9A9E), 100 = text (#F2F2F2). */
+  --color-ink-50: #fafafa;
+  --color-ink-100: #f2f2f2;
+  --color-ink-200: #e4e4e6;
+  --color-ink-300: #c8c8cc;
+  --color-ink-400: #9a9a9e;
+  --color-ink-500: #6e6e72;
+  --color-ink-600: #545458;
+  --color-ink-700: #3a3a3c;
+  --color-ink-800: #252527;
+  --color-ink-900: #1f1f21;
+  --color-ink-950: #0d0d0e;
+
+  /* Silver — subtle borders / dividers on dark. */
+  --color-silver-50: #f7f7f8;
+  --color-silver-100: #ededee;
+  --color-silver-200: #1f1f21;
+  --color-silver-300: #2a2a2c;
+  --color-silver-400: #38383a;
+  --color-silver-500: #4a4a4d;
+  --color-silver-600: #5f5f63;
+  --color-silver-700: #76767a;
+  --color-silver-800: #8e8e92;
+  --color-silver-900: #a7a7ab;
+  --color-silver-950: #c0c0c4;
+
+
+}
+
+@layer base {
+  html,
+  body {
+    background-color: var(--ui-bg);
+    color: var(--ui-text);
+    font-family: var(--font-sora), serif;
+  }
+}
+
+/* iOS-style push/pop between routed pages (driven by route meta, set in
+   middleware/page-slide.global.ts). Pages get an opaque background while
+   sliding so they don't show through each other; the leaving page goes
+   absolute so both can overlap. */
+.page-slide-left-enter-active,
+.page-slide-left-leave-active,
+.page-slide-right-enter-active,
+.page-slide-right-leave-active {
+  transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+  background-color: var(--ui-bg);
+  /* A page shorter than the viewport must still cover the full screen while
+     sliding, or the page behind it shows through below its content. */
+  min-height: 100dvh;
+}
+
+.page-slide-left-leave-active,
+.page-slide-right-leave-active {
+  position: absolute;
+  inset: 0;
+  /* Clip content taller than the box so it doesn't paint below the entering page. */
+  overflow: hidden;
+}
+
+.page-slide-left-enter-active {
+  position: relative;
+  z-index: 1;
+}
+
+.page-slide-right-leave-active {
+  z-index: 1;
+}
+
+.page-slide-left-enter-from {
+  transform: translateX(100%);
+}
+
+.page-slide-left-leave-to {
+  transform: translateX(-25%);
+}
+
+.page-slide-right-enter-from {
+  transform: translateX(-25%);
+}
+
+.page-slide-right-leave-to {
+  transform: translateX(100%);
+}
+
+/* Links inside the settings drawer (components/SettingsDrawer.vue) must not
+   start native drags or text selection — both hijack vaul's drag-to-close
+   gesture. */
+[data-vaul-drawer] a {
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+/* iOS-style push/pop between settings drawer panels. Direction comes from
+   the --panel-* variables that SettingsDrawer.vue binds inline on the
+   .settings-panels container; these are the defaults for the drawer's
+   open/close moments, where the panels must not move on their own. */
+.settings-panels {
+  --panel-enter-from: 0%;
+  --panel-enter-z: 0;
+  --panel-leave-to: 0%;
+  --panel-leave-z: 0;
+}
+
+.panel-slide-enter-active,
+.panel-slide-leave-active {
+  transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+  background-color: var(--ui-bg);
+}
+
+.panel-slide-enter-active {
+  position: relative;
+  z-index: var(--panel-enter-z);
+}
+
+.panel-slide-leave-active {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: var(--panel-leave-z);
+}
+
+.panel-slide-enter-from {
+  transform: translateX(var(--panel-enter-from));
+}
+
+.panel-slide-leave-to {
+  transform: translateX(var(--panel-leave-to));
+}

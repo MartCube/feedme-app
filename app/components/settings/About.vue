@@ -1,0 +1,22 @@
+<script setup lang="ts">
+</script>
+
+<template>
+  <SettingsPage title="About">
+    <section>
+      <div class="flex flex-col gap-px overflow-hidden rounded-2xl">
+        <div class="flex items-center justify-between bg-elevated p-4">
+          <span>FeedMe</span>
+          <span class="text-sm text-muted">v0.1.0</span>
+        </div>
+        <div class="flex items-center justify-between bg-elevated p-4">
+          <span>Built with</span>
+          <span class="text-sm text-muted">Nuxt 4</span>
+        </div>
+      </div>
+      <p class="mt-3 text-sm text-muted">
+        A minimal, functional, scalable feed reader. Mock content for now.
+      </p>
+    </section>
+  </SettingsPage>
+</template>
