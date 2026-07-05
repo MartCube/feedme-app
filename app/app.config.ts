@@ -2,12 +2,7 @@ export default defineAppConfig({
   ui: {
     colors: {
       primary: 'teal',
-      neutral: 'ink',
-    },
-    separator: {
-      slots: {
-        border: 'border-black/40 shadow-[0_1px_0_rgba(255,255,255,0.05)]',
-      },
+      neutral: 'zinc',
     },
     drawer: {
       slots: {

@@ -45,4 +45,10 @@ export default defineNuxtConfig({
       stylistic: true,
     },
   },
+  // Only the two weights the type scale allows (400 body, 600 titles).
+  fonts: {
+    families: [
+      { name: 'Sora', provider: 'google', weights: [400, 600] },
+    ],
+  },
 })

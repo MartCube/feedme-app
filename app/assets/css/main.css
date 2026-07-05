@@ -4,49 +4,81 @@
 @theme static {
   --font-sora: "Sora", system-ui, sans-serif;
 
-  /* Primary teal — 400 = primary (#2DD4BF). Dark-only for now. */
-  --color-teal-50: #f0fdfa;
-  --color-teal-100: #ccfbf1;
-  --color-teal-200: #99f6e4;
-  --color-teal-300: #5eead4;
-  --color-teal-400: #2dd4bf;
-  --color-teal-500: #14b8a6;
-  --color-teal-600: #0d9488;
-  --color-teal-700: #0f766e;
-  --color-teal-800: #115e59;
-  --color-teal-900: #134e4a;
-  --color-teal-950: #042f2e;
+  /* Type scale — the only four text sizes app code may use. rem-based so a
+     future font-size setting is a single root multiplier. Weights: 400 and
+     600 only (title/subtitle carry 600 via the tokens below). */
+  --text-title: 1.5rem;
+  --text-title--line-height: 1.25;
+  --text-title--font-weight: 600;
+  --text-subtitle: 1.125rem;
+  --text-subtitle--line-height: 1.35;
+  --text-subtitle--font-weight: 600;
+  --text-body: 1rem;
+  --text-body--line-height: 1.6;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1.4;
 
-  /* Neutral (ink) — dark-mode focused.
-     900 = page bg (#1F1F21), 800 = surface (#252527),
-     700 = placeholder / avatar bg (#3A3A3C),
-     400 = muted text (#9A9A9E), 100 = text (#F2F2F2). */
-  --color-ink-50: #fafafa;
-  --color-ink-100: #f2f2f2;
-  --color-ink-200: #e4e4e6;
-  --color-ink-300: #c8c8cc;
-  --color-ink-400: #9a9a9e;
-  --color-ink-500: #6e6e72;
-  --color-ink-600: #545458;
-  --color-ink-700: #3a3a3c;
-  --color-ink-800: #252527;
-  --color-ink-900: #1f1f21;
-  --color-ink-950: #0d0d0e;
+  /* Glass edge for lifted surfaces (cards, drawers, icon buttons): hairline
+     ring + soft drop shadow + faint top inner highlight. Flat-on-page
+     elements use border-default hairlines instead. */
+  --shadow-elevated: 0 0 0 1px var(--ui-border), 0 2px 8px -4px rgb(0 0 0 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.04);
+}
 
-  /* Silver — subtle borders / dividers on dark. */
-  --color-silver-50: #f7f7f8;
-  --color-silver-100: #ededee;
-  --color-silver-200: #1f1f21;
-  --color-silver-300: #2a2a2c;
-  --color-silver-400: #38383a;
-  --color-silver-500: #4a4a4d;
-  --color-silver-600: #5f5f63;
-  --color-silver-700: #76767a;
-  --color-silver-800: #8e8e92;
-  --color-silver-900: #a7a7ab;
-  --color-silver-950: #c0c0c4;
+/* ---- Themes ---------------------------------------------------------------
+   A theme = the 9 color roles, nothing more. Both launch themes are dark; a
+   light theme is just another block (elevation flips darker, the hairline
+   flips to black at low alpha). Lines marked "alias" exist only so Nuxt UI
+   internals never render an unmapped color — they are not app vocabulary.
+   The Ink block targets `:root, .dark` so it outranks Nuxt UI's own `.dark`
+   variable definitions (same specificity, later in the cascade). */
 
+/* Theme: Ink (default) — cool neutral greys, teal accent. */
+:root,
+.dark {
+  --ui-bg: #1f1f21; /* page */
+  --ui-bg-elevated: #252527; /* cards, drawers, navbar buttons */
+  --ui-bg-muted: #303032; /* inputs, hover/pressed, avatar placeholders */
+  --ui-bg-accented: #303032; /* alias → bg-muted */
+  --ui-bg-inverted: #f2f2f2; /* alias → text */
 
+  --ui-text: #f2f2f2; /* titles + body */
+  --ui-text-highlighted: #f2f2f2; /* alias → text (Nuxt UI headings) */
+  --ui-text-muted: #9a9a9e; /* dates, counts, descriptions */
+  --ui-text-toned: #9a9a9e; /* alias → text-muted */
+  --ui-text-dimmed: #6e6e72; /* placeholders + disabled ONLY, never content */
+  --ui-text-inverted: #1f1f21; /* alias → bg */
+
+  --ui-border: rgba(255, 255, 255, 0.07); /* hairline: dividers, input outlines */
+  --ui-border-muted: rgba(255, 255, 255, 0.07); /* alias → border */
+  --ui-border-accented: rgba(255, 255, 255, 0.07); /* alias → border */
+
+  --ui-primary: #2dd4bf; /* accent: active states, links, key actions */
+  --ui-error: #f87171; /* validation + destructive */
+}
+
+/* Theme: Claude — warm greys with a brown undertone, cream text, terracotta
+   accent; muted text is the warm "oat" grey. Values eyeballed from claude.ai
+   dark mode — fine-tune on screen. */
+html[data-theme='claude'] {
+  --ui-bg: #262624;
+  --ui-bg-elevated: #30302e;
+  --ui-bg-muted: #3a3a38;
+  --ui-bg-accented: #3a3a38;
+  --ui-bg-inverted: #f5f4ef;
+
+  --ui-text: #f5f4ef;
+  --ui-text-highlighted: #f5f4ef;
+  --ui-text-muted: #b8b5a9;
+  --ui-text-toned: #b8b5a9;
+  --ui-text-dimmed: #83827d;
+  --ui-text-inverted: #262624;
+
+  --ui-border: rgba(255, 255, 255, 0.08);
+  --ui-border-muted: rgba(255, 255, 255, 0.08);
+  --ui-border-accented: rgba(255, 255, 255, 0.08);
+
+  --ui-primary: #d97757;
+  --ui-error: #e5695e;
 }
 
 @layer base {

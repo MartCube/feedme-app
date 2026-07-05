@@ -44,7 +44,7 @@ useHead({ title })
       <li
         v-for="post in sortedPosts"
         :key="post.uid"
-        class="border-b border-silver-200"
+        class="border-b border-default"
       >
         <FeedPostCard
           :post="post"

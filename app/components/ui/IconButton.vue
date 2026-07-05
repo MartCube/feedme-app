@@ -25,7 +25,7 @@ const iconSize = computed(() => props.size === 'sm' ? 'size-5' : 'size-6')
     :to="to"
     variant="ghost"
     color="neutral"
-    :ui="{ base: `rounded-full justify-center bg-elevated ${buttonSize} shadow-[0_0_0_1px_var(--color-ink-800),0_2px_6px_-3px_rgba(0,0,0,0.4)] hover:bg-elevated` }"
+    :ui="{ base: `rounded-full justify-center bg-elevated ${buttonSize} shadow-elevated hover:bg-elevated` }"
     @pointerdown="handlePress"
   >
     <UIcon
