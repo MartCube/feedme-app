@@ -32,6 +32,7 @@ const { theme, themes, setTheme } = useTheme()
           v-for="option in themes"
           :key="option.name"
           type="button"
+          :aria-pressed="theme === option.name"
           class="flex items-center justify-between bg-elevated p-4 text-left"
           @click="setTheme(option.name)"
         >

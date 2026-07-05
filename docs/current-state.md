@@ -85,8 +85,6 @@ entirely on static mock data in `app/assets/data.ts`, served through the `feeds`
 
 ## Installed but unused
 
-- **Pinia** (`@pinia/nuxt`) — no longer unused: `feeds` (mock-seeded data + folder expand
-  state) and `settings` (theme, persisted) stores exist.
 - **VeeValidate + Zod** — not wired into any form yet.
 - **@vueuse/motion** — available for animations.
 

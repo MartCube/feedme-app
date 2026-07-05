@@ -29,8 +29,11 @@
    light theme is just another block (elevation flips darker, the hairline
    flips to black at low alpha). Lines marked "alias" exist only so Nuxt UI
    internals never render an unmapped color — they are not app vocabulary.
-   The Ink block targets `:root, .dark` so it outranks Nuxt UI's own `.dark`
-   variable definitions (same specificity, later in the cascade). */
+   These blocks override Nuxt UI's own `--ui-*` definitions because Nuxt UI 4
+   declares them inside @layer theme while our blocks are unlayered, and
+   unlayered declarations beat layered ones regardless of order or
+   specificity — never wrap these blocks in a layer, or every override is
+   silently lost. */
 
 /* Theme: Ink (default) — cool neutral greys, teal accent. */
 :root,
