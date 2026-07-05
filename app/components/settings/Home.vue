@@ -21,7 +21,7 @@ const sections = [
       @click="closeDrawer"
     />
 
-    <h1 class="mt-10 text-4xl font-bold tracking-tight">
+    <h1 class="mt-10 text-title tracking-tight">
       Settings
     </h1>
 
@@ -32,7 +32,7 @@ const sections = [
       >
         <NuxtLink
           :to="section.to"
-          class="flex items-center gap-4 py-4 text-xl"
+          class="flex items-center gap-4 py-4 text-body"
         >
           <UIcon
             :name="section.icon"

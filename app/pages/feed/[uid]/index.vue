@@ -36,7 +36,7 @@ useHead({ title })
       />
     </Navbar>
 
-    <h1 class="mt-8 text-2xl font-semibold tracking-tight">
+    <h1 class="mt-8 text-title tracking-tight">
       {{ title }}
     </h1>
 

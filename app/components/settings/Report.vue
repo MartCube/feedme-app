@@ -5,7 +5,7 @@
   <SettingsPage title="Report an issue">
     <section>
       <div class="rounded-2xl bg-elevated p-4">
-        <p class="text-sm text-muted">
+        <p class="text-caption text-muted">
           Describe what went wrong… (mock — a real form comes later)
         </p>
       </div>

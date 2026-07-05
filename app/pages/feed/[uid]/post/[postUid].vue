@@ -27,14 +27,14 @@ useHead({ title: () => post.value?.title ?? 'Post' })
     </Navbar>
 
     <template v-if="post">
-      <h1 class="mt-8 text-2xl font-semibold tracking-tight">
+      <h1 class="mt-8 text-title tracking-tight">
         {{ post.title }}
       </h1>
       <time
         :datetime="post.published_at"
-        class="mt-1 text-sm text-muted"
+        class="mt-1 text-caption text-muted"
       >{{ formatDate(post.published_at) }}</time>
-      <p class="mt-6 text-lg leading-8">
+      <p class="mt-6 text-body">
         {{ post.content }}
       </p>
     </template>

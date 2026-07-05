@@ -34,7 +34,7 @@ const addItems = [
       </UDropdownMenu>
     </Navbar>
 
-    <h1 class="mt-8 text-2xl font-semibold tracking-tight">
+    <h1 class="mt-8 text-title tracking-tight">
       Feeds
     </h1>
 
@@ -51,8 +51,8 @@ const addItems = [
             :to="`/feed/${folder.uid}`"
             class="flex min-w-0 flex-1 items-baseline gap-2 py-4"
           >
-            <span class="truncate text-xl leading-8">{{ folder.name }}</span>
-            <span class="text-sm text-muted">{{ folder.feed_uids.length }}</span>
+            <span class="truncate text-body">{{ folder.name }}</span>
+            <span class="text-caption text-muted">{{ folder.feed_uids.length }}</span>
           </NuxtLink>
           <UButton
             icon="i-ph-caret-down-bold"
@@ -74,7 +74,7 @@ const addItems = [
           >
             <NuxtLink
               :to="`/feed/${feed.uid}`"
-              :class="['block truncate py-4 pl-6 text-xl leading-8', folder.muted_feed_uids.includes(feed.uid) && 'text-muted opacity-60']"
+              :class="['block truncate py-4 pl-6 text-body', folder.muted_feed_uids.includes(feed.uid) && 'text-muted opacity-60']"
             >
               {{ feed.name }}
             </NuxtLink>
@@ -89,7 +89,7 @@ const addItems = [
       >
         <NuxtLink
           :to="`/feed/${feed.uid}`"
-          class="block truncate py-4 text-xl leading-8"
+          class="block truncate py-4 text-body"
         >
           {{ feed.name }}
         </NuxtLink>

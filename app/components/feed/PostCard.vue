@@ -14,8 +14,8 @@ defineProps<{
   >
     <time
       :datetime="post.published_at"
-      class="text-sm text-muted"
+      class="text-caption text-muted"
     >{{ formatDate(post.published_at) }}</time>
-    <span class="text-xl leading-7">{{ post.title }}</span>
+    <span class="text-subtitle">{{ post.title }}</span>
   </NuxtLink>
 </template>

@@ -4,7 +4,7 @@
 <template>
   <SettingsPage title="Account">
     <section>
-      <h3 class="text-xs font-semibold uppercase tracking-wide text-muted">
+      <h3 class="text-caption font-semibold uppercase tracking-wide text-muted">
         Signed in with
       </h3>
       <div class="mt-3 flex flex-col gap-px overflow-hidden rounded-2xl">
@@ -14,11 +14,11 @@
             class="size-6 text-muted"
           />
           <span>Google</span>
-          <span class="ml-auto text-sm text-muted">martin@gmail.com</span>
+          <span class="ml-auto text-caption text-muted">martin@gmail.com</span>
         </div>
         <div class="flex items-center justify-between bg-elevated p-4">
           <span>Member since</span>
-          <span class="text-sm text-muted">May 2026</span>
+          <span class="text-caption text-muted">May 2026</span>
         </div>
       </div>
     </section>

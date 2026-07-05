@@ -14,7 +14,7 @@ defineProps<{
         to="/settings"
         aria-label="Back to settings"
       />
-      <h2 class="text-xl font-semibold">
+      <h2 class="text-subtitle">
         {{ title }}
       </h2>
     </header>
