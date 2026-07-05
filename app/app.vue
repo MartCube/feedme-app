@@ -1,3 +1,9 @@
+<script setup lang="ts">
+// data-theme drives the theme blocks in assets/css/main.css.
+const { theme } = useTheme()
+useHead({ htmlAttrs: { 'data-theme': theme } })
+</script>
+
 <template>
   <UApp>
     <NuxtLayout>
