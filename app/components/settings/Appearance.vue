@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const { theme, themes, setTheme } = useTheme()
 </script>
 
 <template>
@@ -26,9 +27,21 @@
       <h3 class="text-caption font-semibold uppercase tracking-wide text-muted">
         Theme
       </h3>
-      <div class="mt-3 flex items-center justify-between rounded-2xl bg-elevated p-4">
-        <span>Theme</span>
-        <span class="text-caption text-muted">Dark</span>
+      <div class="mt-3 flex flex-col gap-px overflow-hidden rounded-2xl">
+        <button
+          v-for="option in themes"
+          :key="option.name"
+          type="button"
+          class="flex items-center justify-between bg-elevated p-4 text-left"
+          @click="setTheme(option.name)"
+        >
+          <span>{{ option.label }}</span>
+          <UIcon
+            v-if="theme === option.name"
+            name="i-ph-check-bold"
+            class="size-5 text-primary"
+          />
+        </button>
       </div>
     </section>
   </SettingsPage>
