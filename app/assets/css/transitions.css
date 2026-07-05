@@ -1,0 +1,84 @@
+/* iOS-style push/pop between routed pages (driven by route meta, set in
+   middleware/page-slide.global.ts). Pages get an opaque background while
+   sliding so they don't show through each other; the leaving page goes
+   absolute so both can overlap. */
+.page-slide-left-enter-active,
+.page-slide-left-leave-active,
+.page-slide-right-enter-active,
+.page-slide-right-leave-active {
+  transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+  background-color: var(--ui-bg);
+  /* A page shorter than the viewport must still cover the full screen while
+     sliding, or the page behind it shows through below its content. */
+  min-height: 100dvh;
+}
+
+.page-slide-left-leave-active,
+.page-slide-right-leave-active {
+  position: absolute;
+  inset: 0;
+  /* Clip content taller than the box so it doesn't paint below the entering page. */
+  overflow: hidden;
+}
+
+.page-slide-left-enter-active {
+  position: relative;
+  z-index: 1;
+}
+
+.page-slide-right-leave-active {
+  z-index: 1;
+}
+
+.page-slide-left-enter-from {
+  transform: translateX(100%);
+}
+
+.page-slide-left-leave-to {
+  transform: translateX(-25%);
+}
+
+.page-slide-right-enter-from {
+  transform: translateX(-25%);
+}
+
+.page-slide-right-leave-to {
+  transform: translateX(100%);
+}
+
+/* iOS-style push/pop between settings drawer panels. Direction comes from
+   the --panel-* variables that SettingsDrawer.vue binds inline on the
+   .settings-panels container; these are the defaults for the drawer's
+   open/close moments, where the panels must not move on their own. */
+.settings-panels {
+  --panel-enter-from: 0%;
+  --panel-enter-z: 0;
+  --panel-leave-to: 0%;
+  --panel-leave-z: 0;
+}
+
+.panel-slide-enter-active,
+.panel-slide-leave-active {
+  transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+  background-color: var(--ui-bg);
+}
+
+.panel-slide-enter-active {
+  position: relative;
+  z-index: var(--panel-enter-z);
+}
+
+.panel-slide-leave-active {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: var(--panel-leave-z);
+}
+
+.panel-slide-enter-from {
+  transform: translateX(var(--panel-enter-from));
+}
+
+.panel-slide-leave-to {
+  transform: translateX(var(--panel-leave-to));
+}

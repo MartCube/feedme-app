@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// data-theme drives the theme blocks in assets/css/main.css.
-const { theme } = useTheme()
+// data-theme drives the theme blocks in assets/css/themes.css.
+const { theme } = storeToRefs(useSettingsStore())
 useHead({ htmlAttrs: { 'data-theme': theme } })
 </script>
 

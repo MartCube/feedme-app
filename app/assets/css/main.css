@@ -1,5 +1,7 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
+@import "./themes.css";
+@import "./transitions.css";
 
 @theme static {
   --font-sora: "Sora", system-ui, sans-serif;
@@ -18,70 +20,9 @@
   --text-caption: 0.75rem;
   --text-caption--line-height: 1.4;
 
-  /* Glass edge for lifted surfaces (cards, drawers, icon buttons): hairline
-     ring + soft drop shadow + faint top inner highlight. Flat-on-page
-     elements use border-default hairlines instead. */
-  --shadow-elevated: 0 0 0 1px var(--ui-border), 0 2px 8px -4px rgb(0 0 0 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.04);
-}
-
-/* ---- Themes ---------------------------------------------------------------
-   A theme = the 9 color roles, nothing more. Both launch themes are dark; a
-   light theme is just another block (elevation flips darker, the hairline
-   flips to black at low alpha). Lines marked "alias" exist only so Nuxt UI
-   internals never render an unmapped color — they are not app vocabulary.
-   These blocks override Nuxt UI's own `--ui-*` definitions because Nuxt UI 4
-   declares them inside @layer theme while our blocks are unlayered, and
-   unlayered declarations beat layered ones regardless of order or
-   specificity — never wrap these blocks in a layer, or every override is
-   silently lost. */
-
-/* Theme: Ink (default) — cool neutral greys, teal accent. */
-:root,
-.dark {
-  --ui-bg: #1f1f21; /* page */
-  --ui-bg-elevated: #252527; /* cards, drawers, navbar buttons */
-  --ui-bg-muted: #303032; /* inputs, hover/pressed, avatar placeholders */
-  --ui-bg-accented: #303032; /* alias → bg-muted */
-  --ui-bg-inverted: #f2f2f2; /* alias → text */
-
-  --ui-text: #f2f2f2; /* titles + body */
-  --ui-text-highlighted: #f2f2f2; /* alias → text (Nuxt UI headings) */
-  --ui-text-muted: #9a9a9e; /* dates, counts, descriptions */
-  --ui-text-toned: #9a9a9e; /* alias → text-muted */
-  --ui-text-dimmed: #6e6e72; /* placeholders + disabled ONLY, never content */
-  --ui-text-inverted: #1f1f21; /* alias → bg */
-
-  --ui-border: rgba(255, 255, 255, 0.07); /* hairline: dividers, input outlines */
-  --ui-border-muted: rgba(255, 255, 255, 0.07); /* alias → border */
-  --ui-border-accented: rgba(255, 255, 255, 0.07); /* alias → border */
-
-  --ui-primary: #2dd4bf; /* accent: active states, links, key actions */
-  --ui-error: #f87171; /* validation + destructive */
-}
-
-/* Theme: Claude — warm greys with a brown undertone, cream text, terracotta
-   accent; muted text is the warm "oat" grey. Values eyeballed from claude.ai
-   dark mode — fine-tune on screen. */
-html[data-theme='claude'] {
-  --ui-bg: #262624;
-  --ui-bg-elevated: #30302e;
-  --ui-bg-muted: #3a3a38;
-  --ui-bg-accented: #3a3a38;
-  --ui-bg-inverted: #f5f4ef;
-
-  --ui-text: #f5f4ef;
-  --ui-text-highlighted: #f5f4ef;
-  --ui-text-muted: #b8b5a9;
-  --ui-text-toned: #b8b5a9;
-  --ui-text-dimmed: #83827d;
-  --ui-text-inverted: #262624;
-
-  --ui-border: rgba(255, 255, 255, 0.08);
-  --ui-border-muted: rgba(255, 255, 255, 0.08);
-  --ui-border-accented: rgba(255, 255, 255, 0.08);
-
-  --ui-primary: #d97757;
-  --ui-error: #e5695e;
+  /* Soft lift for elevated surfaces (icon buttons, cards): a same-color edge
+     that extends the shape plus a soft drop shadow — no visible ring. */
+  --shadow-elevated: 0 0 0 1px var(--ui-bg-elevated), 0 2px 6px -3px rgb(0 0 0 / 0.4);
 }
 
 @layer base {
@@ -93,95 +34,10 @@ html[data-theme='claude'] {
   }
 }
 
-/* iOS-style push/pop between routed pages (driven by route meta, set in
-   middleware/page-slide.global.ts). Pages get an opaque background while
-   sliding so they don't show through each other; the leaving page goes
-   absolute so both can overlap. */
-.page-slide-left-enter-active,
-.page-slide-left-leave-active,
-.page-slide-right-enter-active,
-.page-slide-right-leave-active {
-  transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
-  background-color: var(--ui-bg);
-  /* A page shorter than the viewport must still cover the full screen while
-     sliding, or the page behind it shows through below its content. */
-  min-height: 100dvh;
-}
-
-.page-slide-left-leave-active,
-.page-slide-right-leave-active {
-  position: absolute;
-  inset: 0;
-  /* Clip content taller than the box so it doesn't paint below the entering page. */
-  overflow: hidden;
-}
-
-.page-slide-left-enter-active {
-  position: relative;
-  z-index: 1;
-}
-
-.page-slide-right-leave-active {
-  z-index: 1;
-}
-
-.page-slide-left-enter-from {
-  transform: translateX(100%);
-}
-
-.page-slide-left-leave-to {
-  transform: translateX(-25%);
-}
-
-.page-slide-right-enter-from {
-  transform: translateX(-25%);
-}
-
-.page-slide-right-leave-to {
-  transform: translateX(100%);
-}
-
 /* Links inside the settings drawer (components/SettingsDrawer.vue) must not
    start native drags or text selection — both hijack vaul's drag-to-close
    gesture. */
 [data-vaul-drawer] a {
   -webkit-user-drag: none;
   user-select: none;
-}
-
-/* iOS-style push/pop between settings drawer panels. Direction comes from
-   the --panel-* variables that SettingsDrawer.vue binds inline on the
-   .settings-panels container; these are the defaults for the drawer's
-   open/close moments, where the panels must not move on their own. */
-.settings-panels {
-  --panel-enter-from: 0%;
-  --panel-enter-z: 0;
-  --panel-leave-to: 0%;
-  --panel-leave-z: 0;
-}
-
-.panel-slide-enter-active,
-.panel-slide-leave-active {
-  transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
-  background-color: var(--ui-bg);
-}
-
-.panel-slide-enter-active {
-  position: relative;
-  z-index: var(--panel-enter-z);
-}
-
-.panel-slide-leave-active {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  z-index: var(--panel-leave-z);
-}
-
-.panel-slide-enter-from {
-  transform: translateX(var(--panel-enter-from));
-}
-
-.panel-slide-leave-to {
-  transform: translateX(var(--panel-leave-to));
 }

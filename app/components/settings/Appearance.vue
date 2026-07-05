@@ -1,5 +1,7 @@
 <script setup lang="ts">
-const { theme, themes, setTheme } = useTheme()
+import { themes } from '~/stores/settings'
+
+const settings = useSettingsStore()
 </script>
 
 <template>
@@ -32,13 +34,13 @@ const { theme, themes, setTheme } = useTheme()
           v-for="option in themes"
           :key="option.name"
           type="button"
-          :aria-pressed="theme === option.name"
+          :aria-pressed="settings.theme === option.name"
           class="flex items-center justify-between bg-elevated p-4 text-left"
-          @click="setTheme(option.name)"
+          @click="settings.theme = option.name"
         >
           <span>{{ option.label }}</span>
           <UIcon
-            v-if="theme === option.name"
+            v-if="settings.theme === option.name"
             name="i-ph-check-bold"
             class="size-5 text-primary"
           />

@@ -1,0 +1,59 @@
+/* ---- Themes ---------------------------------------------------------------
+   A theme = the 9 color roles, nothing more. Both launch themes are dark; a
+   light theme is just another block (elevation flips darker, the hairline
+   flips to black at low alpha). Lines marked "alias" exist only so Nuxt UI
+   internals never render an unmapped color — they are not app vocabulary.
+   These blocks override Nuxt UI's own `--ui-*` definitions because Nuxt UI 4
+   declares them inside @layer theme while our blocks are unlayered, and
+   unlayered declarations beat layered ones regardless of order or
+   specificity — never wrap these blocks in a layer, or every override is
+   silently lost. */
+
+/* Theme: Ink (default) — cool neutral greys, teal accent. */
+:root,
+.dark {
+  --ui-bg: #1f1f21; /* page */
+  --ui-bg-elevated: #252527; /* cards, drawers, navbar buttons */
+  --ui-bg-muted: #303032; /* inputs, hover/pressed, avatar placeholders */
+  --ui-bg-accented: #303032; /* alias → bg-muted */
+  --ui-bg-inverted: #f2f2f2; /* alias → text */
+
+  --ui-text: #f2f2f2; /* titles + body */
+  --ui-text-highlighted: #f2f2f2; /* alias → text (Nuxt UI headings) */
+  --ui-text-muted: #9a9a9e; /* dates, counts, descriptions */
+  --ui-text-toned: #9a9a9e; /* alias → text-muted */
+  --ui-text-dimmed: #6e6e72; /* placeholders + disabled ONLY, never content */
+  --ui-text-inverted: #1f1f21; /* alias → bg */
+
+  --ui-border: rgba(255, 255, 255, 0.07); /* hairline: input outlines, rings */
+  --ui-border-muted: rgba(255, 255, 255, 0.07); /* alias → border */
+  --ui-border-accented: rgba(255, 255, 255, 0.07); /* alias → border */
+
+  --ui-primary: #2dd4bf; /* accent: active states, links, key actions */
+  --ui-error: #f87171; /* validation + destructive */
+}
+
+/* Theme: Claude — warm greys with a brown undertone, cream text, terracotta
+   accent; muted text is the warm "oat" grey. Values eyeballed from claude.ai
+   dark mode — fine-tune on screen. */
+html[data-theme='claude'] {
+  --ui-bg: #262624;
+  --ui-bg-elevated: #30302e;
+  --ui-bg-muted: #3a3a38;
+  --ui-bg-accented: #3a3a38;
+  --ui-bg-inverted: #f5f4ef;
+
+  --ui-text: #f5f4ef;
+  --ui-text-highlighted: #f5f4ef;
+  --ui-text-muted: #b8b5a9;
+  --ui-text-toned: #b8b5a9;
+  --ui-text-dimmed: #83827d;
+  --ui-text-inverted: #262624;
+
+  --ui-border: rgba(255, 255, 255, 0.08);
+  --ui-border-muted: rgba(255, 255, 255, 0.08);
+  --ui-border-accented: rgba(255, 255, 255, 0.08);
+
+  --ui-primary: #d97757;
+  --ui-error: #e5695e;
+}

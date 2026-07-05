@@ -46,7 +46,7 @@ const addItems = [
         v-for="folder in folders"
         :key="folder.uid"
       >
-        <li class="flex items-center border-b border-default">
+        <li class="flex items-center">
           <NuxtLink
             :to="`/feed/${folder.uid}`"
             class="flex min-w-0 flex-1 items-baseline gap-2 py-4"
@@ -70,7 +70,6 @@ const addItems = [
           <li
             v-for="feed in memberFeeds(folder)"
             :key="`${folder.uid}_${feed.uid}`"
-            class="border-b border-default"
           >
             <NuxtLink
               :to="`/feed/${feed.uid}`"
@@ -85,7 +84,6 @@ const addItems = [
       <li
         v-for="feed in looseFeeds"
         :key="feed.uid"
-        class="border-b border-default"
       >
         <NuxtLink
           :to="`/feed/${feed.uid}`"

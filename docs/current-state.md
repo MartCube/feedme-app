@@ -14,12 +14,12 @@ entirely on static mock data in `app/assets/data.ts`, served through the `feeds`
 
 ## Built
 
-- **Theme tokens** — 9 `--ui-*` color roles themed in `app/assets/css/main.css` (two dark
+- **Theme tokens** — 9 `--ui-*` color roles themed in `app/assets/css/themes.css` (two dark
   themes: Ink default + Claude; the old teal/ink/silver ramps are removed), plus the 4-size
   type scale (`text-title/subtitle/body/caption`) and `shadow-elevated`. See
   [design-system.md](./design-system.md).
 - **Theme switch** — Settings → Appearance picks Ink or Claude via the persisted Pinia
-  `settings` store (`pinia-plugin-persistedstate`, cookie) behind `useTheme()`;
+  `settings` store (`pinia-plugin-persistedstate`, cookie);
   `app.vue` applies `data-theme` on `<html>` via `useHead`.
 - **Navbar** — `app/components/Navbar.vue` (menu → `/settings`, add → `/add`).
 - **IconButton** — `app/components/ui/IconButton.vue` (round soft-fill button, accent press
@@ -41,15 +41,14 @@ entirely on static mock data in `app/assets/data.ts`, served through the `feeds`
 - **Post page v1** — `app/pages/feed/[uid]/post/[postUid].vue` renders title, date, content
   (no Save / Open source yet).
 - **PostCard v1** — `app/components/feed/PostCard.vue`: date + title only (no image / type cue
-  yet), whole card links to the post; rows divided by `border-default` hairlines.
+  yet), whole card links to the post; rows separated by spacing (no divider lines).
 - **Context-aware navbar** — both slots swap per page: home = menu + add, feed page =
   sidebar icon (→ home) + search (no-op for now), post page = back (→ its feed) + save
-  (no-op for now). Navigation is hierarchical, not history-based. See
-  `docs/superpowers/specs/2026-07-03-feed-post-navigation-design.md`.
+  (no-op for now). Navigation is hierarchical, not history-based.
 - **Reader slide transitions** — home → feed → post slide like a navigation stack (deeper
   pushes in from the right, back pops out to the right). Direction is set on route meta by
   `app/middleware/page-slide.global.ts` (computed *before* render — a component watch is one
-  navigation late), shared `.page-slide-*` classes live in `assets/css/main.css`, and the
+  navigation late), shared `.page-slide-*` classes live in `assets/css/transitions.css`, and the
   default layout provides the positioning/clip context. Non-reader routes (add, settings)
   swap instantly (`page-none`) so their drawer animations own the motion; the settings
   drawer's internal slides reuse the same CSS classes via `usePageSlide()`.
