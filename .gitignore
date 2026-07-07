@@ -23,5 +23,6 @@ logs
 .env.*
 !.env.example
 
-# Claude Code memory (local only, not for git)
+# Claude Code memory + transient run files (local only, not for git)
 .claude/memory
+.claude/superpowers/scratch

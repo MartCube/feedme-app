@@ -10,9 +10,7 @@
       "WebFetch",
       "WebSearch",
       "Skill",
-      "mcp__ide__getDiagnostics",
-      "Bash(mv /home/martcube/.claude/projects/-home-martcube-projects-feedme/memory/feedback-full-file-access.md /home/martcube/projects/feedme/.claude/memory/feedback-full-file-access.md)",
-      "Bash(ln -s /home/martcube/projects/feedme/.claude/memory/feedback-full-file-access.md /home/martcube/.claude/projects/-home-martcube-projects-feedme/memory/feedback-full-file-access.md)"
+      "mcp__ide__getDiagnostics"
     ],
     "deny": [
       "Bash(rm -rf *)",
@@ -28,6 +26,9 @@
       "Bash(* | bash)",
       "Bash(curl * | *)",
       "Bash(wget * | *)"
+    ],
+    "additionalDirectories": [
+      "/home/martcube/.claude/projects/-home-martcube-projects-feedme/memory"
     ],
     "defaultMode": "acceptEdits"
   }

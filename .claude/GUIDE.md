@@ -14,17 +14,33 @@
 
 ---
 
-## Memory (`.claude/memory/`)
+## The `.claude/` folder — everything Claude-related lives here
 
-The files in this directory are Claude's persistent memory for this project. They survive between
-sessions. Claude reads them at the start of each conversation.
+- `memory/` — Claude's persistent memory (canonical location). The harness directory
+  `~/.claude/projects/-home-martcube-projects-feedme/memory` is a **symlink** to this folder, so
+  there is exactly one copy. Gitignored.
+- `superpowers/plans/` — implementation plans written by superpowers skills
+- `superpowers/specs/` — design/spec docs from brainstorming sessions
+- `superpowers/scratch/` — transient run files (task briefs, reports, diffs); deleted after a run
+  ships. Gitignored.
+- `settings.local.json` — permissions (broad allow inside the project + the memory dir; deny list
+  for deletions and dangerous commands)
+
+Nothing superpowers- or Claude-related goes in `docs/` (product spec only) or the repo root.
+
+### Memory
 
 - `MEMORY.md` — the index (keep it short)
-- `project-feedme.md` — facts about this project
-- `feedback-code-style.md` — code style rules Claude must follow
+- one file per fact, named `feedback-*` / `project-*`
 
 **Edit them freely.** If Claude does something wrong, correct it in chat ("don't use double quotes
 here") and it will update the memory file so the same mistake doesn't happen again.
+
+### Model policy
+
+Fable for everything by default, including subagents (passed explicitly on every dispatch). Opus is
+the fallback when Fable runs out. Sonnet only for narrow mechanical subtasks to save tokens —
+Claude says so when it does. Never Haiku for code.
 
 ---
 
