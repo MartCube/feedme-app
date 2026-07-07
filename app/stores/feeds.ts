@@ -40,10 +40,13 @@ export const useFeedsStore = defineStore('feeds', () => {
     feeds.value = [...feeds.value, feed]
 
     if (destination !== 'loose') {
-      const folder = folders.value.find(f => f.uid === destination)
-      if (folder) {
-        folder.feed_uids = [...folder.feed_uids, feed.uid]
-      }
+      // Immutable update (like feeds above) — never mutate the seed Folder in
+      // place, which would leak across SSR requests via the module cache.
+      folders.value = folders.value.map(folder =>
+        folder.uid === destination
+          ? { ...folder, feed_uids: [...folder.feed_uids, feed.uid] }
+          : folder,
+      )
     }
 
     return feed

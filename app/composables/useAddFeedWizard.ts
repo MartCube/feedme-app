@@ -20,6 +20,13 @@ export function useAddFeedWizard() {
   const direction = useState<WizardDirection>('add-direction', () => 'forward')
 
   function selectType(t: FeedType) {
+    // Re-picking a type (e.g. back to phase 1, then a different type) must clear
+    // the previous type's search — otherwise stale, wrong-typed results would
+    // show, and could even be added under the wrong type.
+    query.value = ''
+    results.value = []
+    loading.value = false
+    selectedFeed.value = null
     type.value = t
     direction.value = 'forward'
     step.value = 'input'
