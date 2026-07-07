@@ -1,5 +1,8 @@
 import { feeds as seedFeeds, folders as seedFolders, posts as seedPosts } from '~/assets/data'
-import type { Feed, Folder, Post } from '~/assets/types'
+import type { Feed, FeedCandidate, Folder, Post } from '~/assets/types'
+
+// Where a newly added feed lands: the top-level list, or a folder by uid.
+export type Destination = 'loose' | string
 
 // Single source of truth for feed data. Seeded from the static mock for now;
 // later the fetch layer fills these and components stay unchanged.
@@ -32,5 +35,19 @@ export const useFeedsStore = defineStore('feeds', () => {
       .filter((feed): feed is Feed => Boolean(feed))
   }
 
-  return { feeds, folders, posts, looseFeeds, memberFeeds, expandedFolderUids, isExpanded, toggleFolder }
+  function addFeed(candidate: FeedCandidate, destination: Destination): Feed {
+    const feed: Feed = { ...candidate, uid: `feed_${crypto.randomUUID()}` }
+    feeds.value = [...feeds.value, feed]
+
+    if (destination !== 'loose') {
+      const folder = folders.value.find(f => f.uid === destination)
+      if (folder) {
+        folder.feed_uids = [...folder.feed_uids, feed.uid]
+      }
+    }
+
+    return feed
+  }
+
+  return { feeds, folders, posts, looseFeeds, memberFeeds, expandedFolderUids, isExpanded, toggleFolder, addFeed }
 })
