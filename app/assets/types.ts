@@ -30,3 +30,7 @@ export interface Post {
   post_url: string // link to the original (or the YouTube watch page)
   content: string // body we show on the detail page (whatever we have)
 }
+
+// A search result before it is subscribed: a candidate feed with no uid yet.
+// Becomes a Feed (uid generated) when the user adds it.
+export type FeedCandidate = Omit<Feed, 'uid'>
