@@ -1,8 +1,12 @@
 <script setup lang="ts">
-// Hosts the add-feed bottom sheet. Like the settings drawer, the /add URL
-// renders the home page component (see the pages:extend hook in nuxt.config)
-// so the feed list stays mounted behind the sheet; this component just opens
-// the drawer on /add and routes home when it closes.
+// Hosts the add-feed wizard bottom sheet. Like the settings drawer, the /add
+// URL renders the home page component (see the pages:extend hook in
+// nuxt.config) so the feed list stays mounted behind the sheet. This component
+// opens the drawer on /add, drives the three-phase wizard (type → input →
+// destination) via useAddFeedWizard, routes home on close, and resets the
+// wizard once the sheet has fully closed.
+import type { Destination } from '~/stores/feeds'
+
 const route = useRoute()
 const open = ref(false)
 
@@ -11,6 +15,9 @@ const onAdd = computed(() => route.path === '/add')
 // vaul emits animationEnd(false) for its initial closed state — only a close
 // that follows a completed open animation should navigate home.
 const hasOpened = ref(false)
+
+const wizard = useAddFeedWizard()
+const { step, direction } = wizard
 
 watch(onAdd, (on) => {
   open.value = on
@@ -33,17 +40,16 @@ function onAnimationEnd(isOpen: boolean) {
   else if (hasOpened.value && onAdd.value) {
     navigateTo('/')
   }
+  // Once the sheet is fully closed, clear wizard state so it reopens fresh.
+  if (!isOpen) {
+    wizard.reset()
+  }
 }
 
-// Rough static results — no search logic. This screen is a visual
-// demonstration only: an input, then a list of results with an add
-// affordance. Wiring (real search + add to feed list / group) is a later task.
-const results = [
-  { name: 'Vue.js on Medium', url: 'medium.com/vuejs', icon: 'i-ph-globe-bold' },
-  { name: 'Vue Mastery', url: 'vuemastery.com', icon: 'i-ph-globe-bold' },
-  { name: 'Fireship', url: 'youtube.com/@fireship', icon: 'i-ph-youtube-logo-bold' },
-  { name: 'r/vuejs', url: 'reddit.com/r/vuejs', icon: 'i-ph-reddit-logo-bold' },
-]
+function onChoose(destination: Destination) {
+  wizard.chooseDestination(destination)
+  close()
+}
 </script>
 
 <template>
@@ -62,48 +68,39 @@ const results = [
       <!-- touch-none lets vaul own the drag-to-close gesture; revisit once the
            results list needs real touch scrolling. -->
       <div class="h-full touch-none overflow-y-auto bg-default px-8 pt-6 pb-12">
-        <IconButton
-          icon="i-ph-x-bold"
-          aria-label="Close add feed"
-          @click="close"
-        />
+        <div class="flex justify-end">
+          <IconButton
+            icon="i-ph-x-bold"
+            aria-label="Close add feed"
+            @click="close"
+          />
+        </div>
 
-        <h1 class="mt-10 text-title tracking-tight">
-          Add feed
-        </h1>
-
-        <UInput
-          icon="i-ph-magnifying-glass-bold"
-          placeholder="Add a feed…"
-          size="xl"
-          class="mt-6 w-full"
-        />
-
-        <ul class="mt-4 flex flex-col">
-          <li
-            v-for="result in results"
-            :key="result.url"
-            class="flex items-center gap-3 py-3"
-          >
-            <UIcon
-              :name="result.icon"
-              class="size-6 shrink-0 text-muted"
-            />
-            <div class="min-w-0 flex-1">
-              <p class="truncate text-body">
-                {{ result.name }}
-              </p>
-              <p class="truncate text-caption text-muted">
-                {{ result.url }}
-              </p>
-            </div>
-            <IconButton
-              icon="i-ph-plus-bold"
-              size="sm"
-              aria-label="Add feed"
-            />
-          </li>
-        </ul>
+        <Transition
+          :name="direction === 'forward' ? 'wizard-forward' : 'wizard-back'"
+          mode="out-in"
+        >
+          <AddTypeStep
+            v-if="step === 'type'"
+            key="type"
+            class="mt-4"
+            @select="wizard.selectType"
+          />
+          <AddSearchStep
+            v-else-if="step === 'input'"
+            key="input"
+            class="mt-4"
+            @back="wizard.back"
+            @pick="wizard.pickFeed"
+          />
+          <AddDestinationStep
+            v-else
+            key="destination"
+            class="mt-4"
+            @back="wizard.back"
+            @choose="onChoose"
+          />
+        </Transition>
       </div>
     </template>
   </UDrawer>

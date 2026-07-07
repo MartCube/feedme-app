@@ -82,3 +82,35 @@
 .panel-slide-leave-to {
   transform: translateX(var(--panel-leave-to));
 }
+
+/* Add-feed wizard step transitions (see components/add/Drawer.vue).
+   forward = advancing a phase (slide in from the right); back = the back
+   button (slide in from the left). Used with a <Transition mode="out-in">,
+   so steps do not overlap — a subtle offset + fade reads as a push without
+   a blank gap. Curve/duration match page-slide/panel-slide above. */
+.wizard-forward-enter-active,
+.wizard-forward-leave-active,
+.wizard-back-enter-active,
+.wizard-back-leave-active {
+  transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.wizard-forward-enter-from {
+  transform: translateX(24px);
+  opacity: 0;
+}
+
+.wizard-forward-leave-to {
+  transform: translateX(-24px);
+  opacity: 0;
+}
+
+.wizard-back-enter-from {
+  transform: translateX(-24px);
+  opacity: 0;
+}
+
+.wizard-back-leave-to {
+  transform: translateX(24px);
+  opacity: 0;
+}
