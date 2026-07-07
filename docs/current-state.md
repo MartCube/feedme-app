@@ -27,11 +27,15 @@ entirely on static mock data in `app/assets/data.ts`, served through the `feeds`
   flash).
 - **Settings drawer** — `app/pages/settings.vue` + `SettingsAccount.vue` / `SettingsAbout.vue`,
   with animated slide transitions between sub-sections.
-- **Add drawer** — `app/components/add/Drawer.vue`, hosted in the layout like the settings
+- **Add-feed wizard** — `app/components/add/Drawer.vue`, hosted in the layout like the settings
   drawer. The `/add` URL renders the home component (via the `pages:extend` hook) so the feed
   list stays behind the sheet; the navbar **+** links straight to `/add` (no dropdown), and
-  close routes back to `/`. Content is a rough visual only: a search-style input above a
-  **static** list of mock results (icon + name + url + an add `+`) — no search or add logic.
+  close routes back to `/`. Inside, a three-phase in-drawer wizard (state in
+  `useAddFeedWizard()`): **pick type** (`add/TypeStep.vue`) → **paste/search** with a Paste chip,
+  ~1s skeleton, and mock results (`add/SearchStep.vue`) → **choose destination** — top level or a
+  folder (`add/DestinationStep.vue`). Phases slide with `wizard-*` classes in `transitions.css`.
+  Committing calls `useFeedsStore().addFeed()` and the home list updates. Results are a mock
+  (`app/assets/mock-search.ts`, fixed per-type, query ignored); real search/RSS is not wired.
 - **Layouts** — `app/layouts/default.vue` (centered column + Navbar), `plain.vue` (bare).
 - **Mock data & types** — `app/assets/data.ts` (3 feeds, 1 folder, 15 posts),
   `app/assets/types.ts` (incl. the `Folder` type).
@@ -60,8 +64,8 @@ entirely on static mock data in `app/assets/data.ts`, served through the `feeds`
 
 ## Stubs (exist but placeholder content)
 
-- **Add drawer** — the shell + rough layout exist (input + static mock results); the results
-  are hardcoded and the input/add `+` do nothing. Real search + add logic is not started.
+- **Add-feed search** — the wizard flow, add action, and destination picker are built (see
+  Built), but results come from a fixed mock (`mockSearch`), not real search/RSS discovery.
 
 ## Not started
 
@@ -73,7 +77,9 @@ entirely on static mock data in `app/assets/data.ts`, served through the `feeds`
 - **Settings rework** — split the demo drawer into nested routed subpages (`/settings/account`,
   `/settings/appearance`, `/settings/about`, `/settings/report`) with page-level transitions.
 - **PostCard (rest)** — image and source-feed type cue.
-- **Add feed form** — URL input + type detection + VeeValidate/Zod validation.
+- **Add feed (rest)** — real search / RSS discovery + live metadata (sub counts, latest items)
+  behind the wizard, and input validation via VeeValidate/Zod. The wizard UI + mock + add action
+  are built (see Built).
 - **Saved posts** — a **Saved** feed pinned in the feeds list (no separate screen, no navbar
   icon) that lists all saved posts; plus the saved state itself.
 - **Folders (rest)** — the `Folder` type, one mock folder, and the expandable rows on the

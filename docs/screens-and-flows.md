@@ -140,24 +140,42 @@ it renders beside the feed list on desktop and full-screen on mobile.
 
 ---
 
-## 4. Add feed — `components/add/Drawer.vue` (bottom drawer)
+## 4. Add feed — `components/add/Drawer.vue` (bottom drawer, three-phase wizard)
 
 **Purpose:** subscribe to a new feed. Reached from the navbar **+** (opens `/add` directly).
 The drawer is hosted in the layout and mirrors the settings drawer: `/add` renders the home
-component behind the sheet (`pages:extend` hook), and closing routes back to `/`.
+component behind the sheet (`pages:extend` hook), and closing routes back to `/`. Inside the
+sheet it's an **in-drawer wizard** — three phases that slide right/left (matching the house
+`page-slide`/`panel-slide` transitions) with a back button, all state in `useAddFeedWizard()`.
 
-**The user can:**
-- Type in a **search input** at the top of the sheet.
-- See a **list of results** below it — each result shows a type icon, name, and url, with an
-  **add** affordance (`+`).
-- **Add** a result to the feed list (or, later, a group).
-- **Close** the drawer → returns to `/`.
+**Phase 1 — pick a type.** A vertical list of source types: **Website**, **YouTube**, **Reddit**
+(podcasts later). Tapping one advances to phase 2. Reddit's account-connect step is deferred
+(see [`pending_tasks/reddit-connect.md`](../pending_tasks/reddit-connect.md)); for now it behaves
+like the others.
 
-**State today:** the drawer + rough layout exist as a **visual demonstration only** — the input
-and the `+` do nothing and the results are a hardcoded mock list. Not yet built: real search
-(or single-URL paste + type detection `youtube` | `reddit` | `website`), the add action, choosing
-feed-list vs group as the destination, and form validation via the installed **VeeValidate + Zod**
-stack.
+**Phase 2 — paste or search.** Header shows the chosen type + a back button. One input
+("Paste a link or search…") does double duty: paste a link *or* search a keyword. While empty it
+shows a **Paste** chip (reads the clipboard on tap — browsers block silent reads). Submit → a
+~1s loading skeleton → a short **results list** (title + site, no leading type icon since the type
+is in the header), each with an add `+`.
+
+**Phase 3 — choose destination.** Tapping a result's `+` advances here. Header is "Add to" + a
+back button. It reuses the home feed list: a **Feeds (top level)** row plus one row per **folder**.
+Tapping a destination **commits** — the feed is added there, the drawer closes, and the home list
+reflects it.
+
+**Scope:** one feed → one destination per pass (multi-select / multi-folder deferred; the data
+model stays many-to-many, so a feed can join more folders later via a folder's *Edit feeds*).
+
+**Data:** results come from a mock `mockSearch(type, query)` (`app/assets/mock-search.ts`) that
+ignores the query and returns a fixed per-type list after ~1s — no backend yet. Committing calls
+`useFeedsStore().addFeed(candidate, destination)`, which mints a `feed_*` uid and (for a folder
+destination) appends to that folder's `feed_uids`.
+
+**Components:** `add/Drawer.vue` (host: sheet + step switch + slide transition + commit/close/reset),
+`add/TypeStep.vue`, `add/SearchStep.vue`, `add/DestinationStep.vue`, and the `useAddFeedWizard()`
+composable. **Not yet built:** real search / RSS discovery, live metadata (sub counts, latest items),
+and form validation via the installed **VeeValidate + Zod** stack.
 
 ---
 
