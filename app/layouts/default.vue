@@ -10,5 +10,6 @@
          inside the drawer must never interact with page rendering (they
          triggered page remounts when the drawer lived inside a page). -->
     <SettingsDrawer />
+    <AddDrawer />
   </div>
 </template>

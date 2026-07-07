@@ -8,14 +8,6 @@ definePageMeta({ key: 'home' })
 const feedsStore = useFeedsStore()
 const { folders, looseFeeds } = storeToRefs(feedsStore)
 const { memberFeeds, isExpanded, toggleFolder } = feedsStore
-
-const addItems = [
-  [
-    { label: 'New feed', icon: 'i-ph-rss-bold', to: '/add' },
-    // TODO: point at the folder-create drawer once it exists (see docs/screens-and-flows.md §7).
-    { label: 'New folder', icon: 'i-ph-folder-bold', onSelect: () => {} },
-  ],
-]
 </script>
 
 <template>
@@ -26,12 +18,11 @@ const addItems = [
         to="/settings"
         aria-label="Menu"
       />
-      <UDropdownMenu :items="addItems">
-        <IconButton
-          icon="i-ph-plus-bold"
-          aria-label="Add"
-        />
-      </UDropdownMenu>
+      <IconButton
+        icon="i-ph-plus-bold"
+        to="/add"
+        aria-label="Add"
+      />
     </Navbar>
 
     <h1 class="mt-8 text-title tracking-tight">

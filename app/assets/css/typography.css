@@ -1,0 +1,26 @@
+/* Typography — the Sora family variable, the four-size type scale, and the
+   base font-family. Split out of main.css so all type lives in one place. */
+@theme static {
+  --font-sora: "Sora", system-ui, sans-serif;
+
+  /* Type scale — the only four text sizes app code may use. rem-based so a
+     future font-size setting is a single root multiplier. Weights: 400 and
+     600 only (title/subtitle carry 600 via the tokens below). */
+  --text-title: 1.5rem;
+  --text-title--line-height: 1.25;
+  --text-title--font-weight: 600;
+  --text-subtitle: 1.125rem;
+  --text-subtitle--line-height: 1.35;
+  --text-subtitle--font-weight: 600;
+  --text-body: 1rem;
+  --text-body--line-height: 1.6;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1.4;
+}
+
+@layer base {
+  html,
+  body {
+    font-family: var(--font-sora), serif;
+  }
+}

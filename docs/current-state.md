@@ -16,7 +16,8 @@ entirely on static mock data in `app/assets/data.ts`, served through the `feeds`
 
 - **Theme tokens** — 9 `--ui-*` color roles themed in `app/assets/css/themes.css` (two dark
   themes: Ink default + Claude; the old teal/ink/silver ramps are removed), plus the 4-size
-  type scale (`text-title/subtitle/body/caption`) and `shadow-elevated`. See
+  type scale (`text-title/subtitle/body/caption`) and `shadow-elevated`. The font family and
+  type scale live in their own `app/assets/css/typography.css` (imported by `main.css`). See
   [design-system.md](./design-system.md).
 - **Theme switch** — Settings → Appearance picks Ink or Claude via the persisted Pinia
   `settings` store (`pinia-plugin-persistedstate`, cookie);
@@ -26,7 +27,11 @@ entirely on static mock data in `app/assets/data.ts`, served through the `feeds`
   flash).
 - **Settings drawer** — `app/pages/settings.vue` + `SettingsAccount.vue` / `SettingsAbout.vue`,
   with animated slide transitions between sub-sections.
-- **Add drawer shell** — `app/pages/add.vue` (bottom drawer, routes back to `/` on close).
+- **Add drawer** — `app/components/add/Drawer.vue`, hosted in the layout like the settings
+  drawer. The `/add` URL renders the home component (via the `pages:extend` hook) so the feed
+  list stays behind the sheet; the navbar **+** links straight to `/add` (no dropdown), and
+  close routes back to `/`. Content is a rough visual only: a search-style input above a
+  **static** list of mock results (icon + name + url + an add `+`) — no search or add logic.
 - **Layouts** — `app/layouts/default.vue` (centered column + Navbar), `plain.vue` (bare).
 - **Mock data & types** — `app/assets/data.ts` (3 feeds, 1 folder, 15 posts),
   `app/assets/types.ts` (incl. the `Folder` type).
@@ -55,7 +60,8 @@ entirely on static mock data in `app/assets/data.ts`, served through the `feeds`
 
 ## Stubs (exist but placeholder content)
 
-- `app/pages/add.vue` — drawer works; the form body is a placeholder header.
+- **Add drawer** — the shell + rough layout exist (input + static mock results); the results
+  are hardcoded and the input/add `+` do nothing. Real search + add logic is not started.
 
 ## Not started
 
@@ -72,8 +78,9 @@ entirely on static mock data in `app/assets/data.ts`, served through the `feeds`
   icon) that lists all saved posts; plus the saved state itself.
 - **Folders (rest)** — the `Folder` type, one mock folder, and the expandable rows on the
   home list are done (see Built). Still missing: the folder merged-stream read (`/feed/[uid]`
-  with a folder uid, via the `usePostList(uid)` resolver), the navbar **+** create menu (New
-  feed / New folder), a New-folder drawer, an edit context menu (long-press / 3-dot) for
+  with a folder uid, via the `usePostList(uid)` resolver), a **New folder** entry point (the
+  navbar **+** now opens the Add drawer directly; where folder creation lives is undecided),
+  a New-folder drawer, an edit context menu (long-press / 3-dot) for
   rename, add/remove feeds, per-folder mute, and delete, plus a folders store. See
   [data-model.md](./data-model.md#folder-new--not-yet-in-code) and
   [screens-and-flows.md](./screens-and-flows.md).

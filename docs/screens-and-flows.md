@@ -11,8 +11,8 @@ navigates. File references point at `app/pages/` and `app/components/`.
                     │  list of subscribed feeds│
                     └───┬──────────┬───────┬───┘
         tap a feed      │          │       │   navbar
-                        ▼          │       └─► + menu: New feed (add.vue) · New folder
-        ┌───────────────────────┐  │                     add.vue: enter URL → add feed
+                        ▼          │       └─► +  → Add drawer (add feed)
+        ┌───────────────────────┐  │                     search input → results → add
         │  Feed page  (master)  │  │
         │  /feed/[uid]          │  └──────────► Settings (settings.vue)
         │  list of PostCards    │                /settings/{account, appearance,
@@ -45,7 +45,9 @@ navigates. File references point at `app/pages/` and `app/components/`.
 >   settings.vue               → settings nav (master) + <NuxtPage/>
 >   settings/
 >     index.vue · account.vue · appearance.vue · about.vue · report.vue
->   add.vue                    → /add        design.vue → /design (plain layout)
+>   (add)                      → /add        design.vue → /design (plain layout)
+>            /add renders the home component (pages:extend hook); the Add drawer opens over it,
+>            mirroring settings. There is no add.vue page file.
 > ```
 >
 > **The feed page is a polymorphic post-list view.** Its `[uid]` resolves to one of three
@@ -82,8 +84,9 @@ edited from this screen.
     folder's uid).
   - **Tap a member feed** → that feed's page (`/feed/[uid]`).
 - See each **loose feed** (name, type icon based on `Feed.type`) → **tap** → `/feed/[uid]`.
-- **Create** via the navbar **+**: it opens a small menu — **New feed** (`→ /add`) and
-  **New folder** (name it + pick member feeds).
+- **Create** via the navbar **+**: it opens the **Add drawer** directly (`→ /add`). Where
+  **New folder** (name it + pick member feeds) is triggered from is undecided — the old
+  **+** menu was dropped in favour of consistency with the settings drawer.
 - **Edit** any feed or folder via a **context menu** — **long-press** on mobile, a **3-dot /
   overflow** affordance on desktop. Contents differ by row (see screen 7).
 - Tap the **menu** icon (navbar) → open the Settings drawer.
@@ -137,18 +140,24 @@ it renders beside the feed list on desktop and full-screen on mobile.
 
 ---
 
-## 4. Add feed — `pages/add.vue` (bottom drawer)
+## 4. Add feed — `components/add/Drawer.vue` (bottom drawer)
 
-**Purpose:** subscribe to a new feed. Reached from the navbar **+** menu → **New feed**.
+**Purpose:** subscribe to a new feed. Reached from the navbar **+** (opens `/add` directly).
+The drawer is hosted in the layout and mirrors the settings drawer: `/add` renders the home
+component behind the sheet (`pages:extend` hook), and closing routes back to `/`.
 
 **The user can:**
-- Enter a feed **URL**.
-- Have the app **detect / select the type** (`youtube` | `reddit` | `website`).
-- **Confirm** → the feed is added and appears in the Feeds list (loose, until put in a folder).
+- Type in a **search input** at the top of the sheet.
+- See a **list of results** below it — each result shows a type icon, name, and url, with an
+  **add** affordance (`+`).
+- **Add** a result to the feed list (or, later, a group).
 - **Close** the drawer → returns to `/`.
 
-**State today:** the drawer shell exists and routes back to `/` on close; the form body is a
-placeholder. Form validation should use the installed **VeeValidate + Zod** stack.
+**State today:** the drawer + rough layout exist as a **visual demonstration only** — the input
+and the `+` do nothing and the results are a hardcoded mock list. Not yet built: real search
+(or single-URL paste + type detection `youtube` | `reddit` | `website`), the add action, choosing
+feed-list vs group as the destination, and form validation via the installed **VeeValidate + Zod**
+stack.
 
 ---
 
@@ -197,11 +206,13 @@ Routing note: `saved` → folder → feed.)
 
 ## 7. Create & edit folders / feeds (from the home list)
 
-**Create — navbar `+` menu:**
-- **New feed** → `/add` (screen 4).
+**Create — navbar `+`:**
+- **New feed** → the **+** opens the Add drawer at `/add` directly (screen 4).
 - **New folder** → a route-backed drawer/page: enter a **name** and **pick member feeds**
   (multi-select from existing feeds). Confirm → the folder appears in the Feeds list. Same
-  drawer-on-mobile / panel-on-desktop pattern as Add feed.
+  drawer-on-mobile / panel-on-desktop pattern as Add feed. **Entry point is undecided** — the
+  old **+** menu that offered both was dropped; where folder creation is triggered from is a
+  later design decision.
 
 **Edit — context menu** (long-press on mobile; 3-dot / overflow on desktop). The menu depends
 on what was pressed:

@@ -37,6 +37,14 @@ export default defineNuxtConfig({
           file: home.file,
           meta: { key: 'home' },
         })
+        // Same trick for /add: render the home component so the feed list
+        // stays mounted behind the add sheet (see components/add/Drawer.vue).
+        pages.push({
+          name: 'add',
+          path: '/add',
+          file: home.file,
+          meta: { key: 'home' },
+        })
       }
     },
   },

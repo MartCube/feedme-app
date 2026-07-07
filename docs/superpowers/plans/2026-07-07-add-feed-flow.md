@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- **House style (verbatim):** 2-space indent, single quotes, no semicolons. **No `<style>` blocks in components** — non-utility CSS goes in `app/assets/css/main.css`.
+- **House style (verbatim):** 2-space indent, single quotes, no semicolons. **No `<style>` blocks in components** — non-utility CSS goes in the global CSS layer (`app/assets/css/main.css` and its imports: `transitions.css`, `themes.css`, `typography.css`). Slide/transition CSS belongs in `transitions.css`.
 - **No test harness.** Verify each task with `pnpm lint` (expect no errors) + driving the flow in the running app (`pnpm dev`, open `/add`). The user manually reviews and tests between tasks. Do **not** add a test framework.
 - **Visual taste:** no divider lines in lists, no glossy rings; rely on spacing + soft shadows (`bg-elevated` + `shadow-elevated`). Use theme tokens (`text-body`, `text-caption`, `text-muted`, `text-title`, `bg-default`, `bg-elevated`), not raw color ramps.
 - **Component naming:** files under `app/components/add/` register folder-prefixed (`add/TypeStep.vue` → `<AddTypeStep>`). Files under `app/components/ui/` register unprefixed (`<IconButton>`).
@@ -564,25 +564,27 @@ git commit -m "feat(add): add destination-picker step"
 
 **Files:**
 - Modify: `app/components/add/Drawer.vue` (replace the mock body with the wizard host)
-- Modify: `app/assets/css/main.css` (append the `wizard-*` transition classes)
+- Modify: `app/assets/css/transitions.css` (append the `wizard-*` transition classes, matching the existing `page-slide`/`panel-slide` house pattern)
 
 **Interfaces:**
 - Consumes: `useAddFeedWizard` (Task 3); `Destination` (Task 2); `<AddTypeStep>` (Task 4), `<AddSearchStep>` (Task 5), `<AddDestinationStep>` (Task 6); `IconButton`.
 - Produces: the fully wired `/add` wizard. Closing (✕, drag, or browser back) routes home; on full close the wizard resets. Choosing a destination commits via the composable then closes.
 
-- [ ] **Step 1: Append the slide-transition classes to `main.css`**
+- [ ] **Step 1: Append the slide-transition classes to `transitions.css`**
 
-Add to the end of `app/assets/css/main.css`:
+Add to the end of `app/assets/css/transitions.css`, matching the house curve/duration used by `page-slide-*` and `panel-slide-*` (`0.35s cubic-bezier(0.32, 0.72, 0, 1)`):
 
 ```css
 /* Add-feed wizard step transitions (see components/add/Drawer.vue).
    forward = advancing a phase (slide in from the right); back = the back
-   button (slide in from the left). Used with a <Transition mode="out-in">. */
+   button (slide in from the left). Used with a <Transition mode="out-in">,
+   so steps do not overlap — a subtle offset + fade reads as a push without
+   a blank gap. Curve/duration match page-slide/panel-slide above. */
 .wizard-forward-enter-active,
 .wizard-forward-leave-active,
 .wizard-back-enter-active,
 .wizard-back-leave-active {
-  transition: transform 0.25s ease, opacity 0.25s ease;
+  transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.35s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .wizard-forward-enter-from {
@@ -737,7 +739,7 @@ Run: `pnpm dev`, open the app, tap the navbar **+** (or navigate to `/add`). Con
 - [ ] **Step 5: Commit**
 
 ```bash
-git add app/components/add/Drawer.vue app/assets/css/main.css
+git add app/components/add/Drawer.vue app/assets/css/transitions.css
 git commit -m "feat(add): wire add-feed wizard host and slide transitions"
 ```
 
