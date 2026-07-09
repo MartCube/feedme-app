@@ -23,9 +23,8 @@ logs
 .env.*
 !.env.example
 
-# Claude Code tooling + instructions (local only, not for git)
-.claude/
-CLAUDE.md
+# Claude Code local-only files
+.claude/settings.local.json
 
 # Private backlog (local only, not for git)
 pending_tasks/
