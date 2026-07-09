@@ -8,6 +8,8 @@ definePageMeta({ key: 'home' })
 const feedsStore = useFeedsStore()
 const { folders, looseFeeds } = storeToRefs(feedsStore)
 const { memberFeeds, isExpanded, toggleFolder } = feedsStore
+
+const { selectedUid, select } = useTapSelection()
 </script>
 
 <template>
@@ -40,7 +42,9 @@ const { memberFeeds, isExpanded, toggleFolder } = feedsStore
         <li class="flex items-center">
           <NuxtLink
             :to="`/feed/${folder.uid}`"
-            class="flex min-w-0 flex-1 items-baseline gap-xs py-sm"
+            class="-ml-sm flex min-w-0 flex-1 items-baseline gap-xs rounded-2xl py-sm pl-sm pr-sm transition-colors"
+            :class="selectedUid === folder.uid && 'bg-elevated shadow-elevated'"
+            @pointerdown="select(folder.uid)"
           >
             <span class="truncate text-body">{{ folder.name }}</span>
             <span class="text-caption text-muted">{{ folder.feed_uids.length }}</span>
@@ -64,7 +68,12 @@ const { memberFeeds, isExpanded, toggleFolder } = feedsStore
           >
             <NuxtLink
               :to="`/feed/${feed.uid}`"
-              :class="['block truncate py-sm pl-md text-body', folder.muted_feed_uids.includes(feed.uid) && 'text-muted opacity-60']"
+              class="-mr-sm block truncate rounded-2xl py-sm pl-md pr-sm text-body transition-colors"
+              :class="[
+                folder.muted_feed_uids.includes(feed.uid) && 'text-muted opacity-60',
+                selectedUid === feed.uid && 'bg-elevated shadow-elevated',
+              ]"
+              @pointerdown="select(feed.uid)"
             >
               {{ feed.name }}
             </NuxtLink>
@@ -78,7 +87,9 @@ const { memberFeeds, isExpanded, toggleFolder } = feedsStore
       >
         <NuxtLink
           :to="`/feed/${feed.uid}`"
-          class="block truncate py-sm text-body"
+          class="-mx-sm block truncate rounded-2xl px-sm py-sm text-body transition-colors"
+          :class="selectedUid === feed.uid && 'bg-elevated shadow-elevated'"
+          @pointerdown="select(feed.uid)"
         >
           {{ feed.name }}
         </NuxtLink>

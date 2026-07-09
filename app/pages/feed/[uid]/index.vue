@@ -18,6 +18,8 @@ const sortedPosts = computed(() =>
   [...posts.value].sort((a, b) => b.published_at.localeCompare(a.published_at)),
 )
 
+const { selectedUid, select } = useTapSelection()
+
 useHead({ title })
 </script>
 
@@ -48,6 +50,8 @@ useHead({ title })
         <FeedPostCard
           :post="post"
           :to="`/feed/${uid}/post/${post.uid}`"
+          :selected="selectedUid === post.uid"
+          @pointerdown="select(post.uid)"
         />
       </li>
     </ul>

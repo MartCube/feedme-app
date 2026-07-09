@@ -33,6 +33,12 @@ export default defineAppConfig({
         base: 'rounded-xl',
       },
     },
+    // Mirror input so a textarea (report, future forms) shares the same shape.
+    textarea: {
+      slots: {
+        base: 'rounded-xl',
+      },
+    },
     card: {
       slots: {
         root: 'rounded-2xl',

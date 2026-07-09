@@ -4,13 +4,15 @@ import type { Post } from '~/assets/types'
 defineProps<{
   post: Post
   to: string
+  selected?: boolean
 }>()
 </script>
 
 <template>
   <NuxtLink
     :to="to"
-    class="flex flex-col gap-2xs py-sm"
+    class="-mx-sm flex flex-col gap-2xs rounded-2xl px-sm py-sm transition-colors"
+    :class="selected && 'bg-elevated shadow-elevated'"
   >
     <time
       :datetime="post.published_at"
