@@ -26,3 +26,6 @@ logs
 # Claude Code memory + transient run files (local only, not for git)
 .claude/memory
 .claude/superpowers/scratch
+
+# Private backlog (local only, not for git)
+pending_tasks/
