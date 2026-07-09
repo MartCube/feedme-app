@@ -3,7 +3,7 @@
 A snapshot of what's actually built vs. what the spec (these docs) describes. The goal is to
 make the gap visible so implementation has a clear backlog. Update this as work lands.
 
-_Last reviewed: 2026-07-05._
+_Last reviewed: 2026-07-08._
 
 ## Summary
 
@@ -17,8 +17,9 @@ entirely on static mock data in `app/assets/data.ts`, served through the `feeds`
 - **Theme tokens** — 9 `--ui-*` color roles themed in `app/assets/css/themes.css` (two dark
   themes: Ink default + Claude; the old teal/ink/silver ramps are removed), plus the 4-size
   type scale (`text-title/subtitle/body/caption`) and `shadow-elevated`. The font family and
-  type scale live in their own `app/assets/css/typography.css` (imported by `main.css`). See
-  [design-system.md](./design-system.md).
+  type scale live in their own `app/assets/css/typography.css` (imported by `main.css`), and the
+  6-step t-shirt spacing scale (`--spacing-2xs…xl` → `p-sm`, `gap-md`, `mt-lg`, …) in
+  `app/assets/css/spacing.css`. See [design-system.md](./design-system.md).
 - **Theme switch** — Settings → Appearance picks Ink or Claude via the persisted Pinia
   `settings` store (`pinia-plugin-persistedstate`, cookie);
   `app.vue` applies `data-theme` on `<html>` via `useHead`.

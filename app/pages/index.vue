@@ -11,7 +11,7 @@ const { memberFeeds, isExpanded, toggleFolder } = feedsStore
 </script>
 
 <template>
-  <main class="flex flex-col px-8 pt-8 pb-12">
+  <main class="flex flex-col px-md pt-lg pb-xl">
     <Navbar>
       <IconButton
         icon="i-ph-list-bold"
@@ -25,13 +25,13 @@ const { memberFeeds, isExpanded, toggleFolder } = feedsStore
       />
     </Navbar>
 
-    <h1 class="mt-8 text-title tracking-tight">
+    <h1 class="mt-lg text-title tracking-tight">
       Feeds
     </h1>
 
     <ul
       v-auto-animate
-      class="mt-2 flex flex-col"
+      class="mt-md flex flex-col"
     >
       <template
         v-for="folder in folders"
@@ -40,7 +40,7 @@ const { memberFeeds, isExpanded, toggleFolder } = feedsStore
         <li class="flex items-center">
           <NuxtLink
             :to="`/feed/${folder.uid}`"
-            class="flex min-w-0 flex-1 items-baseline gap-2 py-4"
+            class="flex min-w-0 flex-1 items-baseline gap-xs py-sm"
           >
             <span class="truncate text-body">{{ folder.name }}</span>
             <span class="text-caption text-muted">{{ folder.feed_uids.length }}</span>
@@ -64,7 +64,7 @@ const { memberFeeds, isExpanded, toggleFolder } = feedsStore
           >
             <NuxtLink
               :to="`/feed/${feed.uid}`"
-              :class="['block truncate py-4 pl-6 text-body', folder.muted_feed_uids.includes(feed.uid) && 'text-muted opacity-60']"
+              :class="['block truncate py-sm pl-md text-body', folder.muted_feed_uids.includes(feed.uid) && 'text-muted opacity-60']"
             >
               {{ feed.name }}
             </NuxtLink>
@@ -78,7 +78,7 @@ const { memberFeeds, isExpanded, toggleFolder } = feedsStore
       >
         <NuxtLink
           :to="`/feed/${feed.uid}`"
-          class="block truncate py-4 text-body"
+          class="block truncate py-sm text-body"
         >
           {{ feed.name }}
         </NuxtLink>

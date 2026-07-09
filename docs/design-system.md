@@ -76,6 +76,44 @@ and 600** — only those two Sora weights are loaded.
 Tailwind's stock sizes remain available (Nuxt UI needs them internally), but app code uses
 only these four names.
 
+## Spacing
+
+Six steps, t-shirt named, defined as `--spacing-*` tokens in
+`app/assets/css/spacing.css` (imported by `main.css`) — the same pattern as the type
+scale. Each token generates its utilities (`p-sm`, `gap-md`, `mt-lg`, …). All rem so
+they scale with the root font-size (a future layout-density setting is one multiplier).
+Tailwind's numeric steps (`p-4`, `gap-6`, …) stay available because Nuxt UI needs them
+internally, but app code uses only these six names. A new step is a design discussion,
+not a new class.
+
+| Step | Size | Utilities | Use for |
+|---|---|---|---|
+| `2xs` | 0.25rem (4px) | `gap-2xs`, `mt-2xs` | Intra-element stack: title-over-meta, name-over-URL, date-over-title |
+| `xs` | 0.5rem (8px) | `gap-xs`, `mt-xs` | Bound pairs: inline label + trailing meta, section-label → its group, note below a group |
+| `sm` | 1rem (16px) | `p-sm`, `gap-sm`, `py-sm` | Workhorse: list-row & card padding, icon/back-button → label gap, block-to-block |
+| `md` | 1.5rem (24px) | `mt-md`, `px-md` | Heading → first content (screen title _or_ header row), list-container top, screen side inset |
+| `lg` | 2rem (32px) | `mt-lg`, `pt-lg`, `gap-lg` | Screen top inset, navbar/top-control → title, gap between stacked page sections |
+| `xl` | 3rem (48px) | `pb-xl` | Bottom scroll runway |
+
+**Screen inset is directional:** `md` sides (`px-md`), `lg` top (`pt-lg`, clears the
+navbar / drawer drag-lip), `xl` bottom (`pb-xl`). Sides are tighter than top to keep
+content width on narrow phones.
+
+Canonical value per recurring slot — reach for these before inventing spacing:
+
+| Slot | Value |
+|---|---|
+| Screen wrapper inset | `px-md pt-lg pb-xl` |
+| Navbar / top-control → title | `mt-lg` |
+| Heading → first content / list-container top | `mt-md` |
+| List-row vertical padding | `py-sm` |
+| Card padding | `p-sm` |
+| Icon/back-button + label gap (incl. header rows) | `gap-sm` |
+| Inline label + trailing meta gap | `gap-xs` |
+| Intra-element stack gap | `gap-2xs` |
+| Section-label → group / note below group | `mt-xs` |
+| Between page sections | `gap-lg` |
+
 ## How theming works
 
 Each theme is a small block in `app/assets/css/themes.css` (imported by `main.css`)

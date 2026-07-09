@@ -12,7 +12,7 @@ useHead({ title: () => post.value?.title ?? 'Post' })
 </script>
 
 <template>
-  <main class="flex flex-col px-8 pt-8 pb-12">
+  <main class="flex flex-col px-md pt-lg pb-xl">
     <Navbar>
       <IconButton
         icon="i-ph-caret-left-bold"
@@ -27,20 +27,20 @@ useHead({ title: () => post.value?.title ?? 'Post' })
     </Navbar>
 
     <template v-if="post">
-      <h1 class="mt-8 text-title tracking-tight">
+      <h1 class="mt-lg text-title tracking-tight">
         {{ post.title }}
       </h1>
       <time
         :datetime="post.published_at"
-        class="mt-1 text-caption text-muted"
+        class="mt-2xs text-caption text-muted"
       >{{ formatDate(post.published_at) }}</time>
-      <p class="mt-6 text-body">
+      <p class="mt-md text-body">
         {{ post.content }}
       </p>
     </template>
     <p
       v-else
-      class="mt-8 text-muted"
+      class="mt-lg text-muted"
     >
       Post not found.
     </p>

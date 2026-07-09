@@ -1,0 +1,17 @@
+/* Spacing — the six-step t-shirt scale app code may use. Split out of main.css
+   so all spacing lives in one place, mirroring typography.css. rem-based so a
+   future layout-density setting is a single root multiplier.
+
+   Defining --spacing-* names generates the matching utilities (p-sm, gap-md,
+   mt-lg, …) just like --text-* generates text-title. Tailwind's numeric steps
+   (p-4, gap-6, …) stay available because Nuxt UI's internals need them, but app
+   code uses only these six names. A new step is a design discussion, not a new
+   class. */
+@theme static {
+  --spacing-2xs: 0.25rem; /* 4px  — intra-element stack: title/meta, name/URL */
+  --spacing-xs: 0.5rem; /* 8px  — bound pairs: label+meta, label→group, note */
+  --spacing-sm: 1rem; /* 16px — row/card padding, icon+label gap, block-to-block */
+  --spacing-md: 1.5rem; /* 24px — heading→content, list-container top, side inset */
+  --spacing-lg: 2rem; /* 32px — top inset, top-control→title, page-section gaps */
+  --spacing-xl: 3rem; /* 48px — bottom scroll runway */
+}

@@ -22,7 +22,7 @@ useHead({ title })
 </script>
 
 <template>
-  <main class="flex flex-col px-8 pt-8 pb-12">
+  <main class="flex flex-col px-md pt-lg pb-xl">
     <Navbar>
       <IconButton
         icon="i-ph-sidebar-simple-bold"
@@ -36,11 +36,11 @@ useHead({ title })
       />
     </Navbar>
 
-    <h1 class="mt-8 text-title tracking-tight">
+    <h1 class="mt-lg text-title tracking-tight">
       {{ title }}
     </h1>
 
-    <ul class="mt-2 flex flex-col">
+    <ul class="mt-md flex flex-col">
       <li
         v-for="post in sortedPosts"
         :key="post.uid"

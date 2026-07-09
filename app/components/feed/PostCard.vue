@@ -10,7 +10,7 @@ defineProps<{
 <template>
   <NuxtLink
     :to="to"
-    class="flex flex-col gap-1 py-4"
+    class="flex flex-col gap-2xs py-sm"
   >
     <time
       :datetime="post.published_at"
