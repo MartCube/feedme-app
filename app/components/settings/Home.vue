@@ -3,12 +3,7 @@ useHead({ title: 'Settings — FeedMe' })
 
 const closeDrawer = inject(settingsDrawerCloseKey, () => {})
 
-const sections = [
-  { label: 'Account', icon: 'i-ph-user-bold', to: '/settings/account' },
-  { label: 'Appearance', icon: 'i-ph-paint-brush-broad-bold', to: '/settings/appearance' },
-  { label: 'About', icon: 'i-ph-info-bold', to: '/settings/about' },
-  { label: 'Report an issue', icon: 'i-ph-bug-bold', to: '/settings/report' },
-]
+const { selectedUid, select } = useTapSelection()
 </script>
 
 <template>
@@ -27,12 +22,14 @@ const sections = [
 
     <ul class="mt-md flex flex-col">
       <li
-        v-for="section in sections"
+        v-for="section in settingsSections"
         :key="section.to"
       >
         <NuxtLink
           :to="section.to"
-          class="flex items-center gap-sm py-sm text-body"
+          class="-mx-sm flex items-center gap-sm rounded-2xl px-sm py-sm text-body transition-colors"
+          :class="selectedUid === section.to && 'bg-elevated shadow-elevated'"
+          @pointerdown="select(section.to)"
         >
           <UIcon
             :name="section.icon"

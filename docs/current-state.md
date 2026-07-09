@@ -3,7 +3,7 @@
 A snapshot of what's actually built vs. what the spec (these docs) describes. The goal is to
 make the gap visible so implementation has a clear backlog. Update this as work lands.
 
-_Last reviewed: 2026-07-08._
+_Last reviewed: 2026-07-10._
 
 ## Summary
 
@@ -26,17 +26,29 @@ entirely on static mock data in `app/assets/data.ts`, served through the `feeds`
 - **Navbar** — `app/components/Navbar.vue` (menu → `/settings`, add → `/add`).
 - **IconButton** — `app/components/ui/IconButton.vue` (round soft-fill button, accent press
   flash).
-- **Settings drawer** — `app/pages/settings.vue` + `SettingsAccount.vue` / `SettingsAbout.vue`,
-  with animated slide transitions between sub-sections.
+- **Settings drawer** — `app/components/settings/Drawer.vue` hosted in the layout; the
+  `/settings/:panel?` route renders the home component (via `pages:extend`) so the feed list
+  stays behind the sheet, and panels swap as in-drawer components with `panel-slide`
+  transitions. Main page (`settings/Home.vue`): in-flow close → title → section list with the
+  shared tap-selection flash. Subpages (Account / Appearance / About / Report) share
+  `settings/Page.vue`: back + `text-subtitle` title + the section's own muted icon far right
+  as a where-am-I cue (sections defined once in `app/utils/settings-drawer.ts`). Appearance is
+  functional (theme switch); the rest are mock content.
 - **Add-feed wizard** — `app/components/add/Drawer.vue`, hosted in the layout like the settings
   drawer. The `/add` URL renders the home component (via the `pages:extend` hook) so the feed
   list stays behind the sheet; the navbar **+** links straight to `/add` (no dropdown), and
   close routes back to `/`. Inside, a three-phase in-drawer wizard (state in
   `useAddFeedWizard()`): **pick type** (`add/TypeStep.vue`) → **paste/search** with a Paste chip,
   ~1s skeleton, and mock results (`add/SearchStep.vue`) → **choose destination** — top level or a
-  folder (`add/DestinationStep.vue`). Phases slide with `wizard-*` classes in `transitions.css`.
+  folder (`add/DestinationStep.vue`). Phases slide with the `panel-slide` classes in
+  `transitions.css`. Headers follow the settings drawer's language: step 1 has an in-flow close
+  above the title; steps 2/3 have a md caret back + `text-subtitle` title (no close). The search
+  input is enlarged for mobile (taller padding, `text-body`, `rounded-2xl`). Destination rows
+  flash on tap and **commit via a trailing plus button** (prep for many-to-many multi-select).
   Committing calls `useFeedsStore().addFeed()` and the home list updates. Results are a mock
   (`app/assets/mock-search.ts`, fixed per-type, query ignored); real search/RSS is not wired.
+  Below the type list sit two **inert folder-CTA variants** ("New folder" / "Edit folders" —
+  elevated blocks vs. quiet rows) awaiting a pick; the loser gets deleted.
 - **Layouts** — `app/layouts/default.vue` (centered column + Navbar), `plain.vue` (bare).
 - **Mock data & types** — `app/assets/data.ts` (3 feeds, 1 folder, 15 posts),
   `app/assets/types.ts` (incl. the `Folder` type).
@@ -75,8 +87,8 @@ entirely on static mock data in `app/assets/data.ts`, served through the `feeds`
 - **Post page (rest)** — Save + Open source actions.
 - **Master/detail layout** — single pane on mobile, two panes (feed list + post / settings nav
   + subpage) on desktop, off the same nested routes.
-- **Settings rework** — split the demo drawer into nested routed subpages (`/settings/account`,
-  `/settings/appearance`, `/settings/about`, `/settings/report`) with page-level transitions.
+- **Settings content** — the drawer, its four subpages, and transitions are built (see Built);
+  Account / About / Report still need real content and actions behind their mock panels.
 - **PostCard (rest)** — image and source-feed type cue.
 - **Add feed (rest)** — real search / RSS discovery + live metadata (sub counts, latest items)
   behind the wizard, and input validation via VeeValidate/Zod. The wizard UI + mock + add action
@@ -85,8 +97,9 @@ entirely on static mock data in `app/assets/data.ts`, served through the `feeds`
   icon) that lists all saved posts; plus the saved state itself.
 - **Folders (rest)** — the `Folder` type, one mock folder, and the expandable rows on the
   home list are done (see Built). Still missing: the folder merged-stream read (`/feed/[uid]`
-  with a folder uid, via the `usePostList(uid)` resolver), a **New folder** entry point (the
-  navbar **+** now opens the Add drawer directly; where folder creation lives is undecided),
+  with a folder uid, via the `usePostList(uid)` resolver), the **New folder / Edit folders**
+  flows (two inert entry-point variants now sit below the Add drawer's type list awaiting a
+  design pick; the wizard-like flows behind them are unbuilt),
   a New-folder drawer, an edit context menu (long-press / 3-dot) for
   rename, add/remove feeds, per-folder mute, and delete, plus a folders store. See
   [data-model.md](./data-model.md#folder-new--not-yet-in-code) and
