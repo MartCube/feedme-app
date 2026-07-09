@@ -39,6 +39,7 @@ async function pasteFromClipboard() {
       :placeholder="placeholder"
       :size="size"
       class="w-full"
+      :ui="{ base: 'py-sm text-body rounded-2xl' }"
       @focusin="focused = true"
       @focusout="focused = false"
     >

@@ -8,6 +8,8 @@ const { folders } = storeToRefs(feedsStore)
 
 const { selectedFeed } = useAddFeedWizard()
 
+const { selectedUid, select } = useTapSelection()
+
 // Strip the protocol so the site reads cleanly (css-tricks.com).
 function displayUrl(url: string) {
   return url.replace(/^https?:\/\//, '')
@@ -18,17 +20,16 @@ function displayUrl(url: string) {
   <!-- touch-none lets vaul own the drag-to-close gesture; revisit once the
        destination list needs real touch scrolling. -->
   <div class="flex h-full touch-none flex-col overflow-y-auto bg-default px-md pt-lg pb-xl">
-    <div class="flex items-center gap-sm">
+    <header class="flex items-center gap-sm">
       <IconButton
-        icon="i-ph-arrow-left-bold"
-        size="sm"
+        icon="i-ph-caret-left-bold"
         aria-label="Back"
         @click="emit('back')"
       />
-      <h2 class="text-body font-semibold">
+      <h2 class="text-subtitle">
         Add to
       </h2>
-    </div>
+    </header>
 
     <!-- The feed being added, so the choice has context. -->
     <div
@@ -43,29 +44,42 @@ function displayUrl(url: string) {
       </p>
     </div>
 
+    <!-- Tapping a row only flashes it; the plus commits the add. Keeps the
+         door open for multi-select (many feeds into many folders) later. -->
     <ul class="mt-md flex flex-col">
-      <li>
-        <button
-          type="button"
-          class="flex w-full items-baseline gap-xs py-sm text-left"
-          @click="emit('choose', 'loose')"
-        >
-          <span class="min-w-0 flex-1 truncate text-body">Feeds</span>
+      <li
+        class="-mx-sm flex items-center gap-sm rounded-2xl px-sm py-sm transition-colors"
+        :class="selectedUid === 'loose' && 'bg-elevated shadow-elevated'"
+        @pointerdown="select('loose')"
+      >
+        <div class="flex min-w-0 flex-1 items-baseline gap-xs">
+          <span class="min-w-0 truncate text-body">Feeds</span>
           <span class="text-caption text-muted">Top level</span>
-        </button>
+        </div>
+        <IconButton
+          icon="i-ph-plus-bold"
+          size="sm"
+          aria-label="Add to top level"
+          @click="emit('choose', 'loose')"
+        />
       </li>
       <li
         v-for="folder in folders"
         :key="folder.uid"
+        class="-mx-sm flex items-center gap-sm rounded-2xl px-sm py-sm transition-colors"
+        :class="selectedUid === folder.uid && 'bg-elevated shadow-elevated'"
+        @pointerdown="select(folder.uid)"
       >
-        <button
-          type="button"
-          class="flex w-full items-baseline gap-xs py-sm text-left"
-          @click="emit('choose', folder.uid)"
-        >
-          <span class="min-w-0 flex-1 truncate text-body">{{ folder.name }}</span>
+        <div class="flex min-w-0 flex-1 items-baseline gap-xs">
+          <span class="min-w-0 truncate text-body">{{ folder.name }}</span>
           <span class="text-caption text-muted">{{ folder.feed_uids.length }}</span>
-        </button>
+        </div>
+        <IconButton
+          icon="i-ph-plus-bold"
+          size="sm"
+          :aria-label="`Add to ${folder.name}`"
+          @click="emit('choose', folder.uid)"
+        />
       </li>
     </ul>
   </div>

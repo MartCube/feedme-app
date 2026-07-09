@@ -24,17 +24,16 @@ function displayUrl(url: string) {
   <!-- touch-none lets vaul own the drag-to-close gesture; revisit once the
        results list needs real touch scrolling. -->
   <div class="flex h-full touch-none flex-col overflow-y-auto bg-default px-md pt-lg pb-xl">
-    <div class="flex items-center gap-sm">
+    <header class="flex items-center gap-sm">
       <IconButton
-        icon="i-ph-arrow-left-bold"
-        size="sm"
+        icon="i-ph-caret-left-bold"
         aria-label="Back"
         @click="emit('back')"
       />
-      <h2 class="text-body font-semibold">
+      <h2 class="text-subtitle">
         {{ typeLabel }}
       </h2>
-    </div>
+    </header>
 
     <SearchInput
       v-model="query"

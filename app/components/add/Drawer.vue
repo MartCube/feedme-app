@@ -71,21 +71,11 @@ function onChoose(destination: Destination) {
       // overflow-hidden clips the panel to the sheet's rounded top corners.
       content: 'mt-0 h-full max-h-full overflow-hidden',
       container: 'grow gap-0 p-0 overflow-hidden',
-      body: 'relative overflow-hidden',
+      body: 'overflow-hidden',
     }"
     @animation-end="onAnimationEnd"
   >
     <template #body>
-      <!-- Persistent close, above the sliding panels so it doesn't slide with
-           them (the drawer body is position:relative via the ui.body class). -->
-      <div class="absolute right-8 top-6 z-10">
-        <IconButton
-          icon="i-ph-x-bold"
-          aria-label="Close add feed"
-          @click="close"
-        />
-      </div>
-
       <!-- Full-bleed panels that slide as whole slabs, exactly like the
            settings drawer. Each step owns its scroll/padding/background. -->
       <div
@@ -97,6 +87,7 @@ function onChoose(destination: Destination) {
             v-if="step === 'type'"
             key="type"
             @select="wizard.selectType"
+            @close="close"
           />
           <AddSearchStep
             v-else-if="step === 'input'"
