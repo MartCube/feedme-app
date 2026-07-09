@@ -1,5 +1,5 @@
 export default defineNuxtConfig({
-  modules: ['@nuxt/eslint', '@nuxt/ui', '@pinia/nuxt', 'pinia-plugin-persistedstate/nuxt', '@vueuse/motion/nuxt'],
+  modules: ['@nuxt/eslint', '@nuxt/ui', '@pinia/nuxt', 'pinia-plugin-persistedstate/nuxt', '@vueuse/motion/nuxt', '@vueuse/nuxt'],
   // ui/ components register unprefixed (<IconButton>); everything else keeps
   // Nuxt's folder-prefix naming (settings/Drawer.vue → <SettingsDrawer>).
   components: [
