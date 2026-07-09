@@ -19,6 +19,17 @@ const hasOpened = ref(false)
 const wizard = useAddFeedWizard()
 const { step, direction } = wizard
 
+// Same push/pop mechanism as the settings drawer: a FIXED panel-slide
+// transition whose direction rides on --panel-* variables (see
+// .slide-panels in transitions.css). forward = push (next phase in from the
+// right), back = pop (previous phase back in from the left).
+const slideVars = computed(() => {
+  if (direction.value === 'back') {
+    return { '--panel-enter-from': '-25%', '--panel-leave-to': '100%', '--panel-leave-z': '1' }
+  }
+  return { '--panel-enter-from': '100%', '--panel-leave-to': '-25%', '--panel-enter-z': '1' }
+})
+
 watch(onAdd, (on) => {
   open.value = on
 })
@@ -65,38 +76,37 @@ function onChoose(destination: Destination) {
     @animation-end="onAnimationEnd"
   >
     <template #body>
-      <!-- touch-none lets vaul own the drag-to-close gesture; revisit once the
-           results list needs real touch scrolling. -->
-      <div class="h-full touch-none overflow-y-auto bg-default px-8 pt-6 pb-12">
-        <div class="flex justify-end">
-          <IconButton
-            icon="i-ph-x-bold"
-            aria-label="Close add feed"
-            @click="close"
-          />
-        </div>
+      <!-- Persistent close, above the sliding panels so it doesn't slide with
+           them (the drawer body is position:relative via the ui.body class). -->
+      <div class="absolute right-8 top-6 z-10">
+        <IconButton
+          icon="i-ph-x-bold"
+          aria-label="Close add feed"
+          @click="close"
+        />
+      </div>
 
-        <Transition
-          :name="direction === 'forward' ? 'wizard-forward' : 'wizard-back'"
-          mode="out-in"
-        >
+      <!-- Full-bleed panels that slide as whole slabs, exactly like the
+           settings drawer. Each step owns its scroll/padding/background. -->
+      <div
+        class="slide-panels h-full"
+        :style="slideVars"
+      >
+        <Transition name="panel-slide">
           <AddTypeStep
             v-if="step === 'type'"
             key="type"
-            class="mt-4"
             @select="wizard.selectType"
           />
           <AddSearchStep
             v-else-if="step === 'input'"
             key="input"
-            class="mt-4"
             @back="wizard.back"
             @pick="wizard.pickFeed"
           />
           <AddDestinationStep
             v-else
             key="destination"
-            class="mt-4"
             @back="wizard.back"
             @choose="onChoose"
           />

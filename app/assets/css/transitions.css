@@ -46,11 +46,12 @@
   transform: translateX(100%);
 }
 
-/* iOS-style push/pop between settings drawer panels. Direction comes from
-   the --panel-* variables that SettingsDrawer.vue binds inline on the
-   .settings-panels container; these are the defaults for the drawer's
-   open/close moments, where the panels must not move on their own. */
-.settings-panels {
+/* iOS-style push/pop between drawer panels — shared by the settings drawer
+   (settings/Drawer.vue) and the add-feed wizard (add/Drawer.vue). Direction
+   comes from the --panel-* variables each host binds inline on the
+   .slide-panels container; these are the defaults for the drawer's open/close
+   moments, where the panels must not move on their own. */
+.slide-panels {
   --panel-enter-from: 0%;
   --panel-enter-z: 0;
   --panel-leave-to: 0%;
@@ -81,36 +82,4 @@
 
 .panel-slide-leave-to {
   transform: translateX(var(--panel-leave-to));
-}
-
-/* Add-feed wizard step transitions (see components/add/Drawer.vue).
-   forward = advancing a phase (slide in from the right); back = the back
-   button (slide in from the left). Used with a <Transition mode="out-in">,
-   so steps do not overlap — a subtle offset + fade reads as a push without
-   a blank gap. Curve/duration match page-slide/panel-slide above. */
-.wizard-forward-enter-active,
-.wizard-forward-leave-active,
-.wizard-back-enter-active,
-.wizard-back-leave-active {
-  transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.35s cubic-bezier(0.32, 0.72, 0, 1);
-}
-
-.wizard-forward-enter-from {
-  transform: translateX(24px);
-  opacity: 0;
-}
-
-.wizard-forward-leave-to {
-  transform: translateX(-24px);
-  opacity: 0;
-}
-
-.wizard-back-enter-from {
-  transform: translateX(-24px);
-  opacity: 0;
-}
-
-.wizard-back-leave-to {
-  transform: translateX(24px);
-  opacity: 0;
 }

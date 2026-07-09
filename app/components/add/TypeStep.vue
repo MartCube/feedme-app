@@ -11,19 +11,21 @@ const types: { type: FeedType, label: string, hint: string, icon: string }[] = [
 </script>
 
 <template>
-  <div>
+  <!-- touch-none lets vaul own the drag-to-close gesture; revisit once a
+       step's content needs real touch scrolling. -->
+  <div class="h-full touch-none overflow-y-auto bg-default px-md pt-lg pb-xl">
     <h1 class="text-title tracking-tight">
       Add feed
     </h1>
 
-    <ul class="mt-8 flex flex-col gap-2">
+    <ul class="mt-md flex flex-col gap-xs">
       <li
         v-for="option in types"
         :key="option.type"
       >
         <button
           type="button"
-          class="flex w-full items-center gap-4 rounded-2xl bg-elevated px-4 py-4 text-left shadow-elevated transition-colors"
+          class="flex w-full items-center gap-sm rounded-2xl bg-elevated p-sm text-left shadow-elevated transition-colors"
           @click="emit('select', option.type)"
         >
           <UIcon

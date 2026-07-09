@@ -14,8 +14,13 @@ const typeLabel = computed(() => {
   }
 })
 
-// Browsers block silent clipboard reads, so the Paste chip reads on tap (a user
-// gesture). It shows only while the input is empty.
+// The Paste chip shows only while the input is focused and still empty — once
+// there's text (typed or pasted) it gives way to the search submit arrow.
+const focused = ref(false)
+
+// Browsers block silent clipboard reads, so the chip reads on tap (a user
+// gesture). mousedown.prevent (on the button) keeps the input focused through
+// the click, so focusout doesn't remove the chip before the tap lands.
 async function paste() {
   try {
     const text = await navigator.clipboard.readText()
@@ -33,8 +38,10 @@ function displayUrl(url: string) {
 </script>
 
 <template>
-  <div class="flex flex-col">
-    <div class="flex items-center gap-2">
+  <!-- touch-none lets vaul own the drag-to-close gesture; revisit once the
+       results list needs real touch scrolling. -->
+  <div class="flex h-full touch-none flex-col overflow-y-auto bg-default px-md pt-lg pb-xl">
+    <div class="flex items-center gap-sm">
       <IconButton
         icon="i-ph-arrow-left-bold"
         size="sm"
@@ -47,7 +54,7 @@ function displayUrl(url: string) {
     </div>
 
     <form
-      class="mt-6"
+      class="mt-md"
       @submit.prevent="wizard.search()"
     >
       <UInput
@@ -55,18 +62,12 @@ function displayUrl(url: string) {
         placeholder="Paste a link or search…"
         size="xl"
         class="w-full"
+        @focusin="focused = true"
+        @focusout="focused = false"
       >
         <template #trailing>
           <UButton
-            v-if="!query"
-            label="Paste"
-            color="neutral"
-            variant="soft"
-            size="sm"
-            @click="paste"
-          />
-          <UButton
-            v-else
+            v-if="query"
             icon="i-ph-arrow-right-bold"
             color="neutral"
             variant="ghost"
@@ -74,18 +75,27 @@ function displayUrl(url: string) {
             type="submit"
             aria-label="Search"
           />
+          <UButton
+            v-else-if="focused"
+            label="Paste"
+            color="neutral"
+            variant="soft"
+            size="sm"
+            @mousedown.prevent
+            @click="paste"
+          />
         </template>
       </UInput>
     </form>
 
     <ul
       v-if="loading"
-      class="mt-6 flex flex-col gap-5"
+      class="mt-md flex flex-col"
     >
       <li
         v-for="n in 3"
         :key="n"
-        class="flex flex-col gap-2"
+        class="flex flex-col gap-2xs py-sm"
       >
         <USkeleton class="h-4 w-2/3" />
         <USkeleton class="h-3 w-1/3" />
@@ -94,12 +104,12 @@ function displayUrl(url: string) {
 
     <ul
       v-else-if="results.length"
-      class="mt-4 flex flex-col"
+      class="mt-md flex flex-col"
     >
       <li
         v-for="result in results"
         :key="result.feed_url"
-        class="flex items-center gap-3 py-3"
+        class="flex items-center gap-sm py-sm"
       >
         <div class="min-w-0 flex-1">
           <p class="truncate text-body">

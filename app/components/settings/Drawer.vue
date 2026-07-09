@@ -35,7 +35,7 @@ watch(() => route.path, (to, from) => {
 })
 
 // Direction rides on live CSS variables under a FIXED transition name
-// (.panel-slide-* and the .settings-panels defaults live in main.css).
+// (.panel-slide-* and the .slide-panels defaults live in transitions.css).
 // Switching the name doesn't work: Vue binds leave hooks to the name a panel
 // *entered* under, so the leaving panel would animate with a stale direction
 // (or not at all). Variables are read when the leave actually runs.
@@ -92,7 +92,7 @@ function onAnimationEnd(isOpen: boolean) {
   >
     <template #body>
       <div
-        class="settings-panels h-full"
+        class="slide-panels h-full"
         :style="slideVars"
       >
         <Transition name="panel-slide">
