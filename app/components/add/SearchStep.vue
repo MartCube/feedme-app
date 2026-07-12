@@ -1,10 +1,8 @@
 <script setup lang="ts">
-import type { FeedCandidate } from '~/assets/types'
-
-const emit = defineEmits<{ back: [], pick: [feed: FeedCandidate] }>()
+const emit = defineEmits<{ back: [], forward: [] }>()
 
 const wizard = useAddFeedWizard()
-const { type, query, loading, results } = wizard
+const { type, query, loading, results, selectedFeeds } = wizard
 
 const typeLabel = computed(() => {
   switch (type.value) {
@@ -23,7 +21,7 @@ function displayUrl(url: string) {
 <template>
   <!-- touch-none lets vaul own the drag-to-close gesture; revisit once the
        results list needs real touch scrolling. -->
-  <div class="flex h-full touch-none flex-col overflow-y-auto bg-default px-md pt-lg pb-xl">
+  <div class="flex h-full touch-none flex-col overflow-y-auto bg-default page-inset">
     <header class="flex items-center gap-sm">
       <IconButton
         icon="i-ph-caret-left-bold"
@@ -33,6 +31,20 @@ function displayUrl(url: string) {
       <h2 class="text-subtitle">
         {{ typeLabel }}
       </h2>
+      <button
+        type="button"
+        class="ml-auto flex size-12 shrink-0 items-center justify-center rounded-full transition-colors"
+        :class="selectedFeeds.length ? 'bg' : 'bg-elevated text-dimmed shadow-elevated'"
+        :disabled="!selectedFeeds.length"
+        aria-label="Continue"
+        @click="emit('forward')"
+      >
+        <UIcon
+          name="i-ph-caret-right-bold"
+          class="size-6"
+          :class="selectedFeeds.length && 'text-white'"
+        />
+      </button>
     </header>
 
     <SearchInput
@@ -57,29 +69,42 @@ function displayUrl(url: string) {
       </li>
     </ul>
 
+    <!-- Tapping anywhere on a card toggles its checkbox — multi-select, the
+         header's forward button advances once at least one feed is picked. -->
     <ul
       v-else-if="results.length"
-      class="mt-md flex flex-col"
+      class="mt-md flex flex-col gap-sm"
     >
       <li
         v-for="result in results"
         :key="result.feed_url"
-        class="flex items-center gap-sm py-sm"
       >
-        <div class="min-w-0 flex-1">
-          <p class="truncate text-body">
-            {{ result.name }}
-          </p>
-          <p class="truncate text-caption text-muted">
-            {{ displayUrl(result.site_url) }}
-          </p>
-        </div>
-        <IconButton
-          icon="i-ph-plus-bold"
-          size="sm"
-          aria-label="Add feed"
-          @click="emit('pick', result)"
-        />
+        <button
+          type="button"
+          class="flex w-full items-center gap-sm rounded-2xl bg-elevated p-sm text-left shadow-elevated transition-colors"
+          :aria-pressed="wizard.isSelected(result)"
+          :aria-label="`Select ${result.name}`"
+          @click="wizard.toggleFeed(result)"
+        >
+          <span class="min-w-0 flex-1">
+            <span class="block truncate text-body">{{ result.name }}</span>
+            <span class="block truncate text-caption text-muted">{{ displayUrl(result.site_url) }}</span>
+          </span>
+          <!-- Page-bg circle reads as a well punched into the card; checking
+               only drops a primary checkmark in, nothing else changes. -->
+          <span
+            class="flex size-10 shrink-0 items-center justify-center"
+            aria-hidden="true"
+          >
+            <span class="flex size-8 items-center justify-center rounded-full bg-default">
+              <UIcon
+                v-if="wizard.isSelected(result)"
+                name="i-ph-check-bold"
+                class="size-5 text-primary"
+              />
+            </span>
+          </span>
+        </button>
       </li>
     </ul>
   </div>

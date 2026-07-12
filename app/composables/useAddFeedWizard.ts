@@ -2,7 +2,7 @@ import type { FeedCandidate, FeedType } from '~/assets/types'
 import type { Destination } from '~/stores/feeds'
 import { mockSearch } from '~/assets/mock-search'
 
-export type WizardStep = 'type' | 'input' | 'destination'
+export type WizardStep = 'type' | 'input' | 'destination' | 'folder'
 export type WizardDirection = 'forward' | 'back'
 
 // Shared, SSR-safe wizard state (useState) so every step component and the
@@ -16,7 +16,7 @@ export function useAddFeedWizard() {
   const query = useState('add-query', () => '')
   const loading = useState('add-loading', () => false)
   const results = useState<FeedCandidate[]>('add-results', () => [])
-  const selectedFeed = useState<FeedCandidate | null>('add-selected', () => null)
+  const selectedFeeds = useState<FeedCandidate[]>('add-selected', () => [])
   const direction = useState<WizardDirection>('add-direction', () => 'forward')
 
   function selectType(t: FeedType) {
@@ -26,7 +26,7 @@ export function useAddFeedWizard() {
     query.value = ''
     results.value = []
     loading.value = false
-    selectedFeed.value = null
+    selectedFeeds.value = []
     type.value = t
     direction.value = 'forward'
     step.value = 'input'
@@ -37,24 +37,52 @@ export function useAddFeedWizard() {
     direction.value = 'forward'
     loading.value = true
     results.value = []
+    // A new search invalidates prior picks — stale selections would keep the
+    // forward button enabled on feeds no longer visible in the list.
+    selectedFeeds.value = []
     results.value = await mockSearch(type.value, query.value)
     loading.value = false
   }
 
-  function pickFeed(feed: FeedCandidate) {
-    selectedFeed.value = feed
+  function isSelected(feed: FeedCandidate) {
+    return selectedFeeds.value.some(f => f.feed_url === feed.feed_url)
+  }
+
+  function toggleFeed(feed: FeedCandidate) {
+    selectedFeeds.value = isSelected(feed)
+      ? selectedFeeds.value.filter(f => f.feed_url !== feed.feed_url)
+      : [...selectedFeeds.value, feed]
+  }
+
+  function proceedToDestination() {
+    if (!selectedFeeds.value.length) return
     direction.value = 'forward'
     step.value = 'destination'
   }
 
   function chooseDestination(dest: Destination) {
-    if (!selectedFeed.value) return
-    feedsStore.addFeed(selectedFeed.value, dest)
+    if (!selectedFeeds.value.length) return
+    for (const feed of selectedFeeds.value) feedsStore.addFeed(feed, dest)
+  }
+
+  function goToNewFolder() {
+    direction.value = 'forward'
+    step.value = 'folder'
+  }
+
+  function createFolder(name: string) {
+    if (!name.trim()) return
+    feedsStore.addFolder(name)
+    // Returning is a pop: the destination list slides back in (from the left)
+    // with the new folder in place.
+    direction.value = 'back'
+    step.value = 'destination'
   }
 
   function back() {
     direction.value = 'back'
-    if (step.value === 'destination') step.value = 'input'
+    if (step.value === 'folder') step.value = 'destination'
+    else if (step.value === 'destination') step.value = 'input'
     else if (step.value === 'input') step.value = 'type'
   }
 
@@ -64,9 +92,9 @@ export function useAddFeedWizard() {
     query.value = ''
     loading.value = false
     results.value = []
-    selectedFeed.value = null
+    selectedFeeds.value = []
     direction.value = 'forward'
   }
 
-  return { step, type, query, loading, results, selectedFeed, direction, selectType, search, pickFeed, chooseDestination, back, reset }
+  return { step, type, query, loading, results, selectedFeeds, direction, selectType, search, isSelected, toggleFeed, proceedToDestination, chooseDestination, goToNewFolder, createFolder, back, reset }
 }

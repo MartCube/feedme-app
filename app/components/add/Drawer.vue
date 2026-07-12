@@ -2,9 +2,9 @@
 // Hosts the add-feed wizard bottom sheet. Like the settings drawer, the /add
 // URL renders the home page component (see the pages:extend hook in
 // nuxt.config) so the feed list stays mounted behind the sheet. This component
-// opens the drawer on /add, drives the three-phase wizard (type → input →
-// destination) via useAddFeedWizard, routes home on close, and resets the
-// wizard once the sheet has fully closed.
+// opens the drawer on /add, drives the four-phase wizard (type → input →
+// destination → folder) via useAddFeedWizard, routes home on close, and resets
+// the wizard once the sheet has fully closed.
 import type { Destination } from '~/stores/feeds'
 
 const route = useRoute()
@@ -93,13 +93,20 @@ function onChoose(destination: Destination) {
             v-else-if="step === 'input'"
             key="input"
             @back="wizard.back"
-            @pick="wizard.pickFeed"
+            @forward="wizard.proceedToDestination"
           />
           <AddDestinationStep
-            v-else
+            v-else-if="step === 'destination'"
             key="destination"
             @back="wizard.back"
             @choose="onChoose"
+            @new-folder="wizard.goToNewFolder"
+          />
+          <AddFolderStep
+            v-else
+            key="folder"
+            @back="wizard.back"
+            @create="wizard.createFolder"
           />
         </Transition>
       </div>

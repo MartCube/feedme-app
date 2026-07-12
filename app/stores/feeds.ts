@@ -52,5 +52,16 @@ export const useFeedsStore = defineStore('feeds', () => {
     return feed
   }
 
-  return { feeds, folders, posts, looseFeeds, memberFeeds, expandedFolderUids, isExpanded, toggleFolder, addFeed }
+  function addFolder(name: string): Folder {
+    const folder: Folder = {
+      uid: `folder_${crypto.randomUUID()}`,
+      name: name.trim(),
+      feed_uids: [],
+      muted_feed_uids: [],
+    }
+    folders.value = [...folders.value, folder]
+    return folder
+  }
+
+  return { feeds, folders, posts, looseFeeds, memberFeeds, expandedFolderUids, isExpanded, toggleFolder, addFeed, addFolder }
 })
