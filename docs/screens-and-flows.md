@@ -25,7 +25,8 @@ navigates. File references point at `app/pages/` and `app/components/`.
         │  full readable post          │
         └──────────────────────────────┘
 
-   uid can be 'saved' → the Saved feed, or a folder uid → its merged stream.
+   uid can be 'all' → every followed feed merged, 'saved' → the Saved feed,
+   or a folder uid → its merged stream.
    Desktop: master + detail side by side. See screens 1, 6, and 7.
 ```
 
@@ -38,7 +39,7 @@ navigates. File references point at `app/pages/` and `app/components/`.
 > pages/
 >   index.vue                  → /
 >   feed/
->     [uid].vue                → post list (master) + <NuxtPage/>;  uid: feed | 'saved' | folder
+>     [uid].vue                → post list (master) + <NuxtPage/>;  uid: feed | 'all' | 'saved' | folder
 >     [uid]/
 >       index.vue              → /feed/[uid]
 >       post/[postUid].vue     → /feed/[uid]/post/[postUid]  (detail)
@@ -54,11 +55,13 @@ navigates. File references point at `app/pages/` and `app/components/`.
 > things, and the same page + nested post route serve all three — there is no separate folder
 > route. Resolve in a **fixed order** so the shared namespace never collides:
 >
-> 1. `saved` → the Saved feed (saved posts across feeds).
-> 2. a **folder** uid (`folder_*`) → the folder's merged stream (member feeds minus muted).
-> 3. otherwise a **feed** uid (`feed_*`) → that feed's own posts.
+> 1. `all` → posts from every followed feed, merged (the home header's target).
+> 2. `saved` → all saved posts merged, or a **saved-group** uid (`saved_*`:
+>    Bookmarks / Favorites / Later, defined in `app/utils/saved.ts`) → that group's posts.
+> 3. a **folder** uid (`folder_*`) → the folder's merged stream (member feeds minus muted).
+> 4. otherwise a **feed** uid (`feed_*`) → that feed's own posts.
 >
-> Ids are prefixed (`feed_*`, `folder_*`, plus the literal `saved`) so resolution is
+> Ids are prefixed (`feed_*`, `folder_*`, `saved_*`, plus the literals `all` and `saved`) so resolution is
 > unambiguous. Keep the page thin: it should delegate to a resolver (e.g. a `usePostList(uid)`
 > composable returning `{ kind, title, posts }`) and just render the result, so feed / folder /
 > saved differences live in the resolver, not in template conditionals.
@@ -70,14 +73,18 @@ navigates. File references point at `app/pages/` and `app/components/`.
 
 ## 1. Feeds list — `pages/index.vue`
 
-**Purpose:** the home screen. Shows the **Saved** feed, the user's **folders**, and any
+**Purpose:** the home screen. Shows the pinned **Saved** group, the user's **folders**, and any
 **loose** feeds (feeds not in a folder). Folders only exist here — they are created, read, and
-edited from this screen.
+edited from this screen. At the top, **Home** is a list row like the rest (title-sized, with
+an **All feeds** caption) — tapping it opens the merged read of every followed feed
+(`/feed/all`) — with the options 3-dot trailing where folder rows keep their chevron.
 
-**List order:** pinned **Saved** feed → **folders** → **loose feeds**.
+**List order:** pinned **Saved** group → **folders** → **loose feeds**.
 
 **The user can:**
-- See a **Saved** feed in the list → tapping it lists all posts the user has saved.
+- See a pinned **Saved** row → tapping it lists all posts the user has saved (`/feed/saved`);
+  expanding its chevron reveals the three saved groups — **Bookmarks / Favorites / Later**
+  (`/feed/saved_*`), so saves can be organized instead of landing in one pile.
 - See each **folder** as an **expandable/collapsible row** (collapsed: name + feed count).
   - **Expand** it → reveal its member feeds; muted members show greyed/off.
   - **Tap the folder row** → read the folder as a merged stream (`/feed/[uid]`, uid = the
@@ -92,7 +99,8 @@ edited from this screen.
 - Tap the **menu** icon (navbar) → open the Settings drawer.
 
 **Data:** `feeds` and `folders` from `app/assets/data.ts` (later: the user's subscribed feeds
-and folders), plus the **Saved** feed backed by saved state (the set of saved `Post.uid`s). A
+and folders), plus the **Saved** group backed by saved state (each saved `Post.uid` mapped to
+one of the three groups). A
 feed is **loose** when its `uid` is in no folder's `feed_uids`.
 
 **Navbar:** `components/Navbar.vue` provides the menu (`→ /settings`) and the **+** create menu

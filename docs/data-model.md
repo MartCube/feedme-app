@@ -76,17 +76,19 @@ interface Post {
 
 ## Saved state *(new — not yet in code)*
 
-To support the **Saved posts** screen, a user can mark a post as saved. The simplest model
-is a set of saved post ids:
+To support the **Saved** entry on the home list, a user can mark a post as saved — into one
+of three fixed **groups**: Bookmarks, Favorites, Later (defined in `app/utils/saved.ts`,
+uids `saved_bookmarks` / `saved_favorites` / `saved_later`). The simplest model is a map
+from post id to its group:
 
 ```ts
 // e.g. a Pinia store: useSavedStore()
-savedPostUids: Set<string>   // uids of posts the user saved
+saved: Map<string, string>   // Post.uid → the saved-group uid it was saved into
 ```
 
-- "Saved" is a per-user flag derived against `Post.uid`.
-- The Saved posts screen lists every `Post` whose `uid` is in `savedPostUids`.
-- Toggling save on the Post page adds/removes the post's `uid`.
+- "Saved" is a per-user flag derived against `Post.uid`; a post lives in exactly one group.
+- `/feed/saved` lists every saved `Post` (all groups merged); `/feed/saved_*` lists one group.
+- Toggling save on the Post page adds/removes the post's `uid` (group picking TBD).
 
 When persistence is introduced, saved state should survive reloads (local storage at
 minimum, backend later — see [current-state.md](./current-state.md)).
@@ -96,7 +98,7 @@ minimum, backend later — see [current-state.md](./current-state.md)).
 ```
 Feed (1) ───< (many) Post         via Post.feed_uid -> Feed.uid
 Folder (many) >───< (many) Feed   via Folder.feed_uids contains Feed.uid
-User (saved) ───< (many) Post     via savedPostUids contains Post.uid
+User (saved) ───< (many) Post     via saved maps Post.uid → a saved-group uid
 ```
 
 ## Mock data today

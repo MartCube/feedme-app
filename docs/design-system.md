@@ -91,19 +91,21 @@ not a new class.
 | `2xs` | 0.25rem (4px) | `gap-2xs`, `mt-2xs` | Intra-element stack: title-over-meta, name-over-URL, date-over-title |
 | `xs` | 0.5rem (8px) | `gap-xs`, `mt-xs` | Bound pairs: inline label + trailing meta, section-label → its group, note below a group |
 | `sm` | 1rem (16px) | `p-sm`, `gap-sm`, `py-sm` | Workhorse: list-row & card padding, icon/back-button → label gap, block-to-block |
-| `md` | 1.5rem (24px) | `mt-md`, `px-md` | Heading → first content (screen title _or_ header row), list-container top, screen side inset |
-| `lg` | 2rem (32px) | `mt-lg`, `pt-lg`, `gap-lg` | Screen top inset, navbar/top-control → title, gap between stacked page sections |
+| `md` | 1.5rem (24px) | `mt-md` | Heading → first content (screen title _or_ header row), list-container top |
+| `lg` | 2rem (32px) | `mt-lg`, `gap-lg` | Screen top/side inset, navbar/top-control → title, gap between stacked page sections |
 | `xl` | 3rem (48px) | `pb-xl` | Bottom scroll runway |
 
-**Screen inset is directional:** `md` sides (`px-md`), `lg` top (`pt-lg`, clears the
-navbar / drawer drag-lip), `xl` bottom (`pb-xl`). Sides are tighter than top to keep
-content width on narrow phones.
+**Screen inset is one class:** every page and drawer panel wraps its content in
+`page-inset` (defined as an `@utility` in `app/assets/css/spacing.css`): `lg` sides and
+top (top clears the navbar / drawer drag-lip), `xl` bottom scroll runway. Never spell
+the inset out with raw padding utilities — changing the app-wide shell must stay a
+one-line edit.
 
 Canonical value per recurring slot — reach for these before inventing spacing:
 
 | Slot | Value |
 |---|---|
-| Screen wrapper inset | `px-md pt-lg pb-xl` |
+| Screen wrapper inset | `page-inset` |
 | Navbar / top-control → title | `mt-lg` |
 | Heading → first content / list-container top | `mt-md` |
 | List-row vertical padding | `py-sm` |

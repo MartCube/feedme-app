@@ -3,7 +3,7 @@
 A snapshot of what's actually built vs. what the spec (these docs) describes. The goal is to
 make the gap visible so implementation has a clear backlog. Update this as work lands.
 
-_Last reviewed: 2026-07-10._
+_Last reviewed: 2026-07-11._
 
 ## Summary
 
@@ -19,43 +19,68 @@ entirely on static mock data in `app/assets/data.ts`, served through the `feeds`
   type scale (`text-title/subtitle/body/caption`) and `shadow-elevated`. The font family and
   type scale live in their own `app/assets/css/typography.css` (imported by `main.css`), and the
   6-step t-shirt spacing scale (`--spacing-2xs…xl` → `p-sm`, `gap-md`, `mt-lg`, …) in
-  `app/assets/css/spacing.css`. See [design-system.md](./design-system.md).
+  `app/assets/css/spacing.css`, alongside the `page-inset` utility every page/drawer
+  wrapper uses for the screen inset (lg sides/top, xl bottom).
+  See [design-system.md](./design-system.md).
 - **Theme switch** — Settings → Appearance picks Ink or Claude via the persisted Pinia
   `settings` store (`pinia-plugin-persistedstate`, cookie);
   `app.vue` applies `data-theme` on `<html>` via `useHead`.
+- **Feed-list style switch** — Settings → Appearance → Feed list picks **List** (plain rows,
+  default) or **Cards** (**top-level** home rows — Home, Saved, folders, loose feeds — become
+  permanent `bg-elevated` + `shadow-elevated` cards, spaced `md` apart via per-row margins;
+  member rows inside an expanded dropdown stay plain, spaced `xs`);
+  `settings.feedListStyle`, persisted like the theme. In cards mode the top-level tap flash
+  merges into the card surface — the icon accent flash stays the cue.
 - **Navbar** — `app/components/Navbar.vue` (menu → `/settings`, add → `/add`).
 - **IconButton** — `app/components/ui/IconButton.vue` (round soft-fill button, accent press
-  flash).
+  flash). A `quiet` variant blends into the page bg at rest and lifts to the normal
+  elevated look while the press flash runs (home 3-dot options trigger).
 - **Settings drawer** — `app/components/settings/Drawer.vue` hosted in the layout; the
   `/settings/:panel?` route renders the home component (via `pages:extend`) so the feed list
   stays behind the sheet, and panels swap as in-drawer components with `panel-slide`
   transitions. Main page (`settings/Home.vue`): in-flow close → title → section list with the
-  shared tap-selection flash. Subpages (Account / Appearance / About / Report) share
-  `settings/Page.vue`: back + `text-subtitle` title + the section's own muted icon far right
-  as a where-am-I cue (sections defined once in `app/utils/settings-drawer.ts`). Appearance is
+  shared tap-selection flash (row + leading icon accent flash). Subpages (Account / Appearance
+  / About / Report) share `settings/Page.vue`: back + the section's own muted icon + `text-subtitle`
+  title as a where-am-I cue (sections defined once in `app/utils/settings-drawer.ts`). Appearance is
   functional (theme switch); the rest are mock content.
 - **Add-feed wizard** — `app/components/add/Drawer.vue`, hosted in the layout like the settings
   drawer. The `/add` URL renders the home component (via the `pages:extend` hook) so the feed
   list stays behind the sheet; the navbar **+** links straight to `/add` (no dropdown), and
-  close routes back to `/`. Inside, a three-phase in-drawer wizard (state in
-  `useAddFeedWizard()`): **pick type** (`add/TypeStep.vue`) → **paste/search** with a Paste chip,
-  ~1s skeleton, and mock results (`add/SearchStep.vue`) → **choose destination** — top level or a
-  folder (`add/DestinationStep.vue`). Phases slide with the `panel-slide` classes in
+  close routes back to `/`. Inside, a four-phase in-drawer wizard (state in
+  `useAddFeedWizard()`): **pick type** (`add/TypeStep.vue`, cards with an accent caret tap flash) →
+  **paste/search** with a Paste chip, ~1s skeleton, and mock results as **multi-select cards**
+  (whole card toggles a trailing page-bg circle "well" that gains an accent checkmark when
+  picked; a header forward button at IconButton size — disabled until ≥1 picked, accent when
+  enabled — advances) (`add/SearchStep.vue`) → **choose destination** — a quiet "Adding"
+  caption + plain titles list of the picked feeds above an "Add to" caption + destination
+  cards (top level / folders), so only tappable things read as cards; **tapping a
+  card commits all picked feeds there** (many feeds → one destination) and closes
+  (`add/DestinationStep.vue`) → optional **new folder** — a bottom "New folder" card slides to a
+  name input whose submit arrow creates the folder via `feedsStore.addFolder()` and pops back to
+  the destination list (`add/FolderStep.vue`). Phases slide with the `panel-slide` classes in
   `transitions.css`. Headers follow the settings drawer's language: step 1 has an in-flow close
-  above the title; steps 2/3 have a md caret back + `text-subtitle` title (no close). The search
-  input is enlarged for mobile (taller padding, `text-body`, `rounded-2xl`). Destination rows
-  flash on tap and **commit via a trailing plus button** (prep for many-to-many multi-select).
-  Committing calls `useFeedsStore().addFeed()` and the home list updates. Results are a mock
-  (`app/assets/mock-search.ts`, fixed per-type, query ignored); real search/RSS is not wired.
-  Below the type list sit two **inert folder-CTA variants** ("New folder" / "Edit folders" —
-  elevated blocks vs. quiet rows) awaiting a pick; the loser gets deleted.
+  above the title; steps 2–4 have a md caret back + `text-subtitle` title (no close). The search
+  input is enlarged for mobile (taller padding, `text-body`, `rounded-2xl`).
+  Committing calls `useFeedsStore().addFeed()` per picked feed and the home list updates. Results
+  are a mock (`app/assets/mock-search.ts`, fixed per-type, query ignored); real search/RSS is not
+  wired.
 - **Layouts** — `app/layouts/default.vue` (centered column + Navbar), `plain.vue` (bare).
 - **Mock data & types** — `app/assets/data.ts` (3 feeds, 1 folder, 15 posts),
   `app/assets/types.ts` (incl. the `Folder` type).
-- **Feeds list v1** — `app/pages/index.vue` renders the home list from mock data: folder rows
-  (name + feed count, expand/collapse chevron with auto-animate, members indented and greyed
-  when muted) above loose feeds; every row links to `/feed/[uid]` (folder uid included).
-  Names only for now — no type icons, no Saved row, no context menus yet.
+- **Feeds list v1** — `app/pages/index.vue` renders the home list from mock data: a pinned
+  **Saved** row (links to `/feed/saved`; chevron expands to the three saved groups —
+  Bookmarks / Favorites / Later from `app/utils/saved.ts`, each → `/feed/saved_*`), then
+  folder rows (name + feed count, expand/collapse chevron with auto-animate and an accent tap
+  flash, sitting **inside** the row's tap-flash card surface at IconButton size on the navbar
+  buttons' vertical axis; members indented and greyed when muted), then loose feeds; every row
+  links to `/feed/[uid]`. Chevrons point **right** when collapsed and rotate to down when
+  expanded. Above the list, **Home** is itself a list row (same surface, tap flash, and cards
+  treatment as the rest) at title size with an **All feeds** caption, linking to `/feed/all`
+  (the merged all-feeds read); its trailing 3-dot — sitting where folder rows keep their
+  chevron, directly below the navbar **+** — opens a **half-height options sheet**
+  (`app/components/home/OptionsDrawer.vue`, local-state drawer — not route-driven — with
+  placeholder rows: New folder / Edit feeds / Reorder feeds). Names only for now — no type
+  icons, no context menus yet.
 - **Feed page v1** — `app/pages/feed/[uid]/index.vue` lists PostCards with the resolved
   feed/folder name as title. **Temporary:** every uid shows all posts from all feeds, newest
   first — the `usePostList(uid)` resolver comes with the data layer. `[uid].vue` is a
@@ -82,8 +107,10 @@ entirely on static mock data in `app/assets/data.ts`, served through the `feeds`
 
 ## Not started
 
-- **Feed page (rest)** — the `usePostList(uid)` resolver (saved → folder → feed, per-feed
-  filtering, folder mute). Includes `/feed/saved`.
+- **Feed page (rest)** — the `usePostList(uid)` resolver (all → saved → folder → feed,
+  per-feed filtering, folder mute). Includes `/feed/all`, `/feed/saved`, and the
+  `/feed/saved_*` groups (titles already resolve; the post list is still the
+  show-everything mock).
 - **Post page (rest)** — Save + Open source actions.
 - **Master/detail layout** — single pane on mobile, two panes (feed list + post / settings nav
   + subpage) on desktop, off the same nested routes.
@@ -93,14 +120,15 @@ entirely on static mock data in `app/assets/data.ts`, served through the `feeds`
 - **Add feed (rest)** — real search / RSS discovery + live metadata (sub counts, latest items)
   behind the wizard, and input validation via VeeValidate/Zod. The wizard UI + mock + add action
   are built (see Built).
-- **Saved posts** — a **Saved** feed pinned in the feeds list (no separate screen, no navbar
-  icon) that lists all saved posts; plus the saved state itself.
-- **Folders (rest)** — the `Folder` type, one mock folder, and the expandable rows on the
-  home list are done (see Built). Still missing: the folder merged-stream read (`/feed/[uid]`
-  with a folder uid, via the `usePostList(uid)` resolver), the **New folder / Edit folders**
-  flows (two inert entry-point variants now sit below the Add drawer's type list awaiting a
-  design pick; the wizard-like flows behind them are unbuilt),
-  a New-folder drawer, an edit context menu (long-press / 3-dot) for
+- **Saved posts** — the pinned **Saved** row + its three group rows are built on the home
+  list (see Built), but the saved state itself (which posts are saved, into which group) and
+  the Post-page save action are missing — every saved route still shows the all-posts mock.
+- **Folders (rest)** — the `Folder` type, one mock folder, the expandable rows on the
+  home list, and **folder creation inside the add wizard** (`addFolder` store action +
+  `add/FolderStep.vue`) are done (see Built). Still missing: the folder merged-stream read
+  (`/feed/[uid]` with a folder uid, via the `usePostList(uid)` resolver), the actions behind
+  the home options sheet (New folder / Edit feeds / Reorder feeds are placeholder rows), and
+  an edit context menu (long-press / 3-dot) for
   rename, add/remove feeds, per-folder mute, and delete, plus a folders store. See
   [data-model.md](./data-model.md#folder-new--not-yet-in-code) and
   [screens-and-flows.md](./screens-and-flows.md).
@@ -136,6 +164,12 @@ entirely on static mock data in `app/assets/data.ts`, served through the `feeds`
   **Mute** is per-folder only. **Remove from folder** unlinks; **delete feed** unsubscribes
   everywhere; **delete folder** also unsubscribes its feeds except those in another folder (with
   confirmation). See [data-model.md](./data-model.md#folder-new--not-yet-in-code).
+- **Saved groups** _(2026-07-11)_ — Saved is not one pile: saves organize into three fixed
+  groups — **Bookmarks / Favorites / Later** (`app/utils/saved.ts`, uids `saved_*`). On the
+  home list Saved is an expandable pinned row (tap → `/feed/saved`, all groups merged; expand →
+  the three group rows → `/feed/saved_*`). Group uids resolve on the feed page before
+  folder/feed uids. Saved groups are deliberately **not** store `Folder`s — that would leak
+  them into the add-wizard destination list and the loose-feed computation.
 - **Folder reads through the feed page** _(2026-07-01)_ — a folder is **not** its own route.
   The feed page (`/feed/[uid]`) is polymorphic: `uid` resolves in a fixed order — `saved` →
   folder (`folder_*`) → feed (`feed_*`) — exactly the pattern `saved` already established.
