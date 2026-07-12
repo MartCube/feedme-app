@@ -11,7 +11,15 @@
   --spacing-2xs: 0.25rem; /* 4px  — intra-element stack: title/meta, name/URL */
   --spacing-xs: 0.5rem; /* 8px  — bound pairs: label+meta, label→group, note */
   --spacing-sm: 1rem; /* 16px — row/card padding, icon+label gap, block-to-block */
-  --spacing-md: 1.5rem; /* 24px — heading→content, list-container top, side inset */
-  --spacing-lg: 2rem; /* 32px — top inset, top-control→title, page-section gaps */
+  --spacing-md: 1.5rem; /* 24px — heading→content, list-container top */
+  --spacing-lg: 2rem; /* 32px — top/side inset, top-control→title, page-section gaps */
   --spacing-xl: 3rem; /* 48px — bottom scroll runway */
+}
+
+/* The one page/drawer content inset. Every top-level page and drawer panel uses
+   this instead of raw padding utilities, so the app-wide shell is one edit. */
+@utility page-inset {
+  padding-inline: var(--spacing-lg);
+  padding-top: var(--spacing-lg);
+  padding-bottom: var(--spacing-xl);
 }

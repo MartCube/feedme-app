@@ -12,7 +12,7 @@ useHead({ title: () => post.value?.title ?? 'Post' })
 </script>
 
 <template>
-  <main class="flex flex-col px-md pt-lg pb-xl">
+  <main class="flex flex-col page-inset">
     <Navbar>
       <IconButton
         icon="i-ph-caret-left-bold"
