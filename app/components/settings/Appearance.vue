@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { themes } from '~/stores/settings'
+import { feedListStyles, themes } from '~/stores/settings'
 
 const settings = useSettingsStore()
 </script>
@@ -23,6 +23,29 @@ const settings = useSettingsStore()
       <p class="mt-xs text-caption text-muted">
         These settings apply to post cards in feed lists. Mock content for now.
       </p>
+    </section>
+
+    <section>
+      <h3 class="text-caption font-semibold uppercase tracking-wide text-muted">
+        Feed list
+      </h3>
+      <div class="mt-xs flex flex-col gap-px overflow-hidden rounded-2xl">
+        <button
+          v-for="option in feedListStyles"
+          :key="option.name"
+          type="button"
+          :aria-pressed="settings.feedListStyle === option.name"
+          class="flex items-center justify-between bg-elevated p-sm text-left"
+          @click="settings.feedListStyle = option.name"
+        >
+          <span>{{ option.label }}</span>
+          <UIcon
+            v-if="settings.feedListStyle === option.name"
+            name="i-ph-check-bold"
+            class="size-5 text-primary"
+          />
+        </button>
+      </div>
     </section>
 
     <section>
