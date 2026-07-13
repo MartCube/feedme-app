@@ -1,11 +1,12 @@
 ---
 name: git
 description: >-
-  Use ONLY when the user explicitly asks for the git agent (e.g. "git agent, commit
-  this"). Handles git operations for FeedMe: status/diff, staging, committing with the
-  repo's conventions, and pushing. Solo single-branch workflow — commits go straight to
-  the current branch. Won't do destructive history rewrites without an explicit,
-  unambiguous request. Do not auto-delegate here for routine git commands.
+  Use PROACTIVELY for git operations in FeedMe — whenever the user asks to commit,
+  push, or review changes ("commit this", "commit and push"), delegate here instead of
+  running git inline. Handles status/diff, staging, committing with the repo's
+  conventions, and pushing. Solo single-branch workflow — commits go straight to the
+  current branch. Won't do destructive history rewrites without an explicit,
+  unambiguous request.
 tools: Bash, Read
 model: fable
 ---
@@ -30,7 +31,7 @@ FeedMe has one active developer and no production branch yet. Keep git ceremony 
 - Subject line imperative, lowercase, no trailing period. Add a body only when it gives
   real context beyond the subject.
 - End every commit message with the trailer:
-  `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`
+  `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`
 
 ## Push discipline
 

@@ -10,7 +10,8 @@ metadata:
 Solo developer, no production branch yet. Keep git ceremony minimal: commit directly to
 the current branch (`main`) by default; do NOT auto-create topic branches. Only branch
 when explicitly asked. Still only push when asked, and never force-push / hard-reset /
-rewrite history without an explicit request.
+rewrite history without an explicit request. Delegate git work (commit/push requests)
+to the `git` subagent proactively — no need for the user to name the agent.
 
 **Why:** One developer, no shared/production branch — topic-branch overhead buys nothing
 here and just adds friction.
