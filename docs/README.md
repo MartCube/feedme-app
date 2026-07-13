@@ -17,6 +17,7 @@ screen or feature is ambiguous in code, this folder wins.
 | [screens-and-flows.md](./screens-and-flows.md) | Every screen, its purpose, and how navigation connects them |
 | [data-model.md](./data-model.md) | The `Feed`, `Folder`, and `Post` entities and the saved-posts state |
 | [design-system.md](./design-system.md) | The visual vocabulary — 9 color roles, 4 text sizes, the two themes, and how switching works |
+| [backend.md](./backend.md) | The server spec — architecture, data model, API endpoints, auth, fetching jobs, search |
 | [current-state.md](./current-state.md) | What's built today vs. not-yet-built (the gap to close) |
 
 ## Tech stack (at a glance)

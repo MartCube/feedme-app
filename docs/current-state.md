@@ -144,11 +144,17 @@ entirely on static mock data in `app/assets/data.ts`, served through the `feeds`
 
 ## Open decisions
 
-1. **Fetching + persistence stack** — how RSS is fetched (Nitro server route + parser?) and
-   how feeds/saved state persist (local storage first, backend later?). To be specced when
-   we move past mock data.
+_None currently._
 
 ## Resolved decisions
+
+- **Backend stack & API** _(2026-07-12)_ — the fetching + persistence stack is specced in
+  [backend.md](./backend.md): Django + django-ninja + Dramatiq + Postgres + Redis in
+  `backend/` (monorepo, Docker Compose). Global shared sources polled once, per-user
+  Feed/Folder/SavedPost/Settings layer, Google OAuth with opaque bearer tokens, Postgres
+  FTS + trigram search behind an engine-neutral `/search`, on-demand article extraction,
+  ~90-day retention for unsaved posts. Endpoint catalog and decision log live there.
+  Nothing is implemented yet — the spec is the agreed target.
 
 - **Routing scheme** _(2026-06-29)_ — **nested routes**: posts nest under feeds
   (`/feed/[uid]/post/[postUid]`), settings subpages nest under settings (`/settings/*`). The

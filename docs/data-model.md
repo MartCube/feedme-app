@@ -4,6 +4,11 @@ The current type definitions live in `app/assets/types.ts`; mock data lives in
 `app/assets/data.ts`. This doc is the agreed model — including the **saved-posts** state,
 which is not yet in code.
 
+> **Persistence** now lives in [backend.md](./backend.md): the server stores global
+> `Source`/`Post` tables with a per-user `Feed`/`Folder`/`SavedPost` layer on top. The
+> frontend types here are unchanged — a backend `Feed` (+ its `Source`) serializes to
+> exactly this `Feed` shape, and the backend mints the prefixed uids these docs assume.
+
 ## Feed
 
 A subscribed source.
