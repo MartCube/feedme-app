@@ -14,7 +14,7 @@
           <span class="text-caption text-muted">Nuxt 4</span>
         </div>
       </div>
-      <p class="mt-xs text-caption text-muted">
+      <p class="mt-xs text-caption text-muted text-inset">
         A minimal, functional, scalable feed reader. Mock content for now.
       </p>
     </section>

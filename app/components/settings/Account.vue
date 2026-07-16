@@ -4,7 +4,7 @@
 <template>
   <SettingsPage title="Account">
     <section>
-      <h3 class="text-caption font-semibold uppercase tracking-wide text-muted">
+      <h3 class="text-caption font-semibold uppercase tracking-wide text-muted text-inset">
         Signed in with
       </h3>
       <div class="mt-xs flex flex-col gap-px overflow-hidden rounded-2xl">

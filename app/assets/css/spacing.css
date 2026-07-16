@@ -23,3 +23,9 @@
   padding-top: var(--spacing-lg);
   padding-bottom: var(--spacing-xl);
 }
+
+/* Loose text outside cards/inputs indents by the card-padding step so it lines
+   up with the text inside them. Retuning the whole app is this one edit. */
+@utility text-inset {
+  margin-inline-start: var(--spacing-sm);
+}

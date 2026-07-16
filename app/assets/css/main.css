@@ -17,6 +17,15 @@
     background-color: var(--ui-bg);
     color: var(--ui-text);
   }
+
+  /* Touch-first app, no keyboard-focus halos: drawers restore focus to their
+     trigger on Escape-close, which otherwise paints the browser's default
+     outline on plain buttons (home 3-dot). Inputs keep their focus ring —
+     that's a box-shadow, not an outline. */
+  button:focus-visible,
+  a:focus-visible {
+    outline: none;
+  }
 }
 
 /* Links inside the settings drawer (components/SettingsDrawer.vue) must not

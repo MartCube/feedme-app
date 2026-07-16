@@ -16,11 +16,11 @@ const { selectedUid, select } = useTapSelection()
       @click="closeDrawer"
     />
 
-    <h1 class="mt-lg text-title tracking-tight">
+    <h1 class="mt-lg text-title tracking-tight text-inset">
       Settings
     </h1>
 
-    <ul class="mt-md flex flex-col">
+    <ul class="mt-md flex flex-col text-inset">
       <li
         v-for="section in settingsSections"
         :key="section.to"

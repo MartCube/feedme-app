@@ -7,7 +7,7 @@ const settings = useSettingsStore()
 <template>
   <SettingsPage title="Appearance">
     <section>
-      <h3 class="text-caption font-semibold uppercase tracking-wide text-muted">
+      <h3 class="text-caption font-semibold uppercase tracking-wide text-muted text-inset">
         Cards
       </h3>
       <div class="mt-xs flex flex-col gap-px overflow-hidden rounded-2xl">
@@ -20,13 +20,13 @@ const settings = useSettingsStore()
           <span class="text-caption text-muted">100%</span>
         </div>
       </div>
-      <p class="mt-xs text-caption text-muted">
+      <p class="mt-xs text-caption text-muted text-inset">
         These settings apply to post cards in feed lists. Mock content for now.
       </p>
     </section>
 
     <section>
-      <h3 class="text-caption font-semibold uppercase tracking-wide text-muted">
+      <h3 class="text-caption font-semibold uppercase tracking-wide text-muted text-inset">
         Feed list
       </h3>
       <div class="mt-xs flex flex-col gap-px overflow-hidden rounded-2xl">
@@ -49,7 +49,7 @@ const settings = useSettingsStore()
     </section>
 
     <section>
-      <h3 class="text-caption font-semibold uppercase tracking-wide text-muted">
+      <h3 class="text-caption font-semibold uppercase tracking-wide text-muted text-inset">
         Theme
       </h3>
       <div class="mt-xs flex flex-col gap-px overflow-hidden rounded-2xl">
