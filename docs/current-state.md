@@ -148,6 +148,13 @@ _None currently._
 
 ## Resolved decisions
 
+- **AI reading-companion feed** _(2026-07-16)_ — a custom RSS feed of AI-written posts
+  (one per book chapter, reflection + link back to the chapter) is specced in
+  [ai-feed.md](./ai-feed.md). Lives in a separate `feedme-books` repo (Python; batch
+  generation → manual review → all-at-once or daily-drip release rebuilding `feed.xml`);
+  zero FeedMe changes — it's just another Source once the backend lands. Nothing is
+  implemented yet.
+
 - **Backend stack & API** _(2026-07-12)_ — the fetching + persistence stack is specced in
   [backend.md](./backend.md): Django + django-ninja + Dramatiq + Postgres + Redis in
   `backend/` (monorepo, Docker Compose). Global shared sources polled once, per-user
