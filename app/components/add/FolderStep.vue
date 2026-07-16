@@ -14,16 +14,15 @@ function submit() {
 <template>
   <!-- touch-none lets vaul own the drag-to-close gesture. -->
   <div class="flex h-full touch-none flex-col overflow-y-auto bg-default page-inset">
-    <header class="flex items-center gap-sm">
-      <IconButton
-        icon="i-ph-caret-left-bold"
-        aria-label="Back"
-        @click="emit('back')"
-      />
-      <h2 class="text-subtitle">
-        New folder
-      </h2>
-    </header>
+    <IconButton
+      icon="i-ph-caret-left-bold"
+      aria-label="Back"
+      @click="emit('back')"
+    />
+
+    <h1 class="mt-lg text-title tracking-tight text-inset">
+      New folder
+    </h1>
 
     <!-- The trailing arrow only appears once there's text — the "disabled
          submit" state for free. Creating pops back to the destination list. -->
@@ -31,6 +30,7 @@ function submit() {
       v-model="name"
       class="mt-md"
       placeholder="Folder name"
+      autofocus
       @submit="submit"
     />
   </div>

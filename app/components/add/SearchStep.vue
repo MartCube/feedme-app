@@ -4,13 +4,9 @@ const emit = defineEmits<{ back: [], forward: [] }>()
 const wizard = useAddFeedWizard()
 const { type, query, loading, results, selectedFeeds } = wizard
 
-const typeLabel = computed(() => {
-  switch (type.value) {
-    case 'youtube': return 'YouTube'
-    case 'reddit': return 'Reddit'
-    default: return 'Website'
-  }
-})
+// Heading label/icon and placeholder all come from the type card the user
+// just tapped (website when the type is somehow unset).
+const typeMeta = computed(() => feedTypes.find(option => option.type === type.value) ?? feedTypes[0]!)
 
 // Strip the protocol so the result's site reads cleanly (css-tricks.com).
 function displayUrl(url: string) {
@@ -22,36 +18,42 @@ function displayUrl(url: string) {
   <!-- touch-none lets vaul own the drag-to-close gesture; revisit once the
        results list needs real touch scrolling. -->
   <div class="flex h-full touch-none flex-col overflow-y-auto bg-default page-inset">
-    <header class="flex items-center gap-sm">
+    <header class="flex items-center justify-between gap-sm">
       <IconButton
         icon="i-ph-caret-left-bold"
         aria-label="Back"
         @click="emit('back')"
       />
-      <h2 class="text-subtitle">
-        {{ typeLabel }}
-      </h2>
+      <!-- Same elevated circle as the back button; disabled only dims the icon. -->
       <button
         type="button"
-        class="ml-auto flex size-12 shrink-0 items-center justify-center rounded-full transition-colors"
-        :class="selectedFeeds.length ? 'bg' : 'bg-elevated text-dimmed shadow-elevated'"
+        class="flex size-12 shrink-0 items-center justify-center rounded-full bg-elevated shadow-elevated transition-colors"
         :disabled="!selectedFeeds.length"
         aria-label="Continue"
         @click="emit('forward')"
       >
         <UIcon
           name="i-ph-caret-right-bold"
-          class="size-6"
-          :class="selectedFeeds.length && 'text-white'"
+          class="size-6 transition-colors duration-300 ease-out"
+          :class="selectedFeeds.length ? 'text-default' : 'text-dimmed'"
         />
       </button>
     </header>
 
+    <h1 class="mt-lg flex items-center gap-sm text-title tracking-tight text-inset">
+      <UIcon
+        :name="typeMeta.icon"
+        class="size-6 text-muted"
+      />
+      {{ typeMeta.label }}
+    </h1>
+
     <SearchInput
       v-model="query"
       class="mt-md"
-      placeholder="Paste a link or search…"
+      :placeholder="typeMeta.placeholder"
       paste
+      autofocus
       @submit="wizard.search()"
     />
 

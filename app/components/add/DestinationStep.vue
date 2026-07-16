@@ -13,24 +13,19 @@ const { selectedFeeds } = useAddFeedWizard()
   <!-- touch-none lets vaul own the drag-to-close gesture; revisit once the
        destination list needs real touch scrolling. -->
   <div class="flex h-full touch-none flex-col overflow-y-auto bg-default page-inset">
-    <header class="flex items-center gap-sm">
-      <IconButton
-        icon="i-ph-caret-left-bold"
-        aria-label="Back"
-        @click="emit('back')"
-      />
-      <h2 class="text-subtitle">
-        Add to
-      </h2>
-    </header>
+    <IconButton
+      icon="i-ph-caret-left-bold"
+      aria-label="Back"
+      @click="emit('back')"
+    />
 
     <!-- The feeds being added, so the choice has context. Deliberately quiet
          (label + plain rows, no card): here cards mean "tappable". -->
     <section v-if="selectedFeeds.length">
-      <p class="mt-md text-caption text-muted">
+      <p class="mt-md text-caption text-muted text-inset">
         Adding
       </p>
-      <div class="mt-xs flex flex-col gap-2xs">
+      <div class="mt-xs flex flex-col gap-2xs text-inset">
         <p
           v-for="feed in selectedFeeds"
           :key="feed.feed_url"
@@ -41,7 +36,7 @@ const { selectedFeeds } = useAddFeedWizard()
       </div>
     </section>
 
-    <p class="mt-md text-caption text-muted">
+    <p class="mt-md text-caption text-muted text-inset">
       Add to
     </p>
     <!-- Tapping a destination card commits: every selected feed lands there

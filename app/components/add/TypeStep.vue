@@ -3,12 +3,6 @@ import type { FeedType } from '~/assets/types'
 
 const emit = defineEmits<{ select: [type: FeedType], close: [] }>()
 
-const types: { type: FeedType, label: string, hint: string, icon: string }[] = [
-  { type: 'website', label: 'Website', hint: 'Any site or RSS feed', icon: 'i-ph-globe-bold' },
-  { type: 'youtube', label: 'YouTube', hint: 'Channels by link or search', icon: 'i-ph-youtube-logo-bold' },
-  { type: 'reddit', label: 'Reddit', hint: 'Subreddits by link or search', icon: 'i-ph-reddit-logo-bold' },
-]
-
 // Tap feedback: the card's caret flashes primary (same pattern as IconButton),
 // staying visible while the panel slides out.
 const flashingType = ref<FeedType | null>(null)
@@ -35,13 +29,13 @@ onScopeDispose(() => clearTimeout(flashTimer))
       @click="emit('close')"
     />
 
-    <h1 class="mt-lg text-title tracking-tight ml-4">
+    <h1 class="mt-lg text-title tracking-tight text-inset">
       Add feed
     </h1>
 
     <ul class="mt-md flex flex-col gap-sm">
       <li
-        v-for="option in types"
+        v-for="option in feedTypes"
         :key="option.type"
       >
         <button
