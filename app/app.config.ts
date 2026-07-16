@@ -1,5 +1,18 @@
 export default defineAppConfig({
   ui: {
+    // Teach Nuxt UI's tailwind-merge our custom @theme scales (spacing.css,
+    // typography.css) so `:ui` overrides like px-sm properly REPLACE component
+    // defaults like px-3 instead of coexisting and racing on CSS order.
+    tv: {
+      twMergeConfig: {
+        extend: {
+          theme: {
+            spacing: ['2xs', 'xs', 'sm', 'md', 'lg', 'xl'],
+            text: ['caption', 'body', 'subtitle', 'title'],
+          },
+        },
+      },
+    },
     colors: {
       primary: 'teal',
       neutral: 'zinc',

@@ -42,6 +42,13 @@ metadata:
 **Nuxt UI / vaul:**
 - Theme **compound variants** apply after `app.config.ts` slot classes and win in tailwind-merge —
   override via a matching `compoundVariants` entry in app.config, not slot classes.
+- tailwind-merge must be TAUGHT the custom @theme tokens or `:ui` overrides like `px-sm` won't
+  replace component defaults like `px-3` (both land in the DOM, CSS order decides; unknown
+  `text-*` names even get misread as text-COLOR and strip the real color class). Fixed via
+  `app.config.ts` → `ui.tv.twMergeConfig.extend.theme` (`spacing` + `text` keys) — Nuxt UI passes
+  `ui.tv` straight to tailwind-variants' `createTV`. A NEW spacing/type token must be added there
+  too, or it silently regresses. Verify by reading the rendered `className` — the loser class is
+  still present when merging failed.
 - vaul emits `animationEnd(false)` once for its initial *closed* state after mount.
 - vaul's `should-scale-background` mutates `<body>` inline styles — see
   [[feedback-no-global-visual-side-effects]].
