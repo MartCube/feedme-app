@@ -26,11 +26,18 @@ const sortedPosts = computed(() =>
 
 const { selectedUid, select } = useTapSelection()
 
+const page = useTemplateRef('page')
+const { style: swipeStyle } = useSwipeBack(page, '/')
+
 useHead({ title })
 </script>
 
 <template>
-  <main class="flex flex-col page-inset">
+  <main
+    ref="page"
+    :style="swipeStyle"
+    class="flex touch-pan-y flex-col page-inset"
+  >
     <Navbar>
       <IconButton
         icon="i-ph-sidebar-simple-bold"
@@ -48,7 +55,7 @@ useHead({ title })
       {{ title }}
     </h1>
 
-    <ul class="mt-md flex flex-col">
+    <ul class="mt-md flex flex-col space-y-sm">
       <li
         v-for="post in sortedPosts"
         :key="post.uid"

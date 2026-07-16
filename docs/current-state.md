@@ -99,6 +99,13 @@ entirely on static mock data in `app/assets/data.ts`, served through the `feeds`
   default layout provides the positioning/clip context. Non-reader routes (add, settings)
   swap instantly (`page-none`) so their drawer animations own the motion; the settings
   drawer's internal slides reuse the same CSS classes via `usePageSlide()`.
+- **Swipe navigation** — `app/composables/useSwipeNav.ts` (VueUse `useSwipe`, touch-only).
+  `useSwipeBack`: swipe right anywhere on the feed page, post page, or a settings subpage
+  drags the page with the finger and past 72px pops to the parent route (reusing the
+  page-slide / panel-slide pop); under threshold it snaps back. `useSwipeOpen`: swipe left
+  on a home feed row or settings section row nudges it and opens it (gesture twin of
+  tapping; one delegated listener per list). Axis-locked so vertical scrolling and vaul's
+  drag-to-close are untouched; back buttons unchanged.
 
 ## Stubs (exist but placeholder content)
 

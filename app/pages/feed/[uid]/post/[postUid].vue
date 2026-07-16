@@ -8,11 +8,18 @@ const route = useRoute()
 const { uid, postUid } = route.params
 const post = computed(() => posts.value.find(p => p.uid === postUid))
 
+const page = useTemplateRef('page')
+const { style: swipeStyle } = useSwipeBack(page, `/feed/${uid}`)
+
 useHead({ title: () => post.value?.title ?? 'Post' })
 </script>
 
 <template>
-  <main class="flex flex-col page-inset">
+  <main
+    ref="page"
+    :style="swipeStyle"
+    class="flex touch-pan-y flex-col page-inset"
+  >
     <Navbar>
       <IconButton
         icon="i-ph-caret-left-bold"
