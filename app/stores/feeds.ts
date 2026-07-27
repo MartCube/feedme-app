@@ -75,15 +75,15 @@ export const useFeedsStore = defineStore('feeds', () => {
     )
   }
 
-  // Per-folder mute: excludes a member from THIS folder's merged read only.
-  function toggleMute(folderUid: string, feedUid: string) {
-    folders.value = folders.value.map((folder) => {
-      if (folder.uid !== folderUid) return folder
-      const muted_feed_uids = folder.muted_feed_uids.includes(feedUid)
-        ? folder.muted_feed_uids.filter(u => u !== feedUid)
-        : [...folder.muted_feed_uids, feedUid]
-      return { ...folder, muted_feed_uids }
-    })
+  // Per-folder mute: the members excluded from THIS folder's merged read only.
+  // Replaces the whole set — the edit panel stages toggles as a local draft and
+  // commits them alongside the name when Save is pressed.
+  function setMutedFeeds(folderUid: string, feedUids: string[]) {
+    folders.value = folders.value.map(folder =>
+      folder.uid === folderUid
+        ? { ...folder, muted_feed_uids: [...feedUids] }
+        : folder,
+    )
   }
 
   function updateFeed(uid: string, patch: Partial<Pick<Feed, 'name' | 'feed_url'>>) {
@@ -146,5 +146,5 @@ export const useFeedsStore = defineStore('feeds', () => {
     folders.value = folders.value.filter(f => f.uid !== uid)
   }
 
-  return { feeds, folders, posts, looseFeeds, memberFeeds, expandedFolderUids, isExpanded, toggleFolder, addFeed, addFolder, renameFolder, toggleMute, updateFeed, removeFromFolder, deleteFeed, folderDeleteImpact, deleteFolder }
+  return { feeds, folders, posts, looseFeeds, memberFeeds, expandedFolderUids, isExpanded, toggleFolder, addFeed, addFolder, renameFolder, setMutedFeeds, updateFeed, removeFromFolder, deleteFeed, folderDeleteImpact, deleteFolder }
 })

@@ -7,7 +7,7 @@ import type { Folder } from '~/assets/types'
 const props = defineProps<{ folder: Folder }>()
 
 const feedsStore = useFeedsStore()
-const { memberFeeds, renameFolder, toggleMute } = feedsStore
+const { memberFeeds, renameFolder, setMutedFeeds } = feedsStore
 const wizard = useAddFeedWizard()
 
 const closeDrawer = inject(editDrawerCloseKey, () => {})
@@ -15,25 +15,46 @@ const { selectedUid, select } = useTapSelection()
 
 const sources = computed(() => memberFeeds(props.folder))
 
-// Local draft so name edits are explicit — committed by the Save pill, not on
-// every keystroke. Reset if the folder changes underneath.
-// Key the reset on uid, not the folder object: muting a source replaces the
-// folder object (immutable update) but must NOT wipe an in-progress name draft.
+// Local drafts so edits are explicit — the name and the per-source mutes are
+// both staged here and committed together by the Save pill, never on the
+// keystroke or the toggle. Key the reset on uid, not the folder object, so an
+// unrelated store update can't wipe an in-progress draft.
 const name = ref(props.folder.name)
-watch(() => props.folder.uid, () => (name.value = props.folder.name))
+const muted = ref([...props.folder.muted_feed_uids])
+watch(() => props.folder.uid, () => {
+  name.value = props.folder.name
+  muted.value = [...props.folder.muted_feed_uids]
+})
 
-const dirty = computed(() => {
+const renamed = computed(() => {
   const trimmed = name.value.trim()
   return trimmed.length > 0 && trimmed !== props.folder.name
 })
 
+// Order-insensitive: only membership of the muted set matters.
+const remuted = computed(() => {
+  const committed = props.folder.muted_feed_uids
+  return muted.value.length !== committed.length
+    || muted.value.some(uid => !committed.includes(uid))
+})
+
+const dirty = computed(() => renamed.value || remuted.value)
+
 function save() {
   if (!dirty.value) return
-  renameFolder(props.folder.uid, name.value)
+  if (renamed.value) renameFolder(props.folder.uid, name.value)
+  if (remuted.value) setMutedFeeds(props.folder.uid, muted.value)
+  closeDrawer()
 }
 
 function isMuted(feedUid: string) {
-  return props.folder.muted_feed_uids.includes(feedUid)
+  return muted.value.includes(feedUid)
+}
+
+function toggleMute(feedUid: string) {
+  muted.value = muted.value.includes(feedUid)
+    ? muted.value.filter(u => u !== feedUid)
+    : [...muted.value, feedUid]
 }
 
 // Enter the scoped add flow fresh (no stale type/results from a prior add).
@@ -104,7 +125,7 @@ const deletePath = computed(() => `/edit/${props.folder.uid}/delete`)
           <Toggle
             :model-value="!isMuted(feed.uid)"
             :aria-label="`${isMuted(feed.uid) ? 'Enable' : 'Mute'} ${feed.name} in this feed`"
-            @update:model-value="toggleMute(folder.uid, feed.uid)"
+            @update:model-value="toggleMute(feed.uid)"
           />
         </li>
       </ul>

@@ -5,8 +5,11 @@
 const props = defineProps<{ label: string, to: string }>()
 
 const armed = ref(false)
+// Long enough to read as an acknowledgement, short enough not to feel laggy —
+// deliberately under the 0.35s panel-slide (transitions.css), since the red
+// flip is instant and the blink only has to register before the sheet pushes.
 // useTimeoutFn stops itself if the panel unmounts mid-blink.
-const { start } = useTimeoutFn(() => navigateTo(props.to), 450, { immediate: false })
+const { start } = useTimeoutFn(() => navigateTo(props.to), 250, { immediate: false })
 
 function arm() {
   if (armed.value) return

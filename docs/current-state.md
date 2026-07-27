@@ -3,7 +3,7 @@
 A snapshot of what's actually built vs. what the spec (these docs) describes. The goal is to
 make the gap visible so implementation has a clear backlog. Update this as work lands.
 
-_Last reviewed: 2026-07-11._
+_Last reviewed: 2026-07-27._
 
 ## Summary
 
@@ -77,9 +77,14 @@ entirely on static mock data in `app/assets/data.ts`, served through the `feeds`
   directly (`edit/SourcePanel.vue` — edits name + RSS `feed_url`, back caret + `useSwipeBack`
   when reached as a folder member (`/edit/:uid/source/:sourceUid`), X close when standalone; its
   `DangerButton` reads "Remove source from feed" as a member or "Delete source" standalone).
-  Text edits commit via an explicit **Save** `ui/PillButton.vue` (muted until the draft differs).
+  Both the name and, in the folder panel, each source's mute toggle are staged as **local
+  drafts** — toggling a mute enables the Save pill same as editing the name does, and nothing
+  reaches the store until Save is pressed. Text/mute edits commit via an explicit **Save**
+  `ui/PillButton.vue` (muted until a draft differs from the committed folder/feed), and
+  pressing it also **closes the edit drawer**, returning to the home list.
   `ui/DangerButton.vue` is the app's one destructive affordance — an elevated full-width card, no
-  icon, muted label — that **arms** on tap (`animate-pulse` + `text-error` for 450ms) and then
+  icon, muted label — that **arms** on tap (`animate-pulse` + `text-error` for 250ms, deliberately
+  under the 0.35s panel-slide since the red flip is instant) and then
   routes to a confirm sheet; it never mutates the store itself. Every destructive action now
   confirms before committing, via `edit/ConfirmPanel.vue` (replaces the earlier `DeleteConfirm.vue`;
   purely presentational — props `action`/`verb`/`subject`/optional `context`/`note`/`backTo`,
@@ -92,8 +97,9 @@ entirely on static mock data in `app/assets/data.ts`, served through the `feeds`
   padding on the row (`pl-sm` on the link, `pr-sm` on the `li`) rather than a `text-inset` margin
   on the list, so row text lines up with the Name/RSS-URL input text and the section headings.
   Panels slide with the shared `panel-slide` classes. Backing `feeds`-store actions:
-  `renameFolder`, `toggleMute`, `updateFeed`, `removeFromFolder`, `deleteFeed`,
-  `folderDeleteImpact`, `deleteFolder`.
+  `renameFolder`, `setMutedFeeds` (replaces the folder's whole muted set in one immutable
+  write — the folder panel's draft toggles it once, on Save), `updateFeed`, `removeFromFolder`,
+  `deleteFeed`, `folderDeleteImpact`, `deleteFolder`.
   **Copy diverges from the agreed screen 7 wording** (see
   [screens-and-flows.md](./screens-and-flows.md#7-create--edit-folders--feeds-from-the-home-list)):
   spec calls the actions "Delete folder" / "Delete feed" / "Remove from this folder"; shipped

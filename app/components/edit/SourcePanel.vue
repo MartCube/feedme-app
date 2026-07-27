@@ -31,6 +31,7 @@ const dirty = computed(() => {
 function save() {
   if (!dirty.value) return
   updateFeed(props.feed.uid, { name: name.value, feed_url: feedUrl.value })
+  closeDrawer()
 }
 
 // Swipe right pops back: to the folder panel for a member, or closes to home
