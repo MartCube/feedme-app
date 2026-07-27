@@ -17,6 +17,10 @@ const isCards = computed(() => settings.feedListStyle === 'cards')
 
 const { selectedUid, select } = useTapSelection()
 
+// Long-press a folder or loose-source row to edit it (mobile); the same edit
+// route is reached on desktop via a hover-revealed 3-dot on the row.
+const editPress = useLongPress(uid => navigateTo(`/edit/${uid}`))
+
 const optionsOpen = ref(false)
 
 // Tap feedback for the plain icon triggers (chevrons, 3-dot), same primary
@@ -147,17 +151,32 @@ onScopeDispose(() => clearTimeout(flashTimer))
              invalid HTML). select() stays on the link so chevron taps toggle
              without flashing the row. -->
         <li
-          class="-mx-sm flex items-center rounded-2xl transition-colors"
+          class="group -mx-sm flex items-center rounded-2xl transition-colors"
           :class="isCards ? 'bg-elevated shadow-elevated mt-md first:mt-0' : selectedUid === folder.uid && 'bg-elevated shadow-elevated'"
         >
           <NuxtLink
             :to="`/feed/${folder.uid}`"
             class="flex min-w-0 flex-1 items-baseline gap-xs py-sm pl-sm"
-            @pointerdown="select(folder.uid)"
+            @pointerdown="select(folder.uid); editPress.start(folder.uid, $event)"
+            @pointermove="editPress.move"
+            @pointerup="editPress.cancel"
+            @pointercancel="editPress.cancel"
+            @click.capture="editPress.onClick(folder.uid, $event)"
           >
             <span class="truncate text-body">{{ folder.name }}</span>
             <span class="text-caption text-muted">{{ folder.feed_uids.length }}</span>
           </NuxtLink>
+          <!-- Desktop only (hover-capable pointers): a quiet 3-dot appears on
+               row hover to open the edit drawer; hidden on touch, where the
+               long-press above is the entry. -->
+          <IconButton
+            icon="i-ph-dots-three-bold"
+            :to="`/edit/${folder.uid}`"
+            variant="quiet"
+            size="sm"
+            :aria-label="`Edit ${folder.name}`"
+            class="hidden shrink-0 [@media(hover:hover)]:group-hover:inline-flex"
+          />
           <!-- IconButton dimensions (size-12 circle, size-6 icon); mr-sm pulls
                its right edge back to the content edge so its center shares the
                navbar buttons' vertical axis despite the li's -mx-sm bleed. -->
@@ -201,16 +220,28 @@ onScopeDispose(() => clearTimeout(flashTimer))
       <li
         v-for="feed in looseFeeds"
         :key="feed.uid"
-        :class="isCards && 'mt-md first:mt-0'"
+        class="group -mx-sm flex items-center rounded-2xl transition-colors"
+        :class="isCards ? 'bg-elevated shadow-elevated mt-md first:mt-0' : selectedUid === feed.uid && 'bg-elevated shadow-elevated'"
       >
         <NuxtLink
           :to="`/feed/${feed.uid}`"
-          class="-mx-sm block truncate rounded-2xl px-sm py-sm text-body transition-colors"
-          :class="(isCards || selectedUid === feed.uid) && 'bg-elevated shadow-elevated'"
-          @pointerdown="select(feed.uid)"
+          class="min-w-0 flex-1 truncate px-sm py-sm text-body"
+          @pointerdown="select(feed.uid); editPress.start(feed.uid, $event)"
+          @pointermove="editPress.move"
+          @pointerup="editPress.cancel"
+          @pointercancel="editPress.cancel"
+          @click.capture="editPress.onClick(feed.uid, $event)"
         >
           {{ feed.name }}
         </NuxtLink>
+        <IconButton
+          icon="i-ph-dots-three-bold"
+          :to="`/edit/${feed.uid}`"
+          variant="quiet"
+          size="sm"
+          :aria-label="`Edit ${feed.name}`"
+          class="mr-sm hidden shrink-0 [@media(hover:hover)]:group-hover:inline-flex"
+        />
       </li>
     </ul>
 

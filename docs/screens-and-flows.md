@@ -240,8 +240,13 @@ Routing note: `saved` → folder → feed.)
   old **+** menu that offered both was dropped; where folder creation is triggered from is a
   later design decision.
 
-**Edit — context menu** (long-press on mobile; 3-dot / overflow on desktop). The menu depends
-on what was pressed:
+**Edit — context menu** (long-press on mobile; 3-dot / overflow on desktop). Built as a
+route-driven **edit drawer** (`app/components/edit/Drawer.vue`, `/edit/*`) rather than a popover
+menu: long-press (or a desktop hover 3-dot) on a folder opens a folder panel (rename, per-feed
+mute toggles, add a feed, delete), and tapping a member feed — or long-pressing a loose feed —
+opens a feed subpage (edit name + RSS url, remove/delete). The options below map to that drawer;
+the shipped button copy currently uses different nouns than this list — see
+[current-state.md](./current-state.md) for the divergence.
 
 - **Folder row:**
   - **Rename** the folder.
@@ -257,12 +262,13 @@ on what was pressed:
     in no other folder).
   - **Delete feed**.
 
-**Destructive cascade** (mirrors [data-model.md](./data-model.md#cascade-rules)):
+**Destructive cascade** (mirrors [data-model.md](./data-model.md#cascade-rules)). All three
+actions confirm before committing:
 - **Remove from folder** — unlinks one membership; feed stays subscribed.
 - **Delete feed** — unsubscribes the feed everywhere (all folders + the list).
 - **Delete folder** — removes the folder **and unsubscribes its member feeds**, *except* any
-  member that also belongs to another folder. This is destructive, so it asks for a
-  **confirmation that names how many feeds will be unsubscribed**.
+  member that also belongs to another folder; the confirmation **names how many feeds will be
+  unsubscribed**.
 
 ---
 

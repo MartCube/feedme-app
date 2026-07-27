@@ -64,6 +64,43 @@ entirely on static mock data in `app/assets/data.ts`, served through the `feeds`
   Committing calls `useFeedsStore().addFeed()` per picked feed and the home list updates. Results
   are a mock (`app/assets/mock-search.ts`, fixed per-type, query ignored); real search/RSS is not
   wired.
+- **Edit-feed / edit-source drawer** — `app/components/edit/Drawer.vue`, hosted in the layout
+  like the settings/add drawers; every `/edit/*` URL renders the home component (`pages:extend`)
+  so the list stays behind the sheet. Opened by **long-press** on a folder or loose-feed home
+  row (mobile, `useLongPress` — suppresses the follow-up nav click) or a **hover-revealed 3-dot**
+  on the row (desktop only, `@media (hover: hover)`). Polymorphic by uid: a `folder_*` uid opens
+  the **folder panel** (`edit/FolderPanel.vue` — rename input + a **Save** pill, a "Sources"
+  list of member feeds each row spanning the full drawer width with an on/off mute toggle
+  (`ui/Toggle.vue`), a dashed full-width ghost row labelled "Add source" that runs the add
+  wizard scoped to this folder — skipping the destination step and returning here — and a
+  `ui/DangerButton.vue` labelled "Delete feed"); a loose `feed_*` uid opens the **source panel**
+  directly (`edit/SourcePanel.vue` — edits name + RSS `feed_url`, back caret + `useSwipeBack`
+  when reached as a folder member (`/edit/:uid/source/:sourceUid`), X close when standalone; its
+  `DangerButton` reads "Remove source from feed" as a member or "Delete source" standalone).
+  Text edits commit via an explicit **Save** `ui/PillButton.vue` (muted until the draft differs).
+  `ui/DangerButton.vue` is the app's one destructive affordance — an elevated full-width card, no
+  icon, muted label — that **arms** on tap (`animate-pulse` + `text-error` for 450ms) and then
+  routes to a confirm sheet; it never mutates the store itself. Every destructive action now
+  confirms before committing, via `edit/ConfirmPanel.vue` (replaces the earlier `DeleteConfirm.vue`;
+  purely presentational — props `action`/`verb`/`subject`/optional `context`/`note`/`backTo`,
+  emits `confirm`), rendered at three routes whose copy, back path, and store call are owned by a
+  single `confirm` computed in `Drawer.vue`: `/edit/:uid/delete` (delete the folder, or the
+  standalone feed when `:uid` is a loose `feed_*`, branching on the prefix) and the new
+  `/edit/:uid/source/:sourceUid/delete` (route name `edit-source-delete`, registered in
+  `nuxt.config.ts` `pages:extend`) which unlinks a member feed from the folder. Confirm/Cancel on
+  the sheet itself are `ui/BlockButton.vue`. Row content in both panels is inset `sm` as real
+  padding on the row (`pl-sm` on the link, `pr-sm` on the `li`) rather than a `text-inset` margin
+  on the list, so row text lines up with the Name/RSS-URL input text and the section headings.
+  Panels slide with the shared `panel-slide` classes. Backing `feeds`-store actions:
+  `renameFolder`, `toggleMute`, `updateFeed`, `removeFromFolder`, `deleteFeed`,
+  `folderDeleteImpact`, `deleteFolder`.
+  **Copy diverges from the agreed screen 7 wording** (see
+  [screens-and-flows.md](./screens-and-flows.md#7-create--edit-folders--feeds-from-the-home-list)):
+  spec calls the actions "Delete folder" / "Delete feed" / "Remove from this folder"; shipped
+  labels are "Delete feed" for deleting the *folder*, "Delete source" for deleting a standalone
+  *feed*, and "Remove source from feed" for unlinking a *feed* from a *folder* — a
+  Source/Feed/Folder vocabulary swap against [backend.md](./backend.md)'s vocabulary table that
+  hasn't been reconciled either way.
 - **Layouts** — `app/layouts/default.vue` (centered column + Navbar), `plain.vue` (bare).
 - **Mock data & types** — `app/assets/data.ts` (3 feeds, 1 folder, 15 posts),
   `app/assets/types.ts` (incl. the `Folder` type).
@@ -80,7 +117,8 @@ entirely on static mock data in `app/assets/data.ts`, served through the `feeds`
   chevron, directly below the navbar **+** — opens a **half-height options sheet**
   (`app/components/home/OptionsDrawer.vue`, local-state drawer — not route-driven — with
   placeholder rows: New folder / Edit feeds / Reorder feeds). Names only for now — no type
-  icons, no context menus yet.
+  icons. Long-press (mobile) / hover 3-dot (desktop) on a folder or loose-feed row opens the
+  **edit-feed / edit-source drawer** (see Built, below).
 - **Feed page v1** — `app/pages/feed/[uid]/index.vue` lists PostCards with the resolved
   feed/folder name as title. **Temporary:** every uid shows all posts from all feeds, newest
   first — the `usePostList(uid)` resolver comes with the data layer. `[uid].vue` is a
@@ -100,9 +138,9 @@ entirely on static mock data in `app/assets/data.ts`, served through the `feeds`
   swap instantly (`page-none`) so their drawer animations own the motion; the settings
   drawer's internal slides reuse the same CSS classes via `usePageSlide()`.
 - **Swipe navigation** — `app/composables/useSwipeNav.ts` (VueUse `useSwipe`, touch-only).
-  `useSwipeBack`: swipe right anywhere on the feed page, post page, or a settings subpage
-  drags the page with the finger and past 72px pops to the parent route (reusing the
-  page-slide / panel-slide pop); under threshold it snaps back. `useSwipeOpen`: swipe left
+  `useSwipeBack`: swipe right anywhere on the feed page, post page, a settings subpage, or an
+  edit-source subpage drags the page with the finger and past 72px pops to the parent route
+  (reusing the page-slide / panel-slide pop); under threshold it snaps back. `useSwipeOpen`: swipe left
   on a home feed row or settings section row nudges it and opens it (gesture twin of
   tapping; one delegated listener per list). Axis-locked so vertical scrolling and vaul's
   drag-to-close are untouched; back buttons unchanged.
@@ -131,12 +169,11 @@ entirely on static mock data in `app/assets/data.ts`, served through the `feeds`
   list (see Built), but the saved state itself (which posts are saved, into which group) and
   the Post-page save action are missing — every saved route still shows the all-posts mock.
 - **Folders (rest)** — the `Folder` type, one mock folder, the expandable rows on the
-  home list, and **folder creation inside the add wizard** (`addFolder` store action +
-  `add/FolderStep.vue`) are done (see Built). Still missing: the folder merged-stream read
-  (`/feed/[uid]` with a folder uid, via the `usePostList(uid)` resolver), the actions behind
-  the home options sheet (New folder / Edit feeds / Reorder feeds are placeholder rows), and
-  an edit context menu (long-press / 3-dot) for
-  rename, add/remove feeds, per-folder mute, and delete, plus a folders store. See
+  home list, **folder creation inside the add wizard** (`addFolder` store action +
+  `add/FolderStep.vue`), and the **edit-feed / edit-source drawer** (see Built) are done.
+  Still missing: the folder merged-stream read (`/feed/[uid]` with a folder uid, via the
+  `usePostList(uid)` resolver) and the actions behind the home options sheet
+  (New folder / Edit feeds / Reorder feeds are still placeholder rows). See
   [data-model.md](./data-model.md#folder-new--not-yet-in-code) and
   [screens-and-flows.md](./screens-and-flows.md).
 - **State layer (rest)** — the `feeds` store exists but is mock-seeded; still missing: saved
