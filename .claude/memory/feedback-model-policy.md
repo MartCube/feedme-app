@@ -1,17 +1,20 @@
 ---
 name: feedback-model-policy
-description: "Model policy: Fable for everything by default (incl. subagents), Opus as fallback, Sonnet only for trivial mechanical subtasks, never Haiku for code"
-metadata:
+description: "Model policy (Kimi era): k3 default; k2.7-code for code-search subagents, k2.6 only for tightly-railed mechanical subagents"
+metadata: 
+  node_type: memory
   type: feedback
+  originSessionId: 96ccb424-2068-4d4b-9f7d-37a50b517cb1
+  modified: 2026-07-24T17:06:43.035Z
 ---
 
-Use the best models available. Fable is the default for all work including subagent dispatches;
-Opus is the fallback when Fable capacity/tokens run out. Sonnet is allowed only for narrow,
-mechanical subtasks (mass renames, boilerplate, repetitive edits). Never Haiku for code work.
+Main loop and judgment/accuracy-critical subagents run `kimi-k3`; code-search subagents run
+`kimi-k2.7-code`; tightly-railed mechanical subagents (git ops, lint/typecheck running) run
+`kimi-k2.6`. Model IDs verified at platform.kimi.ai/docs/models.
 
-**Why:** quality first — skills/workflows quietly dispatching smaller models produce worse results;
-token savings only where the task genuinely can't benefit from a stronger model.
+**Why:** quality first — a wrong answer from a weaker model costs more than the tokens it
+saves. Smaller models only where the task genuinely can't benefit from a stronger one.
 
-**How to apply:** when dispatching any subagent, pass `model` explicitly (default `fable`) — never
-rely on a skill's or agent definition's default. If choosing Sonnet for a subtask, say so and why.
-Relates to [[feedback-full-file-access]] (often the right move is no subagent at all).
+**How to apply:** each `.claude/agents/*.md` pins its own `model:` — don't override it with
+a weaker one at dispatch. When creating a new subagent, pick the tier by the task's failure
+cost and say why. Relates to [[feedback-full-file-access]].

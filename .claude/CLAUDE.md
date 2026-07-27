@@ -13,8 +13,11 @@ Nuxt 4 (Vue 3 + TypeScript), source in `app/`, pnpm. @nuxt/ui v4 bundles Tailwin
 - Visual work: `docs/design-system.md` is the source of truth for tokens and treatments.
 - `pending_tasks/` is the user's private backlog — ignore it unless explicitly pointed at a task.
 - Before using a Nuxt UI component, VueUse composable, or library API not already used
-  somewhere in this repo — or before adding any dependency — delegate to the `docs` agent
-  first. Library-first: prefer VueUse/Nuxt UI/Nuxt built-ins over new deps.
+  somewhere in this repo — or before adding any dependency — delegate to the `librarian`
+  agent first. Library-first: prefer VueUse/Nuxt UI/Nuxt built-ins over new deps.
+- When asked to commit after building work, delegate to the `checker` agent first
+  (lint + typecheck), then the `docs` agent to sync docs/ with what was built, then hand
+  off to the `git` agent.
 
 ## Conventions
 

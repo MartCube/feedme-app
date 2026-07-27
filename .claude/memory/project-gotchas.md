@@ -8,6 +8,11 @@ metadata:
 ---
 
 **pnpm / tooling:**
+- **Do NOT upgrade to TypeScript 7 yet** (tried 2026-07-17, latest was 7.0.2). `vue-tsc` (latest
+  3.3.7, Volar-based) still `require.resolve`s `typescript/lib/tsc`, which TS 7 removed from its
+  `exports` → `nuxt typecheck` dies with `ERR_PACKAGE_PATH_NOT_EXPORTED`. The app *runs* on TS 7
+  (Vite transpiles, doesn't typecheck) but you lose the only verification harness. Stay on TS 6
+  until vue-tsc/Volar ships a TS-7-compatible release (watch its dist-tags for a `next`).
 - `typescript` must stay a **direct devDependency**. pnpm doesn't hoist it from Nuxt's deps, and
   `@nuxt/eslint-config` silently disables TS parsing without it — every TS file then fails lint
   with "Parsing error: Unexpected token". Same reason `tailwindcss` is pinned directly, and
