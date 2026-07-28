@@ -14,3 +14,5 @@
 - [No global visual side effects](feedback-no-global-visual-side-effects.md) — never mutate body/layout backgrounds from component work
 - [Verification approach](feedback-verification-approach.md) — no test harness; verify via pnpm lint + typecheck + run app, user manually reviews; add Vitest for store logic later
 - [Git workflow](feedback-git-workflow.md) — solo single-branch; commit straight to main, no auto-branching, only push when asked; delegate commits/pushes to the git subagent proactively
+- [Mock data realism](project-mock-data-realism.md) — all uids show ALL mock posts on purpose; usePostList resolver deferred until real data
+- [Minimal machinery](feedback-minimal-machinery.md) — justify every new composable/util in detail or cut it; separate "moved code" from "new code" in plans

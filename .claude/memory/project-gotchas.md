@@ -44,6 +44,19 @@ metadata:
   content on the leaving page mid-animation.
 - A page whose root component teleports (UDrawer) needs a real element root or navigation breaks.
 
+- **Nuxt's `useRoute()` only re-syncs when a `<NuxtPage>` resolves.** The desktop shell renders
+  no NuxtPage, so `useRoute()` there is frozen forever after the first navigation — the URL
+  changes but nothing updates. Any component that can render outside NuxtPage (desktop shell,
+  sidebar, content overlay, shared settings/edit panels) must read
+  `useRouter().currentRoute` instead. Mobile drawer HOSTS may keep `useRoute()` — the mobile
+  tree always renders NuxtPage. (Also triggers a benign dev warning: "pages but `<NuxtPage/>`
+  has not been detected".)
+- **VueUse `useMediaQuery` reads matchMedia during the hydration render** — a bare
+  `v-if="isDesktop"` layout branch hydration-mismatches on wide screens and leaves the DOM
+  stuck with the server's mobile classes (invisible desktop shell, no error). The
+  `useMounted()` gate inside `useIsDesktop()` (app/composables/useIsDesktop.ts) is
+  load-bearing; don't "simplify" it away.
+
 **Nuxt UI / vaul:**
 - Theme **compound variants** apply after `app.config.ts` slot classes and win in tailwind-merge —
   override via a matching `compoundVariants` entry in app.config, not slot classes.
