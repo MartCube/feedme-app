@@ -21,6 +21,8 @@ watch(onEdit, (on) => {
 })
 
 onMounted(() => {
+  // Desktop deep-load guard (see settings/Drawer.vue).
+  if (isDesktopNow()) return
   if (onEdit.value) open.value = true
 })
 

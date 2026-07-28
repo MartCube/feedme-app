@@ -48,6 +48,10 @@ watch(onSettings, (on) => {
 })
 
 onMounted(() => {
+  // Desktop deep-load guard: during hydration the mobile tree (and this
+  // drawer) mounts before the layout's isDesktop flips — don't flash the
+  // sheet when the desktop shell is about to take over.
+  if (isDesktopNow()) return
   if (onSettings.value) {
     open.value = true
   }

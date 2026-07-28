@@ -20,6 +20,8 @@ watch(onAdd, (on) => {
 })
 
 onMounted(() => {
+  // Desktop deep-load guard (see settings/Drawer.vue).
+  if (isDesktopNow()) return
   if (onAdd.value) {
     open.value = true
   }

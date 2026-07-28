@@ -1,0 +1,12 @@
+/* Desktop shell layout tokens (w-sidebar, max-w-postlist, max-w-reading,
+   max-w-post). The --container-* namespace keeps the six-name --spacing-*
+   rule intact — never use bare w-sm / w-lg in the shell, where the spacing
+   tokens and breakpoint prefixes share names. These are used on plain
+   elements only; any future use inside a Nuxt UI :ui prop needs the
+   tailwind-merge config treatment (see app.config.ts). */
+@theme static {
+  --container-sidebar: 18rem; /* feed/settings nav pane */
+  --container-postlist: 24rem; /* empty-state measure (the pane itself is 40%) */
+  --container-reading: 42rem; /* form measure: settings/add/edit content pages */
+  --container-post: 56rem; /* post body measure — only bites on wide monitors */
+}

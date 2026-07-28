@@ -3,11 +3,13 @@ defineProps<{
   title: string
 }>()
 
-const route = useRoute()
+// vue-router's live route, not Nuxt's useRoute(): on desktop this renders
+// without a NuxtPage, where Nuxt's route object never re-syncs.
+const route = useRouter().currentRoute
 
 // The subpage's own icon (same one as its Home list row) sits muted between
 // the back button and the title as an extra where-am-I cue.
-const icon = computed(() => settingsSections.find(section => section.to === route.path)?.icon)
+const icon = computed(() => settingsSections.find(section => section.to === route.value.path)?.icon)
 
 // Swipe right to pop back to the settings home panel; the panel-slide
 // transition animates this same root div, so the pop plays as usual.

@@ -2,6 +2,7 @@
 @import "@nuxt/ui";
 @import "./typography.css";
 @import "./spacing.css";
+@import "./layout.css";
 @import "./themes.css";
 @import "./transitions.css";
 

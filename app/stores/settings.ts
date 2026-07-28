@@ -19,7 +19,12 @@ export const useSettingsStore = defineStore('settings', () => {
   const theme = ref<ThemeName>('ink')
   const feedListStyle = ref<FeedListStyle>('list')
 
-  return { theme, feedListStyle }
+  // Desktop sidebar's Settings dropdown, persisted like the rest so the
+  // sidebar reopens the way it was left. (The feed list above it is always
+  // expanded — it's the sidebar's reason to exist.)
+  const sidebarSettingsOpen = ref(true)
+
+  return { theme, feedListStyle, sidebarSettingsOpen }
 }, {
   persist: true,
 })

@@ -13,6 +13,7 @@
 :root,
 .dark {
   --ui-bg: #1f1f21; /* page */
+  --ui-bg-sunken: #18181a; /* one step DOWN: desktop sidebar */
   --ui-bg-elevated: #252527; /* cards, drawers, navbar buttons */
   --ui-bg-muted: #303032; /* inputs, hover/pressed, avatar placeholders */
   --ui-bg-accented: #303032; /* alias → bg-muted */
@@ -38,6 +39,7 @@
    dark mode — fine-tune on screen. */
 html[data-theme='claude'] {
   --ui-bg: #262624;
+  --ui-bg-sunken: #1d1d1b;
   --ui-bg-elevated: #30302e;
   --ui-bg-muted: #3a3a38;
   --ui-bg-accented: #3a3a38;
@@ -56,4 +58,12 @@ html[data-theme='claude'] {
 
   --ui-primary: #d97757;
   --ui-error: #e5695e;
+}
+
+/* bg-default / bg-elevated / bg-muted come from Nuxt UI; bg-sunken is ours, so
+   it needs its own utility. It's the only surface *below* the page — the
+   desktop sidebar — which is what separates it from the reading panes without
+   a divider line. */
+@utility bg-sunken {
+  background-color: var(--ui-bg-sunken);
 }

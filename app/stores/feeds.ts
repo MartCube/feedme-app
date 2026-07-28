@@ -32,6 +32,18 @@ export const useFeedsStore = defineStore('feeds', () => {
       : [...expandedFolderUids.value, uid]
   }
 
+  // Desktop master–detail selection: the feed whose post list the reader
+  // shows and the open post. Synced from reader routes by the desktop shell;
+  // frozen while a content page (/settings, /add, /edit/*) is open so
+  // returning restores the reading view exactly. Mobile ignores these.
+  const readerFeedUid = ref('all')
+  const readerPostUid = ref<string | null>(null)
+  const readerPath = computed(() =>
+    readerPostUid.value
+      ? `/feed/${readerFeedUid.value}/post/${readerPostUid.value}`
+      : `/feed/${readerFeedUid.value}`,
+  )
+
   function memberFeeds(folder: Folder): Feed[] {
     return folder.feed_uids
       .map(uid => feeds.value.find(feed => feed.uid === uid))
@@ -149,5 +161,5 @@ export const useFeedsStore = defineStore('feeds', () => {
     folders.value = folders.value.filter(f => f.uid !== uid)
   }
 
-  return { feeds, folders, posts, looseFeeds, hasFeeds, memberFeeds, expandedFolderUids, isExpanded, toggleFolder, addFeed, addFolder, renameFolder, setMutedFeeds, updateFeed, removeFromFolder, deleteFeed, folderDeleteImpact, deleteFolder }
+  return { feeds, folders, posts, looseFeeds, hasFeeds, memberFeeds, expandedFolderUids, isExpanded, toggleFolder, readerFeedUid, readerPostUid, readerPath, addFeed, addFolder, renameFolder, setMutedFeeds, updateFeed, removeFromFolder, deleteFeed, folderDeleteImpact, deleteFolder }
 })
