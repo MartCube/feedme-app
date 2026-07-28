@@ -37,14 +37,18 @@ is the current focus; the rest come later, off one codebase.
 
 Layout follows the **viewport**, not the platform:
 
-- **Mobile** — one pane at a time. Tap a feed → its posts; tap a post → the post; Settings opens
-  as a drawer.
-- **Desktop / wide** — **master/detail, two panes.** The feed list sits on the left and the
-  selected post renders on the right; Settings shows its nav beside the open subpage.
+- **Mobile** (< 1024px) — one pane at a time. Tap a feed → its posts; tap a post → the post;
+  Settings, Add, and Edit open as bottom drawers.
+- **Desktop / wide** (≥ 1024px) — **three columns**: a persistent sidebar (the feed list and
+  settings nav, always visible), a posts pane, and a post pane. Settings, Add, and Edit present
+  as full content pages over the two reading panes instead of drawers; the sidebar stays
+  interactive alongside them.
 
 This is why content uses **nested routes** (post under feed, subpage under settings): the route
-encodes the navigation context, and the same routes render as one pane or two depending on
-width — no separate desktop screens. See [screens-and-flows.md](./screens-and-flows.md).
+encodes the navigation context. The routes themselves don't change between viewports — only how
+the layout composes them does: mobile renders one route's page at a time; desktop composes the
+sidebar, posts pane, and post pane directly from the route and the app's stores, without a
+separate desktop route tree. See [screens-and-flows.md](./screens-and-flows.md).
 
 ## Design principles
 
@@ -53,17 +57,19 @@ These are non-negotiable constraints that every screen should honor:
 - **Minimal, functional, scalable.** Ship the smallest thing that does the job well, and build
   it so it can grow without a rewrite. Prefer fewer, clearer options over configurability.
 - **Mobile-first, responsive.** Designed phone-width-first (`layouts/default.vue` centers a
-  narrow column), then expanded — on desktop the master/detail screens open into two panes
-  rather than staying a single centered column. See [Platforms & layout](#platforms--layout).
+  narrow column), then expanded — on desktop the same screens open into a persistent sidebar
+  plus posts/post panes rather than staying a single centered column. See
+  [Platforms & layout](#platforms--layout).
 - **Dark mode only — for now.** Enforced in `nuxt.config.ts` (`colorMode.preference: 'dark'`).
   Dark is the only theme we ship today; do not add a theme toggle yet. Theming is a deliberate
   *future* step, kept minimal (see [Planned](#planned-not-now)).
 - **Reeder-style minimalism.** Typography and whitespace carry the design. The full visual
   language (type scale, colors, surfaces, controls) lives in the design-system page
   `app/pages/design.vue` and the theme tokens in `app/assets/css/main.css`.
-- **Overlay secondary actions.** Add feed and Settings layer over the current screen as a
-  bottom drawer (`UDrawer`) on mobile, but they're route-backed (`/add`, `/settings/*`), so on
-  desktop they present as panels rather than drawers.
+- **Overlay secondary actions.** Add feed, Settings, and editing a feed/folder layer over the
+  current screen as a bottom drawer (`UDrawer`) on mobile, but they're route-backed (`/add`,
+  `/settings/*`, `/edit/*`), so on desktop they present as full content pages over the reading
+  panes rather than drawers.
 
 ## Theme tokens (reference)
 

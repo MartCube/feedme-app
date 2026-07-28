@@ -14,7 +14,7 @@ navigates. File references point at `app/pages/` and `app/components/`.
                         ▼          │       └─► +  → Add drawer (add feed)
         ┌───────────────────────┐  │                     search input → results → add
         │  Feed page  (master)  │  │
-        │  /feed/[uid]          │  └──────────► Settings (settings.vue)
+        │  /feed/[uid]          │  └──────────► Settings (/settings/:panel?)
         │  list of PostCards    │                /settings/{account, appearance,
         └───────────┬───────────┘                          about, report}
             tap a post
@@ -27,28 +27,46 @@ navigates. File references point at `app/pages/` and `app/components/`.
 
    uid can be 'all' → every followed feed merged, 'saved' → the Saved feed,
    or a folder uid → its merged stream.
-   Desktop: master + detail side by side. See screens 1, 6, and 7.
+   Desktop: sidebar + posts pane + post pane side by side. See screens 1, 6, and 7.
 ```
 
 > **Routing.** Posts nest under feeds and Settings subpages nest under Settings, so the route
-> *is* the navigation context. Master/detail by design: the parent (feed list / settings nav)
-> stays mounted and renders the child into a `<NuxtPage/>` slot — one pane on mobile, two panes
-> side by side on desktop. The two feed/post params must differ (`[uid]` vs `[postUid]`).
+> *is* the navigation context — but that context now drives **two different renderers**
+> instead of one nested-page tree:
+>
+> - **Mobile** (< 1024px): each route is its own page, and `feed/[uid].vue` is a bare
+>   `<NuxtPage/>` passthrough to its `index.vue` / `post/[postUid].vue` children — one pane at
+>   a time, sliding like a navigation stack.
+> - **Desktop** (≥ 1024px): `app/layouts/default.vue` renders `DesktopShell` instead of
+>   `<NuxtPage/>` at all. The shell reads the live route (`useRouter().currentRoute`, since
+>   Nuxt's `useRoute()` only resyncs when a `<NuxtPage/>` resolves and the shell renders none)
+>   and composes three columns directly from it and the `feeds`/`settings` stores: a sidebar
+>   (feed list + settings nav), a posts pane, and a post pane. Settings/Add/Edit render as a
+>   full-page overlay over the two reading panes instead of a drawer. **The routes and
+>   `pages:extend` records are identical on both viewports** — layout is purely a presentation
+>   concern, nothing about navigation or the route tree changes. (This settles the layout half
+>   of the routing decision toward layout-composed panes rather than a nested-`<NuxtPage/>`
+>   master/detail tree — see [current-state.md](./current-state.md#resolved-decisions).)
+>
+> The two feed/post params must differ (`[uid]` vs `[postUid]`).
 >
 > ```
 > pages/
 >   index.vue                  → /
 >   feed/
->     [uid].vue                → post list (master) + <NuxtPage/>;  uid: feed | 'all' | 'saved' | folder
+>     [uid].vue                → mobile: <NuxtPage/> passthrough;  uid: feed | 'all' | 'saved' | folder
 >     [uid]/
->       index.vue              → /feed/[uid]
->       post/[postUid].vue     → /feed/[uid]/post/[postUid]  (detail)
->   settings.vue               → settings nav (master) + <NuxtPage/>
->   settings/
->     index.vue · account.vue · appearance.vue · about.vue · report.vue
->   (add)                      → /add        design.vue → /design (plain layout)
->            /add renders the home component (pages:extend hook); the Add drawer opens over it,
->            mirroring settings. There is no add.vue page file.
+>       index.vue              → /feed/[uid]              (post list)
+>       post/[postUid].vue     → /feed/[uid]/post/[postUid]  (post)
+>
+> pages:extend (nuxt.config.ts) adds these paths, all rendering the SAME index.vue component
+> (the home page, kept mounted behind a drawer on mobile / behind the content overlay on
+> desktop) — there are no separate settings.vue / settings/*.vue page files:
+>   /settings/:panel?          → SettingsDrawer (mobile) / DesktopContentOverlay (desktop)
+>   /add                       → AddDrawer (mobile) / DesktopContentOverlay (desktop)
+>   /edit/:uid, /edit/:uid/source/:sourceUid, /edit/:uid/add, /edit/:uid/add/input,
+>   /edit/:uid/delete, /edit/:uid/source/:sourceUid/delete
+>                              → EditDrawer (mobile) / DesktopContentOverlay (desktop)
 > ```
 >
 > **The feed page is a polymorphic post-list view.** Its `[uid]` resolves to one of three
@@ -65,9 +83,6 @@ navigates. File references point at `app/pages/` and `app/components/`.
 > unambiguous. Keep the page thin: it should delegate to a resolver (e.g. a `usePostList(uid)`
 > composable returning `{ kind, title, posts }`) and just render the result, so feed / folder /
 > saved differences live in the resolver, not in template conditionals.
->
-> The current scaffold files (`pages/Feed.vue`, `pages/[Post].vue`, and the
-> `SettingsAccount.vue` / `SettingsAbout.vue` *components*) move to match this tree.
 
 ---
 
@@ -106,14 +121,21 @@ feed is **loose** when its `uid` is in no folder's `feed_uids`.
 **Navbar:** `components/Navbar.vue` provides the menu (`→ /settings`) and the **+** create menu
 via `components/IconButton.vue`.
 
+**Empty state:** if the user follows nothing yet (no feeds, no folders), the list is replaced
+by a first-run nudge — an explainer and a primary **Add your first feed** action into the Add
+flow.
+
+**Desktop:** this same list renders in the sidebar, persistent beside the posts/post panes
+(not behind a drawer) — see the Routing note.
+
 ---
 
 ## 2. Feed page — `pages/feed/[uid].vue` (currently `Feed.vue`)
 
 **Purpose:** show a post list for the selected `uid`. This is the **master** pane; on desktop
-the selected post renders beside it (detail), on mobile it's full-screen. The page is
-**polymorphic** — `uid` is a real feed, `saved`, or a folder (see screens 1 and 6, and the
-Routing note's resolution order). The render is identical; only the post list it resolves
+the selected post renders beside it in its own pane (detail), on mobile it's full-screen. The
+page is **polymorphic** — `uid` is a real feed, `saved`, or a folder (see screens 1 and 6, and
+the Routing note's resolution order). The render is identical; only the post list it resolves
 differs.
 
 **The user can:**
@@ -128,6 +150,9 @@ feeds' posts merged (minus muted) — see screen 6.
 
 **PostCard** shows: `image_url`, `title`, and `published_at` (and a type cue from the parent
 feed). Tapping it opens the Post page.
+
+**Desktop:** the posts pane is fixed-width and always visible beside the post pane; there is
+no back navigation for it (nothing to go back to — the sidebar is always there instead).
 
 ---
 
@@ -145,6 +170,9 @@ it renders beside the feed list on desktop and full-screen on mobile.
 - Go **back** → the Feed page (the `[uid]` it was opened from — a real feed, or `saved`).
 
 **Data:** the `Post` matching `postUid`; the route `uid` is the feed context it was opened in.
+
+**Desktop:** until a post is tapped, the post pane shows a placeholder ("Select a post")
+instead of this screen — there is no auto-selected first or last-read post.
 
 ---
 
@@ -180,18 +208,26 @@ ignores the query and returns a fixed per-type list after ~1s — no backend yet
 `useFeedsStore().addFeed(candidate, destination)`, which mints a `feed_*` uid and (for a folder
 destination) appends to that folder's `feed_uids`.
 
-**Components:** `add/Drawer.vue` (host: sheet + step switch + slide transition + commit/close/reset),
+**Components:** `add/Drawer.vue` (mobile sheet host: open protocol + commit/close/reset),
+`add/Steps.vue` (the phase switch itself — reused by the desktop presentation below),
 `add/TypeStep.vue`, `add/SearchStep.vue`, `add/DestinationStep.vue`, and the `useAddFeedWizard()`
 composable. **Not yet built:** real search / RSS discovery, live metadata (sub counts, latest items),
 and form validation via the installed **VeeValidate + Zod** stack.
 
+**Desktop:** `/add` presents as a full content page over the two reading panes (sidebar stays
+usable) instead of a bottom sheet; the wizard itself is unchanged.
+
 ---
 
-## 5. Settings — `pages/settings.vue` + nested subpages
+## 5. Settings — `/settings/:panel?` (drawer on mobile, content page on desktop)
 
 **Purpose:** account, appearance, app info, and support. Same master/detail shape as feeds: the
-settings nav is the **master**, the chosen subpage is the **detail** — a drawer on mobile, two
-panes on desktop. Each subpage is its own route (not in-drawer component state).
+settings nav (the section list) is the **master**, the chosen subpage is the **detail**. On
+mobile both live as panels inside one bottom sheet (`components/settings/Drawer.vue`) that
+slide between each other; there are no separate settings page files — every `/settings/*` path
+renders the home page's component behind the sheet (see the Routing note) and the sheet swaps
+its panel by path. On desktop the same panels render as a full content page over the two
+reading panes, with the section list also always visible in the sidebar.
 
 **Subpages:**
 - **Account** — `/settings/account` — how you're signed in (Google / Apple), member since, etc.
@@ -200,15 +236,11 @@ panes on desktop. Each subpage is its own route (not in-drawer component state).
 - **About** — `/settings/about` — app info.
 - **Report an issue** — `/settings/report`.
 
-The **Design system** page (`pages/design.vue`, `plain` layout) is a separate full page at
-`/design`, not a settings subpage.
-
 **The user can:**
-- Open any subpage from the settings nav; navigate between them with **page-level** transitions.
-- Go **back** → closes Settings (mobile) / returns to the nav (desktop).
-
-**State today:** the existing drawer + slide animations were a demo built on component state;
-they get reworked as Nuxt page transitions to match the routed structure.
+- Open any subpage from the settings nav; navigate between them with panel-slide transitions
+  (mobile; desktop has none yet, see [current-state.md](./current-state.md)).
+- Go **back** → closes Settings, returning to wherever it was opened from (mobile) / returns to
+  the frozen reading position (desktop).
 
 ---
 
@@ -228,6 +260,8 @@ folder uid resolves through the same feed page (screen 2), exactly like `saved` 
 unaffected on their own feed pages and in other folders. (See the resolution order in the
 Routing note: `saved` → folder → feed.)
 
+**Desktop:** renders through the same posts pane as screen 2 — no separate treatment.
+
 ---
 
 ## 7. Create & edit folders / feeds (from the home list)
@@ -246,7 +280,8 @@ menu: long-press (or a desktop hover 3-dot) on a folder opens a folder panel (re
 mute toggles, add a feed, delete), and tapping a member feed — or long-pressing a loose feed —
 opens a feed subpage (edit name + RSS url, remove/delete). The options below map to that drawer;
 the shipped button copy currently uses different nouns than this list — see
-[current-state.md](./current-state.md) for the divergence.
+[current-state.md](./current-state.md) for the divergence. On desktop this presents as a full
+content page over the reading panes (see the Routing note) instead of a bottom sheet.
 
 - **Folder row:**
   - **Rename** the folder.
@@ -276,9 +311,12 @@ actions confirm before committing:
 
 - **Back navigation** follows the route nesting: Post → Feed → Feeds list (where "Feed" is the
   `/feed/[uid]` it opened from — a real feed, `saved`, or a folder), and Settings subpage →
-  Settings → wherever it opened from. Add / New-folder close back to `/`.
-- **Master/detail by viewport:** the same nested routes present as one pane on mobile and two
-  panes (master + detail) on desktop — see the Routing note above. Layout is a presentation
-  concern; the routes don't change.
+  Settings → wherever it opened from. Add / Edit close back to `/` on mobile, or to the frozen
+  reading position on desktop (see the Routing note).
+- **Master/detail by viewport:** the same routes present as one pane on mobile (nested
+  `<NuxtPage/>`s, sliding like a stack) and three panes on desktop (sidebar + posts pane + post
+  pane, composed by the layout directly from the route and the stores — not by rendering
+  `<NuxtPage/>` — see the Routing note above). Layout is a presentation concern; the routes and
+  `pages:extend` records don't change.
 - **Type-aware rendering:** `Feed.type` drives small differences (YouTube thumbnail vs.
   article body), but the layout and interactions are the same across types.

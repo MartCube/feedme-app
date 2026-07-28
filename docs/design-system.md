@@ -116,6 +116,28 @@ Canonical value per recurring slot — reach for these before inventing spacing:
 | Section-label → group / note below group | `mt-xs` |
 | Between page sections | `gap-lg` |
 
+## Layout (desktop shell)
+
+Desktop (≥1024px) presents feeds/posts/settings as a three-column shell instead of the mobile
+single-pane stack — see [screens-and-flows.md](./screens-and-flows.md) for the screens this
+composes. Its measures are container tokens, not spacing steps, so they never collide with the
+six-name `--spacing-*` rule above: defined as `--container-*` in `app/assets/css/layout.css`
+(a `@theme static` block, imported by `main.css`).
+
+| Token | Size | Use for |
+|---|---|---|
+| `--container-sidebar` | 18rem | Feed list + settings nav column |
+| `--container-postlist` | 24rem | Posts (master) pane |
+| `--container-reading` | 42rem | Post content measure cap (also the width of the desktop content overlay) |
+| `--container-shell` | 100rem | Whole-shell cap, centered on large monitors |
+
+**Breakpoint:** a single tier at `lg` (1024px, Tailwind's `lg:` prefix) splits mobile from
+desktop — below it the app is the mobile single-pane stack, at or above it the three-column
+shell. There is no middle tablet tier today. Note the naming collision this introduces: `lg` is
+both a *breakpoint prefix* (`lg:hidden`) and a *spacing step* (`gap-lg`) — they mean different
+things depending on which utility they prefix, so read `lg:` classes as breakpoints and bare
+`-lg` suffixes as the spacing token.
+
 ## How theming works
 
 Each theme is a small block in `app/assets/css/themes.css` (imported by `main.css`)

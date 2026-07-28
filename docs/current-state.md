@@ -8,9 +8,13 @@ _Last reviewed: 2026-07-27._
 ## Summary
 
 The **design system** and **navigation/drawer UX** are well developed, and the three **reader
-screens** (feeds list, feed page, post page) now navigate end to end on mock data. There is
-**no data layer** (no RSS fetching, no persistence beyond the theme setting). The app runs
-entirely on static mock data in `app/assets/data.ts`, served through the `feeds` store.
+screens** (feeds list, feed page, post page) now navigate end to end on mock data. **Desktop
+(≥1024px) v1** now renders those same screens as a three-column shell — sidebar, posts pane,
+post pane — composed by the layout from the same routes and store state; Settings/Add/Edit
+present as full content pages over the reading panes instead of drawers. There is **no data
+layer** (no RSS fetching, no persistence beyond the theme setting and the two sidebar-expansion
+flags). The app runs entirely on static mock data in `app/assets/data.ts`, served through the
+`feeds` store.
 
 ## Built
 
@@ -35,19 +39,24 @@ entirely on static mock data in `app/assets/data.ts`, served through the `feeds`
 - **IconButton** — `app/components/ui/IconButton.vue` (round soft-fill button, accent press
   flash). A `quiet` variant blends into the page bg at rest and lifts to the normal
   elevated look while the press flash runs (home 3-dot options trigger).
-- **Settings drawer** — `app/components/settings/Drawer.vue` hosted in the layout; the
+- **Settings drawer** — `app/components/settings/Drawer.vue` hosts the sheet; the
   `/settings/:panel?` route renders the home component (via `pages:extend`) so the feed list
-  stays behind the sheet, and panels swap as in-drawer components with `panel-slide`
+  stays behind the sheet on mobile, and panels swap as in-drawer components with `panel-slide`
   transitions. Main page (`settings/Home.vue`): in-flow close → title → section list with the
   shared tap-selection flash (row + leading icon accent flash). Subpages (Account / Appearance
   / About / Report) share `settings/Page.vue`: back + the section's own muted icon + `text-subtitle`
-  title as a where-am-I cue (sections defined once in `app/utils/settings-drawer.ts`). Appearance is
-  functional (theme switch); the rest are mock content.
-- **Add-feed wizard** — `app/components/add/Drawer.vue`, hosted in the layout like the settings
+  title as a where-am-I cue (sections defined once in `app/utils/settings-drawer.ts`, exported as
+  `settingsSections` and reused by the desktop sidebar). Both `settings/Page.vue` and the route
+  map that picks a panel per path read `useRouter().currentRoute` rather than Nuxt's `useRoute()`
+  so they stay correct when rendered inside the desktop content overlay (see Desktop shell v1,
+  below). Appearance is functional (theme switch); the rest are mock content.
+- **Add-feed wizard** — `app/components/add/Drawer.vue` hosts the sheet, like the settings
   drawer. The `/add` URL renders the home component (via the `pages:extend` hook) so the feed
-  list stays behind the sheet; the navbar **+** links straight to `/add` (no dropdown), and
-  close routes back to `/`. Inside, a four-phase in-drawer wizard (state in
-  `useAddFeedWizard()`): **pick type** (`add/TypeStep.vue`, cards with an accent caret tap flash) →
+  list stays behind the sheet on mobile; the navbar **+** links straight to `/add` (no dropdown),
+  and close routes back to `/`. The four-phase slide switch itself lives in
+  `app/components/add/Steps.vue` (`AddSteps`, emits `close`/`done` — the host decides what those
+  mean, which is what lets the desktop content overlay reuse it), state in
+  `useAddFeedWizard()`: **pick type** (`add/TypeStep.vue`, cards with an accent caret tap flash) →
   **paste/search** with a Paste chip, ~1s skeleton, and mock results as **multi-select cards**
   (whole card toggles a trailing page-bg circle "well" that gains an accent checkmark when
   picked; a header forward button at IconButton size — disabled until ≥1 picked, accent when
@@ -64,9 +73,12 @@ entirely on static mock data in `app/assets/data.ts`, served through the `feeds`
   Committing calls `useFeedsStore().addFeed()` per picked feed and the home list updates. Results
   are a mock (`app/assets/mock-search.ts`, fixed per-type, query ignored); real search/RSS is not
   wired.
-- **Edit-feed / edit-source drawer** — `app/components/edit/Drawer.vue`, hosted in the layout
-  like the settings/add drawers; every `/edit/*` URL renders the home component (`pages:extend`)
-  so the list stays behind the sheet. Opened by **long-press** on a folder or loose-feed home
+- **Edit-feed / edit-source drawer** — `app/components/edit/Drawer.vue` hosts the sheet (UDrawer
+  + open protocol + close-key provide + animation-end navigation), like the settings/add
+  drawers; every `/edit/*` URL renders the home component (`pages:extend`) so the list stays
+  behind the sheet on mobile. The route-driven panel switch and confirm-descriptor table live in
+  `app/components/edit/Panels.vue` (`EditPanels`), shared by the mobile drawer and, on desktop,
+  the content overlay. Opened by **long-press** on a folder or loose-feed home
   row (mobile, `useLongPress` — suppresses the follow-up nav click) or a **hover-revealed 3-dot**
   on the row (desktop only, `@media (hover: hover)`). Polymorphic by uid: a `folder_*` uid opens
   the **folder panel** (`edit/FolderPanel.vue` — rename input + a **Save** pill, a "Sources"
@@ -89,7 +101,7 @@ entirely on static mock data in `app/assets/data.ts`, served through the `feeds`
   confirms before committing, via `edit/ConfirmPanel.vue` (replaces the earlier `DeleteConfirm.vue`;
   purely presentational — props `action`/`verb`/`subject`/optional `context`/`note`/`backTo`,
   emits `confirm`), rendered at three routes whose copy, back path, and store call are owned by a
-  single `confirm` computed in `Drawer.vue`: `/edit/:uid/delete` (delete the folder, or the
+  single `confirm` computed in `Panels.vue`: `/edit/:uid/delete` (delete the folder, or the
   standalone feed when `:uid` is a loose `feed_*`, branching on the prefix) and the new
   `/edit/:uid/source/:sourceUid/delete` (route name `edit-source-delete`, registered in
   `nuxt.config.ts` `pages:extend`) which unlinks a member feed from the folder. Confirm/Cancel on
@@ -107,10 +119,47 @@ entirely on static mock data in `app/assets/data.ts`, served through the `feeds`
   *feed*, and "Remove source from feed" for unlinking a *feed* from a *folder* — a
   Source/Feed/Folder vocabulary swap against [backend.md](./backend.md)'s vocabulary table that
   hasn't been reconciled either way.
-- **Layouts** — `app/layouts/default.vue` (centered column + Navbar), `plain.vue` (bare).
+- **Layouts** — `app/layouts/default.vue` is the single layout and the mobile/desktop branch
+  point: `useIsDesktop()` (`app/composables/useIsDesktop.ts` — VueUse `useMediaQuery` at the
+  `lg` 1024px tier, gated behind `useMounted` so SSR and the hydration render always emit the
+  mobile tree, flipping only after mount on wide clients) chooses between the unchanged mobile
+  tree (`lg:hidden`-masked for a wide first paint, hosting the three drawers) and
+  `DesktopShell`. `isDesktopNow()` is the synchronous twin for imperative guards.
+- **Desktop shell v1** (`app/components/desktop/`) — ≥1024px renders three columns composed
+  straight from the route and the `feeds` store, not a nested-route tree: `Sidebar.vue` (18rem)
+  — two collapsible sections, expansion persisted in the `settings` store
+  (`sidebarFeedsOpen`/`sidebarSettingsOpen`) — **Feeds** (the shared `HomeFeedList` plus an
+  "Add feed" row → `/add`) and **Settings** (rows from `settingsSections`, active by path); a
+  posts pane (24rem, `FeedPostList`); and a post pane (flexible, capped at a 42rem reading
+  measure, `FeedPostView`, or a dimmed "Select a post" placeholder — **no auto-select**).
+  `Shell.vue` reads `useRouter().currentRoute` rather than Nuxt's `useRoute()` (Nuxt's route
+  object only resyncs when a `NuxtPage` resolves, and the shell renders none), syncing the
+  feeds store's `readerFeedUid`/`readerPostUid`/`readerPath` on reader routes only — they stay
+  frozen while a content route is open. Settings, Add, and Edit present as a full opaque
+  overlay (`ContentOverlay.vue`) over the two reading panes: the sidebar stays interactive, the
+  reading panes stay mounted underneath (feed, selected post, and pane scroll all survive a
+  round-trip), and closing returns to the frozen reader path. The overlay reuses the exact
+  mobile panel components (`app/utils/settings-panels.ts`'s route map, `AddSteps`,
+  `EditPanels`) and resets the add wizard on any exit from `/add` or `/edit/*`. The three drawer
+  hosts guard their `onMounted` open-on-deep-load with `isDesktopNow()` so a desktop deep-load
+  of `/settings/*`, `/add`, or `/edit/*` never flashes a bottom sheet. Layout tokens live in
+  `app/assets/css/layout.css` (`--container-sidebar/postlist/reading/shell`, a `@theme static`
+  block in its own namespace so it doesn't collide with the six-name `--spacing-*` rule) —
+  `--container-shell` (100rem) centers and caps the whole shell on large monitors. **v1 is
+  deliberately unpolished:** no desktop transitions, keyboard focus rings still suppressed, and
+  `HomeOptionsDrawer` still opens as a bottom sheet on desktop — all queued for a later
+  design/polish pass.
+- **First-run empty state** — `app/components/home/EmptyState.vue` ("Nothing here yet" + an
+  explainer + a primary "Add your first feed" action → `/add`), driven by the `feeds` store's
+  `hasFeeds` computed (feeds or folders non-empty). Shown on the mobile home page in place of
+  the list, and on desktop in place of both reading panes (the sidebar keeps working, so Add
+  feed stays reachable). New spec surface — nothing was specced for the zero-feeds state
+  before.
 - **Mock data & types** — `app/assets/data.ts` (3 feeds, 1 folder, 15 posts),
   `app/assets/types.ts` (incl. the `Folder` type).
-- **Feeds list v1** — `app/pages/index.vue` renders the home list from mock data: a pinned
+- **Feeds list v1** — `app/components/home/FeedList.vue` (`HomeFeedList`) renders the home list
+  from mock data — used by the mobile home page (`app/pages/index.vue`) and, on desktop, the
+  sidebar (an `activeUid` prop drives the desktop persistent-selection highlight): a pinned
   **Saved** row (links to `/feed/saved`; chevron expands to the three saved groups —
   Bookmarks / Favorites / Later from `app/utils/saved.ts`, each → `/feed/saved_*`), then
   folder rows (name + feed count, expand/collapse chevron with auto-animate and an accent tap
@@ -125,24 +174,30 @@ entirely on static mock data in `app/assets/data.ts`, served through the `feeds`
   placeholder rows: New folder / Edit feeds / Reorder feeds). Names only for now — no type
   icons. Long-press (mobile) / hover 3-dot (desktop) on a folder or loose-feed row opens the
   **edit-feed / edit-source drawer** (see Built, below).
-- **Feed page v1** — `app/pages/feed/[uid]/index.vue` lists PostCards with the resolved
-  feed/folder name as title. **Temporary:** every uid shows all posts from all feeds, newest
-  first — the `usePostList(uid)` resolver comes with the data layer. `[uid].vue` is a
-  `<NuxtPage/>` passthrough until the desktop master/detail layout lands.
-- **Post page v1** — `app/pages/feed/[uid]/post/[postUid].vue` renders title, date, content
-  (no Save / Open source yet).
+- **Feed page v1** — `app/components/feed/PostList.vue` (`FeedPostList`, `uid` + `activePostUid`
+  props) lists PostCards with the resolved feed/folder name as title — used by the mobile feed
+  page (`app/pages/feed/[uid]/index.vue`) and, on desktop, the shell's posts pane.
+  **Temporary:** every uid shows all posts from all feeds, newest first — the `usePostList(uid)`
+  resolver comes with the data layer. `feed/[uid].vue` stays a `<NuxtPage/>` passthrough on
+  mobile; on desktop the shell bypasses it (and every route's `<NuxtPage/>`) entirely, composing
+  the posts/post panes itself from the feeds store.
+- **Post page v1** — `app/components/feed/PostView.vue` (`FeedPostView`, `postUid` prop) renders
+  title, date, content (no Save / Open source yet) — used by the mobile post page
+  (`app/pages/feed/[uid]/post/[postUid].vue`) and, on desktop, the shell's post pane.
 - **PostCard v1** — `app/components/feed/PostCard.vue`: date + title only (no image / type cue
   yet), whole card links to the post; rows separated by spacing (no divider lines).
 - **Context-aware navbar** — both slots swap per page: home = menu + add, feed page =
   sidebar icon (→ home) + search (no-op for now), post page = back (→ its feed) + save
   (no-op for now). Navigation is hierarchical, not history-based.
-- **Reader slide transitions** — home → feed → post slide like a navigation stack (deeper
-  pushes in from the right, back pops out to the right). Direction is set on route meta by
-  `app/middleware/page-slide.global.ts` (computed *before* render — a component watch is one
-  navigation late), shared `.page-slide-*` classes live in `assets/css/transitions.css`, and the
-  default layout provides the positioning/clip context. Non-reader routes (add, settings)
-  swap instantly (`page-none`) so their drawer animations own the motion; the settings
-  drawer's internal slides reuse the same CSS classes via `usePageSlide()`.
+- **Reader slide transitions** — **mobile only** (the desktop shell renders no `<NuxtPage/>`,
+  so this machinery never runs there — see Desktop shell v1). home → feed → post slide like a
+  navigation stack (deeper pushes in from the right, back pops out to the right). Direction is
+  set on route meta by `app/middleware/page-slide.global.ts` (computed *before* render — a
+  component watch is one navigation late), shared `.page-slide-*` classes live in
+  `assets/css/transitions.css`, and the default layout provides the positioning/clip context.
+  Non-reader routes (add, settings) swap instantly (`page-none`) so their drawer animations own
+  the motion; the settings drawer's internal slides reuse the same CSS classes via
+  `usePageSlide()`.
 - **Swipe navigation** — `app/composables/useSwipeNav.ts` (VueUse `useSwipe`, touch-only).
   `useSwipeBack`: swipe right anywhere on the feed page, post page, a settings subpage, or an
   edit-source subpage drags the page with the finger and past 72px pops to the parent route
@@ -163,8 +218,11 @@ entirely on static mock data in `app/assets/data.ts`, served through the `feeds`
   `/feed/saved_*` groups (titles already resolve; the post list is still the
   show-everything mock).
 - **Post page (rest)** — Save + Open source actions.
-- **Master/detail layout** — single pane on mobile, two panes (feed list + post / settings nav
-  + subpage) on desktop, off the same nested routes.
+- **Desktop polish** — v1 (see Built → Desktop shell v1) ships the structural three columns
+  only: no desktop pane/overlay transitions, keyboard focus rings still globally suppressed,
+  and `HomeOptionsDrawer` still opens as a mobile-style bottom sheet on desktop. Auto-selecting
+  a detail post (e.g. the last-read one) on entering a feed is also deferred — v1 always starts
+  at the "Select a post" placeholder.
 - **Settings content** — the drawer, its four subpages, and transitions are built (see Built);
   Account / About / Report still need real content and actions behind their mock panels.
 - **PostCard (rest)** — image and source-feed type cue.
@@ -198,6 +256,21 @@ _None currently._
 
 ## Resolved decisions
 
+- **Desktop layout composition** _(2026-07-27)_ — desktop (≥1024px) is **three columns**
+  (sidebar + posts pane + post pane), composed by `app/layouts/default.vue` /
+  `DesktopShell` straight from the existing routes and the `feeds`/`settings` stores —
+  **not** a nested-`<NuxtPage/>` master/detail tree (tried twice; a child navigation
+  under a nested page remounts the parent, nuxt#13094 — see
+  `.claude/memory/project-gotchas.md`). On desktop, no route renders a `<NuxtPage/>` at
+  all; the routes and `pages:extend` records are unchanged, so the mobile tree still
+  works exactly as before. This settles the "Routing scheme" decision below toward
+  layout-composed panes rather than nested routes for the desktop half of that promise.
+- **Desktop breakpoint** _(2026-07-27)_ — a single 1024px tier (Tailwind `lg`) for v1:
+  below it the app is the mobile structure, at or above it the desktop shell. A
+  middle tablet tier is possible later but not built.
+- **Desktop detail-pane selection** _(2026-07-27)_ — the post pane shows a placeholder
+  ("Select a post") until a post is clicked; there is no auto-select of the first or
+  last-read post. Revisit later if that feels wrong in daily use.
 - **AI reading-companion feed** _(2026-07-16)_ — a custom RSS feed of AI-written posts
   (one per book chapter, reflection + link back to the chapter) is specced in
   [ai-feed.md](./ai-feed.md). Lives in a separate `feedme-books` repo (Python; batch
@@ -215,9 +288,13 @@ _None currently._
 
 - **Routing scheme** _(2026-06-29)_ — **nested routes**: posts nest under feeds
   (`/feed/[uid]/post/[postUid]`), settings subpages nest under settings (`/settings/*`). The
-  route encodes navigation context and drives a master/detail layout (one pane on mobile, two
-  on desktop). Scaffold files (`Feed.vue`, `[Post].vue`, `SettingsAccount/About` components)
-  move to match the nested tree. See [screens-and-flows.md](./screens-and-flows.md).
+  route encodes navigation context. Scaffold files (`Feed.vue`, `[Post].vue`,
+  `SettingsAccount/About` components) move to match the nested tree. See
+  [screens-and-flows.md](./screens-and-flows.md). **Amended _(2026-07-27)_:** the
+  desktop two-pane presentation this route nesting was meant to drive is instead
+  composed by the layout from these same routes (see "Desktop layout composition"
+  above) — the routes stayed exactly as this decision specced, only the desktop
+  *rendering mechanism* changed.
 - **Saved posts entry point** _(2026-06-29)_ — saved posts surface as a **Saved** feed pinned
   in the feeds list (no `saved.vue` screen, no navbar bookmark icon). Saving stays the toggle
   on the Post page. Routed as `/feed/saved`, reusing the feed-page component.
