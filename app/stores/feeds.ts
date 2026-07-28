@@ -15,6 +15,9 @@ export const useFeedsStore = defineStore('feeds', () => {
     feeds.value.filter(feed => !folders.value.some(folder => folder.feed_uids.includes(feed.uid))),
   )
 
+  // First-run: nothing followed yet (no feeds, and no folders to hold any).
+  const hasFeeds = computed(() => feeds.value.length > 0 || folders.value.length > 0)
+
   // Feed-list UI state. Lives here (not in the page) so it survives page
   // remounts and, later, navigation to feed pages and back.
   const expandedFolderUids = ref<string[]>([])
@@ -146,5 +149,5 @@ export const useFeedsStore = defineStore('feeds', () => {
     folders.value = folders.value.filter(f => f.uid !== uid)
   }
 
-  return { feeds, folders, posts, looseFeeds, memberFeeds, expandedFolderUids, isExpanded, toggleFolder, addFeed, addFolder, renameFolder, setMutedFeeds, updateFeed, removeFromFolder, deleteFeed, folderDeleteImpact, deleteFolder }
+  return { feeds, folders, posts, looseFeeds, hasFeeds, memberFeeds, expandedFolderUids, isExpanded, toggleFolder, addFeed, addFolder, renameFolder, setMutedFeeds, updateFeed, removeFromFolder, deleteFeed, folderDeleteImpact, deleteFolder }
 })

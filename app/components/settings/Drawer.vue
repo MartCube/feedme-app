@@ -1,24 +1,14 @@
 <script setup lang="ts">
-import type { Component } from 'vue'
-import { SettingsAbout, SettingsAccount, SettingsAppearance, SettingsHome, SettingsReport } from '#components'
-
 // Hosts the settings bottom sheet. The settings URLs render the home route
 // (see the pages:extend hook in nuxt.config) and the panels are plain
-// components switched here — no nested NuxtPage. Nested route pages remount
-// their parent page on navigation (nuxt#13094), which replayed the drawer's
-// enter animation; with one route + local panels nothing can remount.
+// components switched by path (utils/settings-panels.ts) — no nested
+// NuxtPage. Nested route pages remount their parent page on navigation
+// (nuxt#13094), which replayed the drawer's enter animation; with one route +
+// local panels nothing can remount.
 const route = useRoute()
 const open = ref(false)
 
-const panels: Record<string, Component> = {
-  '/settings': SettingsHome,
-  '/settings/about': SettingsAbout,
-  '/settings/account': SettingsAccount,
-  '/settings/appearance': SettingsAppearance,
-  '/settings/report': SettingsReport,
-}
-
-const activePanel = computed(() => panels[route.path])
+const activePanel = computed(() => settingsPanels[route.path])
 const onSettings = computed(() => Boolean(activePanel.value))
 
 // Slide direction between panels: deeper pushes in from the right, shallower
@@ -26,7 +16,7 @@ const onSettings = computed(() => Boolean(activePanel.value))
 // are covered by the drawer's own animation.
 const slide = ref<'push' | 'pop' | 'none'>('none')
 watch(() => route.path, (to, from) => {
-  if (!panels[to] || !panels[from]) {
+  if (!settingsPanels[to] || !settingsPanels[from]) {
     slide.value = 'none'
     return
   }

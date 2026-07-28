@@ -1,35 +1,15 @@
 <script setup lang="ts">
-const { feeds, folders, posts } = storeToRefs(useFeedsStore())
+const { feeds, folders } = storeToRefs(useFeedsStore())
 
 // Captured once, not computed: the route params change before the leave
 // slide finishes, and the leaving page must keep its content while animating.
 const route = useRoute()
 const uid = route.params.uid as string
 
-// Resolution order per the spec: all → saved → folder → feed.
-const title = computed(() =>
-  uid === 'all'
-    ? 'All feeds'
-    : uid === 'saved'
-      ? 'Saved'
-      : savedGroups.find(group => group.uid === uid)?.name
-        ?? folders.value.find(folder => folder.uid === uid)?.name
-        ?? feeds.value.find(feed => feed.uid === uid)?.name
-        ?? 'Feed',
-)
-
-// Every uid shows all posts for now; the usePostList(uid) resolver (saved → folder → feed)
-// comes with the data layer.
-const sortedPosts = computed(() =>
-  [...posts.value].sort((a, b) => b.published_at.localeCompare(a.published_at)),
-)
-
-const { selectedUid, select } = useTapSelection()
-
 const page = useTemplateRef('page')
 const { style: swipeStyle } = useSwipeBack(page, '/')
 
-useHead({ title })
+useHead({ title: computed(() => feedTitle(uid, feeds.value, folders.value)) })
 </script>
 
 <template>
@@ -51,22 +31,6 @@ useHead({ title })
       />
     </Navbar>
 
-    <h1 class="mt-lg text-title tracking-tight">
-      {{ title }}
-    </h1>
-
-    <ul class="mt-md flex flex-col space-y-sm">
-      <li
-        v-for="post in sortedPosts"
-        :key="post.uid"
-      >
-        <FeedPostCard
-          :post="post"
-          :to="`/feed/${uid}/post/${post.uid}`"
-          :selected="selectedUid === post.uid"
-          @pointerdown="select(post.uid)"
-        />
-      </li>
-    </ul>
+    <FeedPostList :uid="uid" />
   </main>
 </template>
