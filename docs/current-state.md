@@ -256,9 +256,9 @@ decisions → Backend stack & API — but the frontend isn't wired to it yet.
   state and wiring to real data.
 - **Data fetching / RSS** — no `server/` routes, no `$fetch`/`useAsyncData`, no parser. All
   data is static. The fetching + persistence stack is specced ([backend.md](./backend.md);
-  see Resolved decisions → Backend stack & API) and a hello-world scaffold now runs in
-  `backend/`, but the frontend isn't wired to it — nothing beyond the mock data layer exists
-  on this side yet.
+  see Resolved decisions → Backend stack & API) and `backend/` now runs a hello-world API
+  plus the full data model, but the frontend isn't wired to it — nothing beyond the mock
+  data layer exists on this side yet.
 
 ## Installed but unused
 
@@ -302,12 +302,26 @@ _None currently._
   **Hello world is running** _(2026-08-07)_: `backend/` is a Django 5.2 + django-ninja
   project (package `feedme`) with one endpoint, `/api/v1/health`, ninja's auto-generated
   docs at `/api/v1/docs`, an OpenAPI schema at `/api/v1/openapi.json`, and Django admin at
-  `/admin/` (no superuser yet). `docker-compose.yml` at the repo root runs `api` (port
+  `/admin/`. `docker-compose.yml` at the repo root runs `api` (port
   8000, code bind-mounted), `db` (Postgres 16, healthchecked, `pgdata` volume), and `redis`;
   `worker`/`scheduler` are deliberately deferred until Dramatiq lands. `.env.example` is at
-  the repo root. Migrations run, the stack is verified. No models, auth, or endpoints
-  beyond health exist yet — everything else `backend.md` specs is still the agreed target,
-  not built.
+  the repo root.
+  **Models are in** _(2026-08-07)_: the Django app `backend/core/` implements
+  [backend.md](./backend.md)'s § Data model exactly — all 9 tables (custom `core.User` as
+  `AUTH_USER_MODEL` with a unique nullable `google_sub` and email login, `AuthToken`,
+  `Source`, `Post`, `Feed`, `Folder`, `FolderMember`, `SavedPost`, `UserSettings`), the
+  spec's unique constraints and cascade/`PROTECT` rules, and uid minting via
+  `core/uids.py`'s `make_uid(prefix)` (the backend mints `source_*`/`post_*`/`feed_*`/
+  `folder_*`, per the vocabulary table). All models are registered in Django admin (Source
+  gets the ops treatment — active/error-count visibility). One migration
+  (`core/migrations/0001_initial.py`), an idempotent `ensure_superuser` management command
+  driven by `DJANGO_SUPERUSER_*` env vars, and a dev `entrypoint.sh` (migrate →
+  ensure_superuser → runserver) wired into the Dockerfile. Verified: full stack bootstrap
+  from an empty volume, an ORM smoke test of every model + its cascades, `/api/v1/health`
+  200, admin login page serving. Still not built: API endpoints beyond `/health`, the auth
+  guard, Google OAuth, the fetching pipeline/Dramatiq, and search (tsvector/GIN/trigram,
+  deferred to a dedicated search session) — everything else `backend.md` specs is still the
+  agreed target, not built.
 
 - **Routing scheme** _(2026-06-29)_ — **nested routes**: posts nest under feeds
   (`/feed/[uid]/post/[postUid]`), settings subpages nest under settings (`/settings/*`). The

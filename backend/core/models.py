@@ -1,0 +1,181 @@
+from functools import partial
+
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.db import models
+
+from .uids import make_uid
+
+
+class UserManager(BaseUserManager):
+    use_in_migrations = True
+
+    def create_user(self, email, password=None, **extra_fields):
+        if not email:
+            raise ValueError('email is required')
+        user = self.model(email=self.normalize_email(email), **extra_fields)
+        # password=None → unusable password: app users sign in with Google only
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, email, password, **extra_fields):
+        extra_fields['is_staff'] = True
+        extra_fields['is_superuser'] = True
+        return self.create_user(email, password, **extra_fields)
+
+
+class User(AbstractBaseUser, PermissionsMixin):
+    email = models.EmailField(unique=True)
+    google_sub = models.CharField(max_length=64, unique=True, null=True, blank=True)
+    is_staff = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    objects = UserManager()
+
+    USERNAME_FIELD = 'email'
+
+    def __str__(self):
+        return self.email
+
+
+class AuthToken(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='tokens')
+    token_hash = models.CharField(max_length=64, unique=True)
+    device_label = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_used_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f'{self.user} · {self.device_label or "unknown device"}'
+
+
+class Source(models.Model):
+    class Type(models.TextChoices):
+        WEBSITE = 'website'
+        YOUTUBE = 'youtube'
+        REDDIT = 'reddit'
+
+    uid = models.CharField(max_length=32, unique=True, default=partial(make_uid, 'source_'))
+    type = models.CharField(max_length=10, choices=Type.choices)
+    feed_url = models.URLField(max_length=500, unique=True)
+    site_url = models.URLField(max_length=500, blank=True)
+    title = models.CharField(max_length=300, blank=True)
+    icon_url = models.URLField(max_length=500, blank=True)
+    active = models.BooleanField(default=True)
+    # etag / last_modified are opaque HTTP header values for conditional GETs
+    etag = models.CharField(max_length=200, blank=True)
+    last_modified = models.CharField(max_length=100, blank=True)
+    last_fetched_at = models.DateTimeField(null=True, blank=True)
+    next_fetch_at = models.DateTimeField(null=True, blank=True)
+    error_count = models.PositiveIntegerField(default=0)
+
+    def __str__(self):
+        return self.title or self.feed_url
+
+
+class Post(models.Model):
+    uid = models.CharField(max_length=32, unique=True, default=partial(make_uid, 'post_'))
+    source = models.ForeignKey(Source, on_delete=models.CASCADE, related_name='posts')
+    guid = models.CharField(max_length=500)
+    title = models.CharField(max_length=500)
+    post_url = models.URLField(max_length=1000)
+    image_url = models.URLField(max_length=1000, blank=True)
+    summary = models.TextField(blank=True)
+    # null = not yet extracted; filled globally on first /posts/{uid}/article request
+    article_html = models.TextField(null=True, blank=True)
+    published_at = models.DateTimeField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['source', 'guid'], name='unique_post_guid_per_source'),
+        ]
+        indexes = [
+            models.Index(fields=['source', '-published_at']),
+        ]
+
+    def __str__(self):
+        return self.title
+
+
+class Feed(models.Model):
+    uid = models.CharField(max_length=32, unique=True, default=partial(make_uid, 'feed_'))
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='feeds')
+    # sources are only deleted by orphan cleanup, which checks for feeds first
+    source = models.ForeignKey(Source, on_delete=models.PROTECT, related_name='feeds')
+    name = models.CharField(max_length=300)
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'source'], name='unique_feed_per_user_source'),
+        ]
+        ordering = ['order']
+
+    def __str__(self):
+        return self.name
+
+
+class Folder(models.Model):
+    uid = models.CharField(max_length=32, unique=True, default=partial(make_uid, 'folder_'))
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='folders')
+    name = models.CharField(max_length=300)
+    order = models.PositiveIntegerField(default=0)
+    feeds = models.ManyToManyField(Feed, through='FolderMember', related_name='folders')
+
+    class Meta:
+        ordering = ['order']
+
+    def __str__(self):
+        return self.name
+
+
+class FolderMember(models.Model):
+    folder = models.ForeignKey(Folder, on_delete=models.CASCADE, related_name='members')
+    feed = models.ForeignKey(Feed, on_delete=models.CASCADE, related_name='memberships')
+    muted = models.BooleanField(default=False)
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['folder', 'feed'], name='unique_member_per_folder'),
+        ]
+        ordering = ['order']
+
+
+class SavedPost(models.Model):
+    class Group(models.TextChoices):
+        BOOKMARKS = 'bookmarks'
+        FAVORITES = 'favorites'
+        LATER = 'later'
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='saved_posts')
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='saves')
+    group = models.CharField(max_length=10, choices=Group.choices)
+    saved_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        # a post lives in exactly one group per user; moving groups is an upsert
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'post'], name='unique_saved_post_per_user'),
+        ]
+
+
+class UserSettings(models.Model):
+    class Theme(models.TextChoices):
+        INK = 'ink'
+        CLAUDE = 'claude'
+
+    class FeedListStyle(models.TextChoices):
+        LIST = 'list'
+        CARDS = 'cards'
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='settings')
+    theme = models.CharField(max_length=10, choices=Theme.choices, default=Theme.INK)
+    feed_list_style = models.CharField(max_length=10, choices=FeedListStyle.choices, default=FeedListStyle.LIST)
+
+    class Meta:
+        verbose_name_plural = 'user settings'
+
+    def __str__(self):
+        return f'settings for {self.user}'
