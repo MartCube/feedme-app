@@ -5,6 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: c763d233-28e4-471e-ba38-8eb696e2ebc4
+  modified: 2026-08-04T19:33:19.722Z
 ---
 
 **pnpm / tooling:**
@@ -56,6 +57,26 @@ metadata:
   stuck with the server's mobile classes (invisible desktop shell, no error). The
   `useMounted()` gate inside `useIsDesktop()` (app/composables/useIsDesktop.ts) is
   load-bearing; don't "simplify" it away.
+
+**Scrollbars (custom `::-webkit-scrollbar`):**
+- Chromium **ignores `:hover` on the scrolling element** when resolving scrollbar
+  pseudo-elements — `.pane:hover::-webkit-scrollbar-thumb` never applies, so a CSS-only
+  hover-reveal scrollbar is not buildable. `::-webkit-scrollbar-thumb:hover` (the thumb's
+  own hover) DOES work, and a class/attribute toggled on an ancestor DOES re-resolve them,
+  so JS is the only route to a reveal-on-hover.
+- Chromium 121+ **drops all `::-webkit-scrollbar` rules** on an element that also sets
+  `scrollbar-width`/`scrollbar-color`. Split the two APIs with
+  `@supports selector(::-webkit-scrollbar)` / `@supports not …`; never let them meet.
+
+**Verifying scrollbars headlessly (puppeteer):**
+- Puppeteer launches with `--hide-scrollbars` by default → layout still reserves the gutter,
+  but nothing paints. Pass `ignoreDefaultArgs: ['--hide-scrollbars']`.
+- `page.screenshot({ clip })` defaults to `captureBeyondViewport: true`, which re-renders
+  without scrollbars. Set `captureBeyondViewport: false`.
+- Headless reports `pointer: coarse`, so any `@media (pointer: fine)` rule is dead. Force it
+  with `--blink-settings=primaryPointerType=4,availablePointerTypes=4` — but note
+  `page.setViewport()` **wipes that override**, so re-measure only after a reload, never
+  after a resize, or you'll chase a phantom regression.
 
 **Nuxt UI / vaul:**
 - Theme **compound variants** apply after `app.config.ts` slot classes and win in tailwind-merge —

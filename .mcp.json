@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "chrome-devtools": {
+      "type": "stdio",
+      "command": "pnpm",
+      "args": [
+        "dlx",
+        "chrome-devtools-mcp@latest",
+        "--headless",
+        "--isolated",
+        "--viewport",
+        "390x844",
+        "--executablePath",
+        "/usr/bin/google-chrome"
+      ],
+      "env": {}
+    }
+  }
+}

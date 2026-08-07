@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-conventions.sh\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=$(jq -r '.tool_input.file_path // empty'); case \"$f\" in *.vue|*.ts|*.mjs) cd \"$CLAUDE_PROJECT_DIR\" && pnpm exec eslint --fix \"$f\" >/dev/null 2>&1 || true ;; esac"
+          }
+        ]
+      }
+    ]
+  }
+}
