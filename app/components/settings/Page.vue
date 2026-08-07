@@ -23,7 +23,7 @@ const { style: swipeStyle } = useSwipeBack(panel, '/settings')
   <div
     ref="panel"
     :style="swipeStyle"
-    class="h-full touch-none overflow-y-auto bg-default page-inset"
+    class="h-full touch-none scroll-host bg-default page-inset"
   >
     <IconButton
       icon="i-ph-caret-left-bold"

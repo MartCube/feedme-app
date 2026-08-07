@@ -1,7 +1,8 @@
 <script setup lang="ts">
-// data-theme drives the theme blocks in assets/css/themes.css.
-const { theme } = storeToRefs(useSettingsStore())
-useHead({ htmlAttrs: { 'data-theme': theme } })
+// data-theme drives the theme blocks in assets/css/themes.css, data-scrollbar
+// the variants in assets/css/scrollbars.css.
+const { theme, scrollbarStyle } = storeToRefs(useSettingsStore())
+useHead({ htmlAttrs: { 'data-theme': theme, 'data-scrollbar': scrollbarStyle } })
 </script>
 
 <template>

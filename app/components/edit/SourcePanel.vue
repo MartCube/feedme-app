@@ -52,7 +52,7 @@ const deletePath = computed(() => props.folderUid
   <div
     ref="panel"
     :style="swipeStyle"
-    class="flex h-full touch-none flex-col overflow-y-auto bg-default page-inset"
+    class="flex h-full touch-none flex-col scroll-host bg-default page-inset"
   >
     <header class="flex items-center justify-between gap-sm">
       <IconButton

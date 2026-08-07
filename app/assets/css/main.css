@@ -4,6 +4,7 @@
 @import "./spacing.css";
 @import "./layout.css";
 @import "./themes.css";
+@import "./scrollbars.css";
 @import "./transitions.css";
 
 @theme static {

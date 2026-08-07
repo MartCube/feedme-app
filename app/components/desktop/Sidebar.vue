@@ -14,7 +14,7 @@ const { readerFeedUid } = storeToRefs(useFeedsStore())
 </script>
 
 <template>
-  <aside class="flex h-full flex-col overflow-y-auto bg-sunken page-inset">
+  <aside class="flex h-full flex-col scroll-host bg-sunken page-inset">
     <HomeFeedList :active-uid="readerFeedUid" />
     <NuxtLink
       to="/add"

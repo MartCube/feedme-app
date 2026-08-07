@@ -55,14 +55,14 @@ useHead({
     <div class="relative flex min-w-0 flex-1">
       <template v-if="hasFeeds">
         <!-- 40/60 split of everything left of the sidebar. -->
-        <section class="basis-2/5 shrink-0 overflow-y-auto page-inset">
+        <section class="basis-2/5 shrink-0 scroll-host page-inset">
           <FeedPostList
             :uid="readerFeedUid"
             :active-post-uid="readerPostUid"
           />
         </section>
 
-        <section class="min-w-0 basis-3/5 overflow-y-auto page-inset">
+        <section class="min-w-0 basis-3/5 scroll-host page-inset">
           <FeedPostView
             v-if="readerPostUid"
             :post-uid="readerPostUid"

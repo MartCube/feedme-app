@@ -30,7 +30,9 @@ function closeAdd() {
     v-if="open"
     class="absolute inset-0 z-10 overflow-y-auto bg-default"
   >
-    <div class="mx-auto h-full max-w-reading">
+    <!-- Left-aligned, not centred: the panels carry the same page-inset the
+         sidebar does, so flush-left is what makes the two insets line up. -->
+    <div class="h-full max-w-reading">
       <component
         :is="settingsPanel"
         v-if="settingsPanel"

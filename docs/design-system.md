@@ -22,7 +22,7 @@ layer, no color ramps — so Nuxt UI components and our own re-color together.
 | `text` | `text-default` / `text-highlighted` | Titles and body content. |
 | `text-muted` | `text-muted` | Secondary info: dates, counts, descriptions. |
 | `text-dimmed` | `text-dimmed` | Placeholders and disabled states **only** — never real content. |
-| `border` | `border-default` | Translucent hairline: input outlines, focus rings. Lists are divided by spacing, not lines. |
+| `border` | `border-default` | Translucent hairline: input outlines, focus rings, dividers. |
 | `primary` | `text-primary`, `bg-primary`, … | Accent: active states, links, key actions. |
 | `error` | `text-error`, … | Validation and destructive actions. |
 
@@ -43,6 +43,20 @@ Notes:
 same-color 1px edge (the theme's `bg-elevated`) that extends the shape plus a soft drop
 shadow — no visible ring or highlight. Icon buttons use it today; cards and drawers can
 adopt it as they gain elevation.
+
+### Separation
+
+Two ways to separate content, in order of preference:
+
+1. **Spacing** — the default. Reach for a gap from the six-step scale first; most groupings
+   read correctly without any line.
+2. **A hairline divider** (`border-default`) — when spacing alone doesn't carry the
+   grouping: long uniform lists where rows blur together, or a boundary that must survive
+   a tight layout.
+
+**Don't stack both.** A divider *plus* a generous gap *plus* a card edge is three signals
+doing one job — pick one and let it work. The same goes for gloss: elevated controls use
+`shadow-elevated`, never a translucent ring or inner highlight.
 
 ## Themes
 

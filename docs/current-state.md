@@ -3,7 +3,7 @@
 A snapshot of what's actually built vs. what the spec (these docs) describes. The goal is to
 make the gap visible so implementation has a clear backlog. Update this as work lands.
 
-_Last reviewed: 2026-07-27._
+_Last reviewed: 2026-08-07._
 
 ## Summary
 
@@ -12,9 +12,11 @@ screens** (feeds list, feed page, post page) now navigate end to end on mock dat
 (≥1024px) v1** now renders those same screens as a three-column shell — sidebar, posts pane,
 post pane — composed by the layout from the same routes and store state; Settings/Add/Edit
 present as full content pages over the reading panes instead of drawers. There is **no data
-layer** (no RSS fetching, no persistence beyond the theme setting and the two sidebar-expansion
-flags). The app runs entirely on static mock data in `app/assets/data.ts`, served through the
-`feeds` store.
+layer** (no RSS fetching, no persistence beyond a handful of appearance settings — theme,
+feed-list style, scrollbar style — and the two sidebar-expansion flags). The app runs entirely
+on static mock data in `app/assets/data.ts`, served through the `feeds` store. A **backend
+scaffold** now exists in `backend/` (Django + django-ninja, Docker Compose) — see Resolved
+decisions → Backend stack & API — but the frontend isn't wired to it yet.
 
 ## Built
 
@@ -35,6 +37,15 @@ flags). The app runs entirely on static mock data in `app/assets/data.ts`, serve
   member rows inside an expanded dropdown stay plain, spaced `xs`);
   `settings.feedListStyle`, persisted like the theme. In cards mode the top-level tap flash
   merges into the card surface — the icon accent flash stays the cue.
+- **Scrollbar style switch** — Settings → Appearance → Scrollbar (desktop only, hidden on
+  touch via `useIsDesktop()`) picks **Thin** (default), **Comfortable**, or **System** (native,
+  writes no rules); `settings.scrollbarStyle`, persisted like the theme, applied as
+  `data-scrollbar` on `<html>` from `app.vue` (same wiring as `data-theme`). Rules live in
+  `app/assets/css/scrollbars.css` (thumb colors derived from `--ui-bg-muted` / a color-mix
+  toward `--ui-text`, separate webkit and Firefox branches — the two must never target the
+  same element or Chromium 121+ drops the webkit rules). Scroll containers across
+  add/edit/settings/desktop components use the `scroll-host` utility this defines (an
+  `overflow-y-auto` + reserved `scrollbar-gutter` pair) in place of plain `overflow-y-auto`.
 - **Navbar** — `app/components/Navbar.vue` (menu → `/settings`, add → `/add`).
 - **IconButton** — `app/components/ui/IconButton.vue` (round soft-fill button, accent press
   flash). A `quiet` variant blends into the page bg at rest and lifts to the normal
@@ -138,7 +149,8 @@ flags). The app runs entirely on static mock data in `app/assets/data.ts`, serve
   frozen while a content route is open. Settings, Add, and Edit present as a full opaque
   overlay (`ContentOverlay.vue`) over the two reading panes: the sidebar stays interactive, the
   reading panes stay mounted underneath (feed, selected post, and pane scroll all survive a
-  round-trip), and closing returns to the frozen reader path. The overlay reuses the exact
+  round-trip), and closing returns to the frozen reader path; it's left-aligned (not centered)
+  so its `page-inset` lines up with the sidebar's. The overlay reuses the exact
   mobile panel components (`app/utils/settings-panels.ts`'s route map, `AddSteps`,
   `EditPanels`) and resets the add wizard on any exit from `/add` or `/edit/*`. The three drawer
   hosts guard their `onMounted` open-on-deep-load with `isDesktopNow()` so a desktop deep-load
@@ -243,7 +255,10 @@ flags). The app runs entirely on static mock data in `app/assets/data.ts`, serve
 - **State layer (rest)** — the `feeds` store exists but is mock-seeded; still missing: saved
   state and wiring to real data.
 - **Data fetching / RSS** — no `server/` routes, no `$fetch`/`useAsyncData`, no parser. All
-  data is static. The fetching + persistence stack is undecided (to be specced separately).
+  data is static. The fetching + persistence stack is specced ([backend.md](./backend.md);
+  see Resolved decisions → Backend stack & API) and a hello-world scaffold now runs in
+  `backend/`, but the frontend isn't wired to it — nothing beyond the mock data layer exists
+  on this side yet.
 
 ## Installed but unused
 
@@ -284,7 +299,15 @@ _None currently._
   Feed/Folder/SavedPost/Settings layer, Google OAuth with opaque bearer tokens, Postgres
   FTS + trigram search behind an engine-neutral `/search`, on-demand article extraction,
   ~90-day retention for unsaved posts. Endpoint catalog and decision log live there.
-  Nothing is implemented yet — the spec is the agreed target.
+  **Hello world is running** _(2026-08-07)_: `backend/` is a Django 5.2 + django-ninja
+  project (package `feedme`) with one endpoint, `/api/v1/health`, ninja's auto-generated
+  docs at `/api/v1/docs`, an OpenAPI schema at `/api/v1/openapi.json`, and Django admin at
+  `/admin/` (no superuser yet). `docker-compose.yml` at the repo root runs `api` (port
+  8000, code bind-mounted), `db` (Postgres 16, healthchecked, `pgdata` volume), and `redis`;
+  `worker`/`scheduler` are deliberately deferred until Dramatiq lands. `.env.example` is at
+  the repo root. Migrations run, the stack is verified. No models, auth, or endpoints
+  beyond health exist yet — everything else `backend.md` specs is still the agreed target,
+  not built.
 
 - **Routing scheme** _(2026-06-29)_ — **nested routes**: posts nest under feeds
   (`/feed/[uid]/post/[postUid]`), settings subpages nest under settings (`/settings/*`). The

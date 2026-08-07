@@ -68,7 +68,7 @@ const deletePath = computed(() => `/edit/${props.folder.uid}/delete`)
 
 <template>
   <!-- touch-none lets vaul own the drag-to-close gesture. -->
-  <div class="flex h-full touch-none flex-col overflow-y-auto bg-default page-inset">
+  <div class="flex h-full touch-none flex-col scroll-host bg-default page-inset">
     <header class="flex items-center justify-between gap-sm">
       <IconButton
         icon="i-ph-x-bold"

@@ -12,7 +12,7 @@ const { selectedFeeds } = useAddFeedWizard()
 <template>
   <!-- touch-none lets vaul own the drag-to-close gesture; revisit once the
        destination list needs real touch scrolling. -->
-  <div class="flex h-full touch-none flex-col overflow-y-auto bg-default page-inset">
+  <div class="flex h-full touch-none flex-col scroll-host bg-default page-inset">
     <IconButton
       icon="i-ph-caret-left-bold"
       aria-label="Back"
