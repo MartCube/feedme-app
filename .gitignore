@@ -23,6 +23,11 @@ logs
 .env.*
 !.env.example
 
+# Python (backend/)
+__pycache__/
+*.py[cod]
+.venv/
+
 # Claude Code local-only files
 .claude/settings.local.json
 

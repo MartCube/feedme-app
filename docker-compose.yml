@@ -1,0 +1,37 @@
+services:
+  api:
+    build: ./backend
+    volumes:
+      - ./backend:/app
+    ports:
+      - '8000:8000'
+    environment:
+      POSTGRES_HOST: db
+    env_file:
+      - path: .env
+        required: false
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: feedme
+      POSTGRES_USER: feedme
+      POSTGRES_PASSWORD: feedme
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U feedme']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7
+
+volumes:
+  pgdata:
