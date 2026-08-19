@@ -21,7 +21,7 @@ docker compose up api             # Django on :8000
 docker compose logs -f api
 ```
 
-Django commands run *inside* the `api` service — the host has no venv:
+Django commands run *inside* the `api` service — that's where Django actually executes:
 
 ```bash
 docker compose exec api python manage.py makemigrations
@@ -34,6 +34,22 @@ touching `requirements.txt` or the `Dockerfile`: `docker compose build api`.
 
 The Nuxt dev server stays on `pnpm dev` and talks to `api` on localhost — the frontend is
 never containerised for development.
+
+### The host venv is for the IDE only
+
+`.venv/` at the repo root (gitignored) mirrors `requirements.txt` so the IDE can resolve
+`django`/`ninja` imports — **nothing runs from it**. Recreate on a fresh machine with
+`python3 -m venv .venv && .venv/bin/pip install -r backend/requirements.txt`, then point the
+IDE at `.venv/bin/python` and mark `backend/` as the sources root (imports are rooted there,
+not at the repo root).
+
+- **Never run the app or `manage.py` from it** — `db` publishes no host port, so anything
+  touching the database fails to connect. Use `docker compose exec api …`.
+- **After changing `requirements.txt`**, refresh both: `docker compose build api` *and*
+  `.venv/bin/pip install -r backend/requirements.txt`.
+
+It sits at the repo root rather than `backend/.venv` because the Dockerfile's `COPY . .` runs
+from the `backend/` build context and would bake the venv into the image.
 
 ## Vocabulary — this is the load-bearing rule
 

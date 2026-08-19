@@ -277,6 +277,11 @@ anyway), and swap the one search module behind the unchanged endpoint. Frontend:
 | `db` | Postgres 16 |
 | `redis` | Redis (Dramatiq broker) |
 
+Everything Python runs in the `api` container. A gitignored `.venv/` at the repo root mirrors
+`requirements.txt` purely so the IDE can resolve imports — it never runs the app, since `db`
+publishes no host port. Recreate it with
+`python3 -m venv .venv && .venv/bin/pip install -r backend/requirements.txt`.
+
 The Nuxt dev server keeps running via `pnpm dev` as today, talking to `api` on localhost.
 Production topology (reverse proxy, frontend build/hosting) is **deferred** — nothing in
 this spec constrains it. Secrets (Google client id/secret, YouTube API key, Reddit app
