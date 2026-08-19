@@ -12,8 +12,9 @@
 - [Visual taste](feedback-visual-taste.md) — spacing is the default separator, dividers allowed but never stacked with other signals; no glossy rings (see docs/design-system.md)
 - [Design tokens in CSS](feedback-design-tokens-in-css.md) — scales (spacing/type) belong as real @theme tokens in a dedicated app/assets/css file (like typography.css), not doc-only conventions
 - [No global visual side effects](feedback-no-global-visual-side-effects.md) — never mutate body/layout backgrounds from component work
-- [Verification approach](feedback-verification-approach.md) — no test harness; verify via pnpm lint + typecheck + run app, user manually reviews; add Vitest for store logic later
+- [Verification approach](feedback-verification-approach.md) — split by side: frontend = lint + typecheck + manual review (Vitest for store logic later); backend = pytest + pytest-django from roadmap T1, tests written with the task
 - [Git workflow](feedback-git-workflow.md) — solo single-branch; commit straight to main, no auto-branching, only push when asked; delegate commits/pushes to the git subagent proactively
 - [Mock data realism](project-mock-data-realism.md) — all uids show ALL mock posts on purpose; usePostList resolver deferred until real data
+- [No incoherent deferrals](feedback-no-incoherent-deferrals.md) — don't defer a visible piece when its architecture must be built anyway; build the coherent slice with the temporary bit swappable inside it
 - [Minimal machinery](feedback-minimal-machinery.md) — justify every new composable/util in detail or cut it; separate "moved code" from "new code" in plans
 - [Backend vs frontend depth](user-backend-vs-frontend-depth.md) — expert on the Nuxt frontend, beginner on Python/Django + IDE/Docker tooling; explain backend/dev-env steps at junior level, skip hand-holding on frontend
