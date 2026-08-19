@@ -16,3 +16,4 @@
 - [Git workflow](feedback-git-workflow.md) — solo single-branch; commit straight to main, no auto-branching, only push when asked; delegate commits/pushes to the git subagent proactively
 - [Mock data realism](project-mock-data-realism.md) — all uids show ALL mock posts on purpose; usePostList resolver deferred until real data
 - [Minimal machinery](feedback-minimal-machinery.md) — justify every new composable/util in detail or cut it; separate "moved code" from "new code" in plans
+- [Backend vs frontend depth](user-backend-vs-frontend-depth.md) — expert on the Nuxt frontend, beginner on Python/Django + IDE/Docker tooling; explain backend/dev-env steps at junior level, skip hand-holding on frontend
