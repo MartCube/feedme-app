@@ -16,7 +16,9 @@ layer** (no RSS fetching, no persistence beyond a handful of appearance settings
 feed-list style, scrollbar style — and the two sidebar-expansion flags). The app runs entirely
 on static mock data in `app/assets/data.ts`, served through the `feeds` store. A **backend
 scaffold** now exists in `backend/` (Django + django-ninja, Docker Compose) — see Resolved
-decisions → Backend stack & API — but the frontend isn't wired to it yet.
+decisions → Backend stack & API — but the frontend isn't wired to it yet. Backend work is now
+sequenced in [backend-roadmap.md](./backend-roadmap.md), which tracks its own status: **read
+that file's § Status for what to build next.**
 
 ## Built
 
@@ -321,7 +323,10 @@ _None currently._
   200, admin login page serving. Still not built: API endpoints beyond `/health`, the auth
   guard, Google OAuth, the fetching pipeline/Dramatiq, and search (tsvector/GIN/trigram,
   deferred to a dedicated search session) — everything else `backend.md` specs is still the
-  agreed target, not built.
+  agreed target, not built. **Sequenced _(2026-08-19)_:** the remaining work is split into 13
+  dependency-ordered tasks in [backend-roadmap.md](./backend-roadmap.md), starting with CORS +
+  the test harness, then bearer-token auth, and reaching a deliberate checkpoint at T6 where
+  the Nuxt app is wired to real data before the backlog grows further.
 
 - **Routing scheme** _(2026-06-29)_ — **nested routes**: posts nest under feeds
   (`/feed/[uid]/post/[postUid]`), settings subpages nest under settings (`/settings/*`). The

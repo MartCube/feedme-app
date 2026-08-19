@@ -5,9 +5,19 @@ The current type definitions live in `app/assets/types.ts`; mock data lives in
 which is not yet in code.
 
 > **Persistence** now lives in [backend.md](./backend.md): the server stores global
-> `Source`/`Post` tables with a per-user `Feed`/`Folder`/`SavedPost` layer on top. The
-> frontend types here are unchanged — a backend `Feed` (+ its `Source`) serializes to
-> exactly this `Feed` shape, and the backend mints the prefixed uids these docs assume.
+> `Source`/`Post` tables with a per-user `Feed`/`Folder`/`SavedPost` layer on top. A backend
+> `Feed` (+ its `Source`) serializes to this `Feed` shape, and the backend mints the prefixed
+> uids these docs assume. Three details were settled against the built models
+> ([backend-roadmap.md](./backend-roadmap.md) § Contract resolutions), and land in the app
+> when the frontend is wired to the API:
+>
+> - **`Post.feed_uid` still exists**, but it is *derived*: backend posts belong to a global
+>   `Source`, and the API resolves that source to **the requesting user's** `Feed` uid. Merged
+>   streams (`all`, a folder) carry posts from many feeds, so each post needs its own.
+> - **`Post.content` becomes `summary`** — what RSS gave us. Full article text is fetched
+>   separately from `/posts/{uid}/article`, extracted on first open and cached globally.
+> - **`feed_url` is read-only.** It lives on the shared global `Source`, so editing it would
+>   repoint every other subscriber's feed. Renaming a feed changes `name` only.
 
 ## Feed
 

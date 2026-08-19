@@ -7,7 +7,8 @@ description: Work on the FeedMe Django backend — compose workflow, django-ninj
 
 Django 5.2 + django-ninja in `backend/`, Postgres 16 + Redis via `docker-compose.yml`.
 `docs/backend.md` is the spec — read the relevant section before building; this skill is
-the working shorthand.
+the working shorthand. **`docs/backend-roadmap.md` says what to build next** — its § Status
+names the current task; update it when the task lands.
 
 **Status check first.** The backend is early: `backend/feedme/api.py` may still be little
 more than `/health`. Read what actually exists before assuming a model or endpoint is
