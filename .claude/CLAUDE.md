@@ -24,7 +24,8 @@ Nuxt 4 (Vue 3 + TypeScript), source in `app/`, pnpm. @nuxt/ui v4 bundles Tailwin
 ## Conventions
 
 - 2-space indent, single quotes, no semicolons — a PostToolUse hook runs `eslint --fix` on
-  every edited `.vue`/`.ts`/`.mjs`, so don't hand-format.
+  every edited `.vue`/`.ts`/`.mjs`, so don't hand-format. Python is the same deal: a second hook
+  runs `ruff check --fix` + `ruff format` on every edited `.py`, from the host `.venv`.
 - No `<style>` blocks in components — utilities in the template; the rest in `app/assets/css/`.
 - No wrapper composables around Pinia stores — use stores directly.
 - Drawers (settings, add) mount in the **layout**, never as nested route pages — nested
