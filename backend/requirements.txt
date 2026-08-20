@@ -1,3 +1,9 @@
 django>=5.2,<6.0
 django-ninja>=1.4
 psycopg[binary]>=3.2
+django-cors-headers>=4.4
+
+# Dev tooling — also installed in the image, since lint and tests run inside `api`.
+ruff>=0.6
+pytest>=8.0
+pytest-django>=4.9

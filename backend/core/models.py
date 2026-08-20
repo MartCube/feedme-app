@@ -82,8 +82,10 @@ class Post(models.Model):
     post_url = models.URLField(max_length=1000)
     image_url = models.URLField(max_length=1000, blank=True)
     summary = models.TextField(blank=True)
-    # null = not yet extracted; filled globally on first /posts/{uid}/article request
-    article_html = models.TextField(null=True, blank=True)
+    # null = not yet extracted; filled globally on first /posts/{uid}/article request.
+    # Distinct from '' (extraction ran, found nothing), so DJ001's two-empty-values
+    # objection doesn't apply.
+    article_html = models.TextField(null=True, blank=True)  # noqa: DJ001
     published_at = models.DateTimeField()
 
     class Meta:
@@ -142,6 +144,9 @@ class FolderMember(models.Model):
         ]
         ordering = ['order']
 
+    def __str__(self):
+        return f'{self.folder} · {self.feed}'
+
 
 class SavedPost(models.Model):
     class Group(models.TextChoices):
@@ -160,6 +165,9 @@ class SavedPost(models.Model):
             models.UniqueConstraint(fields=['user', 'post'], name='unique_saved_post_per_user'),
         ]
 
+    def __str__(self):
+        return f'{self.post} · {self.group}'
+
 
 class UserSettings(models.Model):
     class Theme(models.TextChoices):
@@ -172,7 +180,9 @@ class UserSettings(models.Model):
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='settings')
     theme = models.CharField(max_length=10, choices=Theme.choices, default=Theme.INK)
-    feed_list_style = models.CharField(max_length=10, choices=FeedListStyle.choices, default=FeedListStyle.LIST)
+    feed_list_style = models.CharField(
+        max_length=10, choices=FeedListStyle.choices, default=FeedListStyle.LIST
+    )
 
     class Meta:
         verbose_name_plural = 'user settings'

@@ -1,14 +1,28 @@
 import os
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-only-insecure-key')
 DEBUG = os.environ.get('DEBUG', '1') == '1'
+
+SECRET_KEY = os.environ.get('SECRET_KEY', '')
+if not SECRET_KEY:
+    # Fail loudly rather than serve production traffic on a key that is in git.
+    if not DEBUG:
+        raise ImproperlyConfigured('SECRET_KEY must be set when DEBUG is off')
+    SECRET_KEY = 'dev-only-insecure-key'
+
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+
+# Browser origins allowed to call the API. The Nuxt dev server by default; a Capacitor
+# build (capacitor://localhost) and the production origin get added here via the env var.
+CORS_ALLOWED_ORIGINS = os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:3000').split(',')
 
 INSTALLED_APPS = [
     'core',
+    'corsheaders',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -18,6 +32,9 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    # Must stay first: middleware runs top-down, and anything that returns a
+    # response before this one runs sends it back without the CORS headers.
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',

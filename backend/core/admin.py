@@ -1,6 +1,16 @@
 from django.contrib import admin
 
-from .models import AuthToken, Feed, Folder, FolderMember, Post, SavedPost, Source, User, UserSettings
+from .models import (
+    AuthToken,
+    Feed,
+    Folder,
+    FolderMember,
+    Post,
+    SavedPost,
+    Source,
+    User,
+    UserSettings,
+)
 
 
 @admin.register(User)
@@ -21,7 +31,15 @@ class AuthTokenAdmin(admin.ModelAdmin):
 
 @admin.register(Source)
 class SourceAdmin(admin.ModelAdmin):
-    list_display = ('title', 'type', 'active', 'error_count', 'last_fetched_at', 'next_fetch_at', 'feed_url')
+    list_display = (
+        'title',
+        'type',
+        'active',
+        'error_count',
+        'last_fetched_at',
+        'next_fetch_at',
+        'feed_url',
+    )
     list_filter = ('type', 'active')
     search_fields = ('title', 'feed_url', 'site_url')
     readonly_fields = ('uid',)
