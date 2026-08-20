@@ -327,6 +327,14 @@ _None currently._
   dependency-ordered tasks in [backend-roadmap.md](./backend-roadmap.md), starting with CORS +
   the test harness, then bearer-token auth, and reaching a deliberate checkpoint at T6 where
   the Nuxt app is wired to real data before the backlog grows further.
+  **T1 landed _(2026-08-19)_:** CORS via `django-cors-headers` (allowed origins from
+  `CORS_ALLOWED_ORIGINS`, defaulting to `http://localhost:3000`, middleware first in the chain),
+  `ruff` + `pytest`/`pytest-django` configured in `backend/pyproject.toml`, a `user` fixture in
+  `backend/conftest.py`, and `backend/tests/` covering `/health`, CORS preflight (allowed and
+  foreign origin) and the custom user model. `SECRET_KEY` now raises `ImproperlyConfigured`
+  instead of silently using the dev key when `DEBUG` is off. Verified: `pytest` green in the
+  container, `ruff check` clean, and a real `fetch()` from a page on `localhost:3000` reaching
+  `/api/v1/health` with no CORS error. Next is T2 — bearer-token auth.
 
 - **Routing scheme** _(2026-06-29)_ — **nested routes**: posts nest under feeds
   (`/feed/[uid]/post/[postUid]`), settings subpages nest under settings (`/settings/*`). The

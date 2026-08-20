@@ -14,15 +14,15 @@ deliberate checkpoint that wires the real frontend before the backlog grows furt
 
 ## Status
 
-**Last completed:** T0 — models + admin _(2026-08-07)_
-**Next up:** **T1 — Foundations: CORS, linting, test harness**
+**Last completed:** T1 — foundations: CORS, ruff, pytest _(2026-08-19)_
+**Next up:** **T2 — Auth: bearer tokens, global guard, `/me`**
 **Roadmap written:** 2026-08-19
 
 | # | Task | State |
 | --- | --- | --- |
 | T0 | Scaffold, models, admin | ✅ done _(2026-08-07)_ |
-| T1 | Foundations — CORS, ruff, pytest | ⬜ next |
-| T2 | Auth — bearer tokens, global guard, `/me` | ⬜ |
+| T1 | Foundations — CORS, ruff, pytest | ✅ done _(2026-08-19)_ |
+| T2 | Auth — bearer tokens, global guard, `/me` | ⬜ next |
 | T3 | Ingest core (synchronous) | ⬜ |
 | T4 | `/home` and `/settings` | ⬜ |
 | T5 | Posts — list, detail, save | ⬜ |
@@ -48,11 +48,16 @@ fetch timestamps). Public uids are minted by `core/uids.py`'s `make_uid(prefix)`
 `ensure_superuser` command and `entrypoint.sh` (migrate → ensure_superuser → runserver) handle
 dev bootstrap.
 
+T1 added the floor the rest of the roadmap stands on: `django-cors-headers` (origins from
+`CORS_ALLOWED_ORIGINS`, defaulting to the Nuxt dev server), `ruff` and `pytest` +
+`pytest-django` configured in `backend/pyproject.toml`, `backend/conftest.py` with a `user`
+fixture, `backend/tests/` covering health, CORS preflight and the custom user model, and a
+`SECRET_KEY` that refuses to fall back to the dev key when `DEBUG` is off.
+
 **Not built.** Everything else. `backend/feedme/api.py` is eight lines exposing one unguarded
-endpoint, `/health`. `requirements.txt` is three lines — `django`, `django-ninja`, `psycopg`.
-There is no CORS, no auth guard, no token issuing, no background queue, no feed parsing, no
-article extraction, no search columns, no tests and no linter. On the frontend, `nuxt.config.ts`
-has no `runtimeConfig` and the `feeds` store still imports `app/assets/data.ts` directly.
+endpoint, `/health`. There is no auth guard, no token issuing, no background queue, no feed
+parsing, no article extraction and no search columns. On the frontend, `nuxt.config.ts` has no
+`runtimeConfig` and the `feeds` store still imports `app/assets/data.ts` directly.
 
 ## Contract resolutions
 
@@ -110,6 +115,18 @@ rewrite past entries. Stack-level decisions live in [backend.md](./backend.md) �
 - **Clean cutover of mock data in T6** — `app/assets/data.ts` and `app/assets/mock-search.ts`
   are deleted once real data renders. No fallback mode, no flag: a second code path that
   silently drifts from the API shape is worse than needing the backend running.
+
+Decided 2026-08-19 while building T1:
+
+- **One `requirements.txt`, dev tools included** — `pytest` and `ruff` run *inside* the `api`
+  container, so they have to be in the image. A `requirements-dev` split waits for a real
+  production image to keep lean.
+- **Curated ruff rule set** (`E, W, F, I, UP, B, DJ`) over the minimal default — the extra
+  families catch bug patterns and Django-specific mistakes, not just layout. Migrations are
+  excluded: Django's writer emits double quotes, so formatting them fights `makemigrations`.
+- **Python auto-format hook** — a PostToolUse hook runs `ruff check --fix` + `ruff format` on
+  every `.py` Claude edits, the twin of the existing `eslint --fix` hook. It runs from the host
+  `.venv`, which makes that venv semi-required rather than pure IDE convenience.
 
 ## Tasks
 

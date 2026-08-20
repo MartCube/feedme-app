@@ -95,6 +95,7 @@ living in `backend/` in this repo (monorepo).
 | Dramatiq + Redis | Background jobs (polling, extraction, pruning) | Simple, reliable task queue; `periodiq` adds the cron scheduling Dramatiq lacks |
 | Postgres | Data **and search** (FTS + trigram) | One store, no sync pipeline — see [Search](#search) |
 | feedparser / trafilatura / google-auth | RSS parsing / article extraction / id_token verification | The Python ecosystem is the decisive reason this backend is Python |
+| ruff / pytest + pytest-django | Lint + format / tests | One fast tool for both linting and formatting; pytest-django gives the ORM fixtures and a throwaway test database |
 
 The OpenAPI schema ninja generates is the **frontend contract**: TypeScript types for the
 Nuxt app are generated from it (e.g. `openapi-typescript`), so the two sides can't drift.
@@ -277,9 +278,17 @@ anyway), and swap the one search module behind the unchanged endpoint. Frontend:
 | `db` | Postgres 16 |
 | `redis` | Redis (Dramatiq broker) |
 
-Everything Python runs in the `api` container. A gitignored `.venv/` at the repo root mirrors
-`requirements.txt` purely so the IDE can resolve imports — it never runs the app, since `db`
-publishes no host port. Recreate it with
+Everything Python runs in the `api` container — tests and linting included:
+
+```bash
+docker compose exec api pytest        # config + fixtures in backend/pyproject.toml, backend/conftest.py
+docker compose exec api ruff check .  # lint; `ruff format .` to reformat
+```
+
+A gitignored `.venv/` at the repo root mirrors `requirements.txt` so the IDE can resolve
+imports, and it also backs the PostToolUse hook that runs `ruff check --fix` + `ruff format` on
+every `.py` Claude edits — so it is no longer optional on a fresh machine, though the app itself
+never runs from it (`db` publishes no host port). Recreate it with
 `python3 -m venv .venv && .venv/bin/pip install -r backend/requirements.txt`.
 
 The Nuxt dev server keeps running via `pnpm dev` as today, talking to `api` on localhost.
@@ -310,4 +319,14 @@ All decided 2026-07-12 during the backend planning session:
 - **Full article extraction on-demand** (first open), cached globally — zero wasted fetches
   vs. extracting at ingest.
 - **Retention ~90 days / per-source cap** for unsaved posts; saved kept forever.
+
+Added 2026-08-19 (T1):
+
+- **`django-cors-headers` over a Nuxt dev proxy** — Capacitor is planned, and a native app calls
+  from `capacitor://localhost` with no Nuxt dev server in front of it. Solving CORS in Django
+  covers web, native and production; a proxy covers only web dev.
+- **`pytest` + `pytest-django` from T1** — folder cascades, the uid resolver, cursor boundaries
+  and token expiry regress silently. Tests land with the task that creates the logic.
+- **`ruff` for both lint and format**, curated rule set (`E, W, F, I, UP, B, DJ`), single quotes,
+  migrations excluded.
 - **Per-user Reddit connect deferred**; app-token polling suffices at v1 scale.
