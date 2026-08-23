@@ -1,5 +1,10 @@
 from datetime import timedelta
+from io import StringIO
 
+import pytest
+from django.core.management import call_command
+from django.core.management.base import CommandError
+from django.test import Client
 from django.utils import timezone
 
 from core.auth import TOKEN_TTL, TOUCH_INTERVAL, BearerAuth, hash_token, issue_token
@@ -58,3 +63,20 @@ def test_use_inside_the_throttle_costs_one_query(rf, user, django_assert_num_que
 
     with django_assert_num_queries(1):
         BearerAuth().authenticate(rf.get('/'), plaintext)
+
+
+def test_issue_token_command_prints_a_usable_token(user):
+    out = StringIO()
+
+    call_command('issue_token', user.email, stdout=out)
+
+    token = out.getvalue().strip()
+    response = Client(headers={'authorization': f'Bearer {token}'}).get('/api/v1/me')
+    assert response.status_code == 200
+    assert response.json()['email'] == user.email
+
+
+def test_issue_token_command_rejects_an_unknown_email(db):
+    # match= matters: without it this passes on 'Unknown command' too
+    with pytest.raises(CommandError, match='No user with email'):
+        call_command('issue_token', 'nobody@example.com')
