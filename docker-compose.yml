@@ -2,6 +2,20 @@ services:
   api:
     build: ./backend
     restart: unless-stopped
+    healthcheck:
+      # /health is the one endpoint opted out of the bearer guard, precisely so this
+      # works. urllib rather than curl: python:3.13-slim ships no curl.
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          'import urllib.request; urllib.request.urlopen("http://localhost:8000/api/v1/health")',
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
     volumes:
       - ./backend:/app
     ports:
