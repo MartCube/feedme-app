@@ -2,6 +2,7 @@ from functools import partial
 
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
+from django.utils import timezone
 
 from .uids import make_uid
 
@@ -44,7 +45,9 @@ class AuthToken(models.Model):
     token_hash = models.CharField(max_length=64, unique=True)
     device_label = models.CharField(max_length=200, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    last_used_at = models.DateTimeField(auto_now_add=True)
+    # default= rather than auto_now_add=: the sliding window is measured from this
+    # field, so BearerAuth has to be able to write it. See core/auth.py.
+    last_used_at = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
         return f'{self.user} · {self.device_label or "unknown device"}'
