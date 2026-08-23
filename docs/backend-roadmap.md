@@ -14,16 +14,16 @@ deliberate checkpoint that wires the real frontend before the backlog grows furt
 
 ## Status
 
-**Last completed:** T1 — foundations: CORS, ruff, pytest _(2026-08-19)_
-**Next up:** **T2 — Auth: bearer tokens, global guard, `/me`**
+**Last completed:** T2 — auth: bearer tokens, global guard, `/me` _(2026-08-23)_
+**Next up:** **T3 — Ingest core (synchronous)**
 **Roadmap written:** 2026-08-19
 
 | # | Task | State |
 | --- | --- | --- |
 | T0 | Scaffold, models, admin | ✅ done _(2026-08-07)_ |
 | T1 | Foundations — CORS, ruff, pytest | ✅ done _(2026-08-19)_ |
-| T2 | Auth — bearer tokens, global guard, `/me` | ⬜ next |
-| T3 | Ingest core (synchronous) | ⬜ |
+| T2 | Auth — bearer tokens, global guard, `/me` | ✅ done _(2026-08-23)_ |
+| T3 | Ingest core (synchronous) | ⬜ next |
 | T4 | `/home` and `/settings` | ⬜ |
 | T5 | Posts — list, detail, save | ⬜ |
 | T6 | **Vertical slice — wire the Nuxt app** | ⬜ |
@@ -54,10 +54,17 @@ T1 added the floor the rest of the roadmap stands on: `django-cors-headers` (ori
 fixture, `backend/tests/` covering health, CORS preflight and the custom user model, and a
 `SECRET_KEY` that refuses to fall back to the dev key when `DEBUG` is off.
 
-**Not built.** Everything else. `backend/feedme/api.py` is eight lines exposing one unguarded
-endpoint, `/health`. There is no auth guard, no token issuing, no background queue, no feed
-parsing, no article extraction and no search columns. On the frontend, `nuxt.config.ts` has no
-`runtimeConfig` and the `feeds` store still imports `app/assets/data.ts` directly.
+T2 closed the API to anonymous callers. `backend/core/auth.py` mints opaque tokens
+(`secrets.token_urlsafe(32)`, stored SHA-256-hashed) and its `BearerAuth` guard hangs off
+`NinjaAPI(auth=…)`, so every operation needs a bearer token except `/health`, which is
+`auth=None` for the new compose healthcheck. Endpoint modules now live in `backend/core/api/`
+— `account.py` (`GET`/`DELETE /me`, `POST /auth/logout`) and `errors.py` (the one
+`{"detail": string}` error body). `manage.py issue_token <email>` prints a working token.
+
+**Not built.** Everything else: no background queue, no feed parsing, no article extraction
+and no search columns, and the only endpoints are `/health`, `/me` and `/auth/logout`. On the
+frontend, `nuxt.config.ts` has no `runtimeConfig` and the `feeds` store still imports
+`app/assets/data.ts` directly.
 
 ## Contract resolutions
 
@@ -128,6 +135,30 @@ Decided 2026-08-19 while building T1:
   every `.py` Claude edits, the twin of the existing `eslint --fix` hook. It runs from the host
   `.venv`, which makes that venv semi-required rather than pure IDE convenience.
 
+Decided 2026-08-23 while building T2:
+
+- **Expired tokens are rejected, not deleted** — deleting a dead token on sight turns a
+  replayed token into a database write, which is a free way to make the server do work for an
+  unauthenticated caller. The rows are inert; T13's retention job can prune them.
+- **`last_used_at` is touched at most once an hour** — the sliding window is 30 days, so an
+  hour of staleness can never expire a live token, and every other authenticated request stays
+  a single indexed read. A test pins the query count at 1 so a future change can't quietly
+  reintroduce a write per request.
+- **Only the 422 handler was written, not three** — ninja already answers 401 and 404 as
+  `{"detail": string}` (both exceptions subclass `HttpError`, whose default handler emits
+  exactly that). Only validation differs, with a list of pydantic dicts. So T2 reshapes that
+  one and declares `401: ErrorSchema` on each operation, which is what actually matters: it
+  puts the error shape in the OpenAPI schema T6 generates TypeScript from.
+- **Endpoints live in `backend/core/api/`, one module per resource** — T4 and T5 add `/home`
+  and the post list within two tasks, so the package goes in now rather than growing one file
+  and splitting it later. Routers mount at `''` with full paths inside; a `/me` prefix would
+  force `@router.get('')` and invite a trailing slash.
+- **`Status(204, None)`, not `return 204, None`** — django-ninja 1.6.3 deprecates the tuple
+  form. Worth knowing before T5 and T7, which return a lot of explicit status codes.
+- **The `api` service got a compose healthcheck** — `/health` is opted out of the guard
+  precisely so an unauthenticated prober can use it, and nothing was actually probing it. Uses
+  `urllib` rather than `curl`, which `python:3.13-slim` doesn't ship.
+
 ## Tasks
 
 ### T1 — Foundations: CORS, linting, test harness
@@ -163,7 +194,7 @@ from a page on `localhost:3000` succeeds without a CORS error in the console.
 > (what actually runs) and `.venv/bin/pip install -r backend/requirements.txt` (what the IDE
 > reads for autocomplete). See [backend.md](./backend.md) § Docker & dev environment.
 
-### T2 — Auth: bearer tokens, global guard, `/me`
+### T2 — Auth: bearer tokens, global guard, `/me` ✅
 
 **Goal.** Every endpoint requires a valid bearer token, and you can mint one for yourself.
 

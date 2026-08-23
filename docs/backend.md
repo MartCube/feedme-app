@@ -330,3 +330,14 @@ Added 2026-08-19 (T1):
 - **`ruff` for both lint and format**, curated rule set (`E, W, F, I, UP, B, DJ`), single quotes,
   migrations excluded.
 - **Per-user Reddit connect deferred**; app-token polling suffices at v1 scale.
+
+Added 2026-08-23 (T2):
+
+- **One error body for the whole API: `{"detail": string}`** — ninja already answers 401 and
+  404 in that shape, so only the 422 handler is overridden (its default detail is a list of
+  pydantic dicts). Each operation declares `401: ErrorSchema` so the shape reaches the OpenAPI
+  schema; T6 generates TypeScript from it, and a single-shaped error is one generated type
+  rather than a union.
+- **Expired tokens are rejected, not deleted**, and `last_used_at` is touched at most once an
+  hour — an unauthenticated caller can never force a database write, and an authenticated
+  request stays a single indexed read.

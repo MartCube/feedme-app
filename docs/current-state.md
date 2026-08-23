@@ -334,7 +334,18 @@ _None currently._
   foreign origin) and the custom user model. `SECRET_KEY` now raises `ImproperlyConfigured`
   instead of silently using the dev key when `DEBUG` is off. Verified: `pytest` green in the
   container, `ruff check` clean, and a real `fetch()` from a page on `localhost:3000` reaching
-  `/api/v1/health` with no CORS error. Next is T2 — bearer-token auth.
+  `/api/v1/health` with no CORS error.
+  **T2 landed _(2026-08-23)_:** the API is now login-only. `backend/core/auth.py` mints
+  opaque tokens (`secrets.token_urlsafe(32)`, stored SHA-256-hashed, sliding 30-day window
+  measured from `last_used_at` and touched at most hourly) and its `BearerAuth` guard is wired
+  globally via `NinjaAPI(auth=…)`. `/health` is the one `auth=None` opt-out, and now backs a
+  compose healthcheck on the `api` service. Endpoints moved into `backend/core/api/`:
+  `account.py` serves `GET /me` (email, member-since, provider — the three lines
+  `settings/Account.vue` hardcodes today), `DELETE /me` and `POST /auth/logout`, and
+  `errors.py` holds the single `{"detail": string}` error body. `manage.py issue_token
+  <email>` prints a usable token, so every later endpoint is testable before Google OAuth
+  lands in T8. Verified: 21 tests green, `ruff` clean, and a real curl loop — 401 without a
+  token, 200 with one, 204 on logout, 401 again straight after. Next is T3 — ingest core.
 
 - **Routing scheme** _(2026-06-29)_ — **nested routes**: posts nest under feeds
   (`/feed/[uid]/post/[postUid]`), settings subpages nest under settings (`/settings/*`). The
