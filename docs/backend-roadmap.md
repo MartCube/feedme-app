@@ -14,8 +14,8 @@ deliberate checkpoint that wires the real frontend before the backlog grows furt
 
 ## Status
 
-**Last completed:** T2 — auth: bearer tokens, global guard, `/me` _(2026-08-23)_
-**Next up:** **T3 — Ingest core (synchronous)**
+**Last completed:** T3 — ingest core (synchronous) _(2026-08-25)_
+**Next up:** **T4 — `/home` and `/settings`**
 **Roadmap written:** 2026-08-19
 
 | # | Task | State |
@@ -23,8 +23,8 @@ deliberate checkpoint that wires the real frontend before the backlog grows furt
 | T0 | Scaffold, models, admin | ✅ done _(2026-08-07)_ |
 | T1 | Foundations — CORS, ruff, pytest | ✅ done _(2026-08-19)_ |
 | T2 | Auth — bearer tokens, global guard, `/me` | ✅ done _(2026-08-23)_ |
-| T3 | Ingest core (synchronous) | ⬜ next |
-| T4 | `/home` and `/settings` | ⬜ |
+| T3 | Ingest core (synchronous) | ✅ done _(2026-08-25)_ |
+| T4 | `/home` and `/settings` | ⬜ next |
 | T5 | Posts — list, detail, save | ⬜ |
 | T6 | **Vertical slice — wire the Nuxt app** | ⬜ |
 | T7 | Subscribe and folder writes | ⬜ |
@@ -61,10 +61,18 @@ T2 closed the API to anonymous callers. `backend/core/auth.py` mints opaque toke
 — `account.py` (`GET`/`DELETE /me`, `POST /auth/logout`) and `errors.py` (the one
 `{"detail": string}` error body). `manage.py issue_token <email>` prints a working token.
 
-**Not built.** Everything else: no background queue, no feed parsing, no article extraction
-and no search columns, and the only endpoints are `/health`, `/me` and `/auth/logout`. On the
-frontend, `nuxt.config.ts` has no `runtimeConfig` and the `feeds` store still imports
-`app/assets/data.ts` directly.
+T3 put real posts in the database. `backend/core/ingest.py`'s `ingest_source(source)` does a
+conditional GET with `requests` (explicit timeout), hands the bytes to `feedparser`, upserts
+posts by `(source, guid)`, and on failure grows `next_fetch_at` exponentially before
+deactivating the source at five consecutive errors. `manage.py poll_source <source_uid>` and
+`manage.py poll_due` drive it by hand, and a **Reset errors and poll on the next run** admin
+action is the way back from a deactivation. The three mock sources — Medium's Vue tag, the
+YouTube channel, r/OnePiece — are in the dev database with 50 real posts.
+
+**Not built.** Everything else: no background queue (T3's poller is a command you run), no
+article extraction and no search columns, and the only endpoints are `/health`, `/me` and
+`/auth/logout`. On the frontend, `nuxt.config.ts` has no `runtimeConfig` and the `feeds` store
+still imports `app/assets/data.ts` directly.
 
 ## Contract resolutions
 
@@ -159,6 +167,35 @@ Decided 2026-08-23 while building T2:
   precisely so an unauthenticated prober can use it, and nothing was actually probing it. Uses
   `urllib` rather than `curl`, which `python:3.13-slim` doesn't ship.
 
+Decided 2026-08-25 while building T3:
+
+- **`requests` fetches, feedparser only parses** — `feedparser.parse(url, …)` can do the
+  conditional GET itself, but it passes no timeout to urllib, so the only bound on a hung
+  server is the process-global `socket.setdefaulttimeout()` — which in the `api` container
+  would also apply to sockets opened toward Postgres and Redis. Upstream has already deleted
+  those HTTP arguments from `parse()` for feedparser 7 and tells callers to use an HTTP client,
+  so `requirements.txt` pins `feedparser<7`. The seam also makes the 304 path testable without
+  monkeypatching a third-party module's internals, and `requests` lands anyway at T11 for
+  discovery's HTML autodiscovery fetch.
+- **`published_parsed` before `updated_parsed`** — YouTube bumps `<updated>` on view-count
+  changes, so ordering by `updated` would reshuffle the timeline on every poll. Reading
+  `updated_parsed` first also leans on a feedparser fallback that emits a `DeprecationWarning`
+  and is slated for removal.
+- **`bozo` alone is not a failure; zero entries is** — feedparser sets `bozo` on feeds that are
+  merely sloppy, which is most of them, and still recovers their entries. Treating `bozo` as an
+  error would back off perfectly usable sources. An empty `entries` list is the real signal that
+  what came back isn't a feed (an error page, say).
+- **`update_or_create` per entry, not a bulk diff** — it only runs on a non-304 response, so the
+  write cost lands on feeds that actually changed. Batching is a T9 concern if it ever shows up
+  in a profile; the plain version is obviously correct and the uid survives an update.
+- **`last_fetched_at` is not touched on failure** — it means "when data last arrived", so a
+  stale timestamp beside a rising `error_count` reads correctly in the admin list.
+- **The reset admin action doesn't poll inline** — it clears `next_fetch_at` so `poll_due` picks
+  the source up, rather than holding an admin request open for one network call per source.
+- **Source metadata is backfilled from the feed when blank** — a source created by hand in admin
+  (and, from T7, by subscribing to a bare URL) knows only its `feed_url`; the feed itself carries
+  the title, site link and icon. Never overwrites a value that's already set.
+
 ## Tasks
 
 ### T1 — Foundations: CORS, linting, test harness
@@ -229,7 +266,7 @@ through ninja's docs UI at `/api/v1/docs` (click Authorize, paste it). Logout re
 immediately. Tests cover: missing token, malformed token, expired token, the sliding touch,
 and revocation.
 
-### T3 — Ingest core (synchronous, no queue yet)
+### T3 — Ingest core (synchronous, no queue yet) ✅
 
 **Goal.** Real posts from real feeds in the database, fetched by a command you run by hand.
 

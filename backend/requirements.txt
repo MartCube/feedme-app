@@ -2,6 +2,10 @@ django>=5.2,<6.0
 django-ninja>=1.4
 psycopg[binary]>=3.2
 django-cors-headers>=4.4
+# <7: feedparser 7 removes the HTTP arguments from parse() and tells callers to fetch
+# with an HTTP client themselves — which is what core/ingest.py already does.
+feedparser>=6.0.11,<7
+requests>=2.32
 
 # Dev tooling — also installed in the image, since lint and tests run inside `api`.
 ruff>=0.6

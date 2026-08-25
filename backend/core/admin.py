@@ -43,6 +43,17 @@ class SourceAdmin(admin.ModelAdmin):
     list_filter = ('type', 'active')
     search_fields = ('title', 'feed_url', 'site_url')
     readonly_fields = ('uid',)
+    actions = ('reset_and_reschedule',)
+
+    @admin.action(description='Reset errors and poll on the next run')
+    def reset_and_reschedule(self, request, queryset):
+        """The way back from an automatic deactivation (core/ingest.py § _record_failure).
+
+        Doesn't poll inline — that would hold the admin request open for a network call
+        per source. Clearing next_fetch_at makes them due, then `poll_due` picks them up.
+        """
+        count = queryset.update(active=True, error_count=0, next_fetch_at=None)
+        self.message_user(request, f'{count} source(s) reset — due on the next poll.')
 
 
 @admin.register(Post)

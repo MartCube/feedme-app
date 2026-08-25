@@ -95,6 +95,7 @@ living in `backend/` in this repo (monorepo).
 | Dramatiq + Redis | Background jobs (polling, extraction, pruning) | Simple, reliable task queue; `periodiq` adds the cron scheduling Dramatiq lacks |
 | Postgres | Data **and search** (FTS + trigram) | One store, no sync pipeline — see [Search](#search) |
 | feedparser / trafilatura / google-auth | RSS parsing / article extraction / id_token verification | The Python ecosystem is the decisive reason this backend is Python |
+| requests | The HTTP client ingest and discovery fetch with | feedparser's own fetching passes no timeout and is removed in feedparser 7 — see the decision log |
 | ruff / pytest + pytest-django | Lint + format / tests | One fast tool for both linting and formatting; pytest-django gives the ORM fixtures and a throwaway test database |
 
 The OpenAPI schema ninja generates is the **frontend contract**: TypeScript types for the
@@ -223,7 +224,9 @@ Per source type — everything is RSS under the hood:
   intervals). Per-user Reddit account connect (the Feedly pattern) stays **deferred** —
   revisit only if app-level limits bite.
 
-**Jobs** (Dramatiq; cron via periodiq):
+**Jobs** (Dramatiq; cron via periodiq). Until T9 stands the queue up, `poll_source` is a plain
+function in `core/ingest.py` driven by `manage.py poll_source <source_uid>` and
+`manage.py poll_due` — the actor wraps it later with no rewrite:
 
 | Job | Trigger | What it does |
 | --- | --- | --- |
@@ -330,6 +333,19 @@ Added 2026-08-19 (T1):
 - **`ruff` for both lint and format**, curated rule set (`E, W, F, I, UP, B, DJ`), single quotes,
   migrations excluded.
 - **Per-user Reddit connect deferred**; app-token polling suffices at v1 scale.
+
+Added 2026-08-25 (T3):
+
+- **`requests` does the HTTP; feedparser only parses.** feedparser can fetch a URL itself, but
+  that path gives urllib no timeout — the only bound would be the process-global
+  `socket.setdefaulttimeout()`, which in the `api` container also covers Postgres and Redis
+  sockets. Upstream removes those HTTP arguments in feedparser 7 and points callers at an HTTP
+  client, so `requirements.txt` pins `feedparser<7` and ingest fetches for itself. It also gives
+  the tests one seam to fake instead of monkeypatching a third-party module's internals.
+- **Ingest never raises.** Network errors, HTTP error statuses and bodies that aren't feeds all
+  land in the same recorded-failure path: `error_count` up, `next_fetch_at` out exponentially
+  (capped at 24h), deactivated at five consecutive failures, reversible from an admin action.
+  A poller that can throw is a poller that stops polling everything behind it.
 
 Added 2026-08-23 (T2):
 

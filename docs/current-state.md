@@ -14,11 +14,11 @@ post pane — composed by the layout from the same routes and store state; Setti
 present as full content pages over the reading panes instead of drawers. There is **no data
 layer** (no RSS fetching, no persistence beyond a handful of appearance settings — theme,
 feed-list style, scrollbar style — and the two sidebar-expansion flags). The app runs entirely
-on static mock data in `app/assets/data.ts`, served through the `feeds` store. A **backend
-scaffold** now exists in `backend/` (Django + django-ninja, Docker Compose) — see Resolved
-decisions → Backend stack & API — but the frontend isn't wired to it yet. Backend work is now
-sequenced in [backend-roadmap.md](./backend-roadmap.md), which tracks its own status: **read
-that file's § Status for what to build next.**
+on static mock data in `app/assets/data.ts`, served through the `feeds` store. A **backend**
+now exists in `backend/` (Django + django-ninja, Docker Compose) with auth and feed ingest
+working — see Resolved decisions → Backend stack & API — but the frontend isn't wired to it
+yet. Backend work is sequenced in [backend-roadmap.md](./backend-roadmap.md), which tracks its
+own status: **read that file's § Status for what to build next.**
 
 ## Built
 
@@ -345,7 +345,21 @@ _None currently._
   `errors.py` holds the single `{"detail": string}` error body. `manage.py issue_token
   <email>` prints a usable token, so every later endpoint is testable before Google OAuth
   lands in T8. Verified: 21 tests green, `ruff` clean, and a real curl loop — 401 without a
-  token, 200 with one, 204 on logout, 401 again straight after. Next is T3 — ingest core.
+  token, 200 with one, 204 on logout, 401 again straight after.
+  **T3 landed _(2026-08-25)_:** the database holds real posts. `backend/core/ingest.py`
+  exposes one synchronous `ingest_source(source)` — conditional GET with `requests` (explicit
+  connect/read timeout, `If-None-Match` / `If-Modified-Since` from the stored validators),
+  early return on 304, `feedparser` on the bytes, then upsert by `(source, guid)` so a re-poll
+  updates a post in place and keeps its `post_*` uid. Entry mapping covers all three source
+  types: `media:thumbnail` for YouTube posters, image enclosures for blogs, `published` over
+  `updated` for the timeline. Failures never raise — `error_count` climbs, `next_fetch_at`
+  backs off exponentially to a 24h cap, and the source deactivates after five in a row, with a
+  **Reset errors and poll on the next run** admin action as the way back. Driven by
+  `manage.py poll_source <source_uid>` and `manage.py poll_due`; T9 wraps the same function in
+  a Dramatiq actor. Verified: 50 tests green, `ruff` clean, and the three mock sources polled
+  for real — 10 Medium + 15 YouTube + 25 Reddit posts, a second `poll_due` correctly reporting
+  nothing due, and a manual re-poll returning 0 new / 25 updated. Next is T4 — `/home` and
+  `/settings`.
 
 - **Routing scheme** _(2026-06-29)_ — **nested routes**: posts nest under feeds
   (`/feed/[uid]/post/[postUid]`), settings subpages nest under settings (`/settings/*`). The
