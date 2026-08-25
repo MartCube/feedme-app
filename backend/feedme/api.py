@@ -2,6 +2,8 @@ from ninja import NinjaAPI
 
 from core.api.account import router as account_router
 from core.api.errors import register_error_handlers
+from core.api.home import router as home_router
+from core.api.settings import router as settings_router
 from core.auth import BearerAuth
 
 # Global guard: the app is login-only, there is no anonymous surface (backend.md § API).
@@ -18,3 +20,5 @@ def health(request):
 
 
 api.add_router('', account_router)
+api.add_router('', home_router)
+api.add_router('', settings_router)

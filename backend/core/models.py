@@ -181,10 +181,19 @@ class UserSettings(models.Model):
         LIST = 'list'
         CARDS = 'cards'
 
+    class ScrollbarStyle(models.TextChoices):
+        THIN = 'thin'
+        COMFORTABLE = 'comfortable'
+        # the Appearance panel calls this one "System" — it writes no scrollbar rules at all
+        AUTO = 'auto', 'System'
+
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='settings')
     theme = models.CharField(max_length=10, choices=Theme.choices, default=Theme.INK)
     feed_list_style = models.CharField(
         max_length=10, choices=FeedListStyle.choices, default=FeedListStyle.LIST
+    )
+    scrollbar_style = models.CharField(
+        max_length=11, choices=ScrollbarStyle.choices, default=ScrollbarStyle.THIN
     )
 
     class Meta:

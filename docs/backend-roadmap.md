@@ -14,8 +14,8 @@ deliberate checkpoint that wires the real frontend before the backlog grows furt
 
 ## Status
 
-**Last completed:** T3 — ingest core (synchronous) _(2026-08-25)_
-**Next up:** **T4 — `/home` and `/settings`**
+**Last completed:** T4 — `/home` and `/settings` _(2026-08-25)_
+**Next up:** **T5 — Posts: list, detail, save**
 **Roadmap written:** 2026-08-19
 
 | # | Task | State |
@@ -24,8 +24,8 @@ deliberate checkpoint that wires the real frontend before the backlog grows furt
 | T1 | Foundations — CORS, ruff, pytest | ✅ done _(2026-08-19)_ |
 | T2 | Auth — bearer tokens, global guard, `/me` | ✅ done _(2026-08-23)_ |
 | T3 | Ingest core (synchronous) | ✅ done _(2026-08-25)_ |
-| T4 | `/home` and `/settings` | ⬜ next |
-| T5 | Posts — list, detail, save | ⬜ |
+| T4 | `/home` and `/settings` | ✅ done _(2026-08-25)_ |
+| T5 | Posts — list, detail, save | ⬜ next |
 | T6 | **Vertical slice — wire the Nuxt app** | ⬜ |
 | T7 | Subscribe and folder writes | ⬜ |
 | T8 | Google OAuth | ⬜ (unblocked from T2) |
@@ -69,10 +69,20 @@ deactivating the source at five consecutive errors. `manage.py poll_source <sour
 action is the way back from a deactivation. The three mock sources — Medium's Vue tag, the
 YouTube channel, r/OnePiece — are in the dev database with 50 real posts.
 
+T4 built the app's cold-start round-trip. `backend/core/api/home.py`'s `GET /home` returns
+folders, every feed (with `Source` metadata flattened onto it), the shared top-level order, and
+saved counts, in a constant 5 queries regardless of feed count; `PUT /home/order` writes the
+one shared 0..n-1 sequence across `Folder.order` and `Feed.order` in a transaction, rejecting
+with a 422 naming the offending uids on any duplicate, foreign, or folder-member uid, or a
+top-level uid left out. `backend/core/api/settings.py`'s `GET`/`PUT /settings` read and replace
+`UserSettings` — `theme` / `feed_list_style` / `scrollbar_style`, the last one new this task
+(migration `0003_usersettings_scrollbar_style.py`) — typed as `Literal` unions; `GET` answers
+from an unsaved instance when no row exists yet, so a read never causes a write.
+
 **Not built.** Everything else: no background queue (T3's poller is a command you run), no
-article extraction and no search columns, and the only endpoints are `/health`, `/me` and
-`/auth/logout`. On the frontend, `nuxt.config.ts` has no `runtimeConfig` and the `feeds` store
-still imports `app/assets/data.ts` directly.
+article extraction and no search columns, and the only endpoints are `/health`, `/me`,
+`/auth/logout`, `/home`, `/home/order`, and `/settings`. On the frontend, `nuxt.config.ts` has
+no `runtimeConfig` and the `feeds` store still imports `app/assets/data.ts` directly.
 
 ## Contract resolutions
 
@@ -97,7 +107,7 @@ repoint every other subscriber's feed. `PATCH /feeds/{uid}` accepts **name only*
 removes the `feed_url` branch from `updateFeed`. The API still *returns* `feed_url`, so the
 `Feed` type itself doesn't change.
 
-**4. `UserSettings` scope.** The model gains `scrollbar_style` in T4 — it's an appearance
+**4. `UserSettings` scope.** The model gained `scrollbar_style` in T4 — it's an appearance
 preference that should follow the account across devices. `sidebarSettingsOpen` stays
 device-local: it's a desktop panel affordance, not a preference worth syncing.
 
@@ -195,6 +205,33 @@ Decided 2026-08-25 while building T3:
 - **Source metadata is backfilled from the feed when blank** — a source created by hand in admin
   (and, from T7, by subscribing to a bare URL) knows only its `feed_url`; the feed itself carries
   the title, site link and icon. Never overwrites a value that's already set.
+
+Decided 2026-08-25 while building T4:
+
+- **`PUT /home/order` is strict** — a stale client half-applying an order is worse than a
+  refusal; the reorder UI doesn't exist yet, so a loud 422 is what will tell the future
+  drag-and-drop it sent the wrong shape.
+- **`GET /settings` answers from an unsaved instance** rather than `get_or_create` — a read
+  shouldn't cause a write, the same rule T2 set with "expired tokens are rejected, not
+  deleted". The row appears on the first `PUT`.
+- **`PUT /settings` is a full replace, all fields required** — true to the verb, and the Pinia
+  store already holds all three values. Known sharp edge: a future fourth setting would reset
+  to default if an older client omitted it; T6 generating types from this schema is what keeps
+  the two sides in step.
+- **`Literal` types over plain `str`**, on the settings values and on `HomeFeedSchema`'s feed
+  `type` — ninja rejects an unknown value with a 422 for free, and the OpenAPI schema carries
+  the allowed set, so T6's generated TypeScript gets real union types instead of `string`. The
+  feed `type` case is sharper still: `app/assets/types.ts` already hand-writes `FeedType` as
+  `'youtube' | 'reddit' | 'website'`, and leaving the field as `str` would have made the
+  generated type degrade a union the frontend already expresses more precisely than the
+  backend did. Both are pinned by a drift-guard test asserting the `Literal`'s values match the
+  model's `TextChoices`.
+- **The top-level order breaks ties on `(order, uid)`** — `Folder.order` and `Feed.order` are
+  separate columns that both default to 0, so a tie across the two tables would otherwise let
+  the list flicker between reads.
+- **Feed metadata is flattened from `Source` into the feed object** — `Source` is backend-only
+  per the vocabulary table, so `type` / `site_url` / `feed_url` / `icon_url` appear as fields on
+  the feed and `source_uid` never appears at all.
 
 ## Tasks
 
@@ -299,7 +336,7 @@ is worth writing.
 **Done when.** Real posts for all three source types are visible in admin. Tests cover: guid
 dedupe on re-poll, the 304 no-op, a malformed feed not raising, and backoff growth on error.
 
-### T4 — `/home` and `/settings`
+### T4 — `/home` and `/settings` ✅
 
 **Goal.** The app's cold-start round-trip, and account-level preferences.
 

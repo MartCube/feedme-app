@@ -15,9 +15,9 @@ present as full content pages over the reading panes instead of drawers. There i
 layer** (no RSS fetching, no persistence beyond a handful of appearance settings — theme,
 feed-list style, scrollbar style — and the two sidebar-expansion flags). The app runs entirely
 on static mock data in `app/assets/data.ts`, served through the `feeds` store. A **backend**
-now exists in `backend/` (Django + django-ninja, Docker Compose) with auth and feed ingest
-working — see Resolved decisions → Backend stack & API — but the frontend isn't wired to it
-yet. Backend work is sequenced in [backend-roadmap.md](./backend-roadmap.md), which tracks its
+now exists in `backend/` (Django + django-ninja, Docker Compose) with auth, feed ingest, and
+the `/home` and `/settings` endpoints working — see Resolved decisions → Backend stack & API —
+but the frontend isn't wired to it yet. Backend work is sequenced in [backend-roadmap.md](./backend-roadmap.md), which tracks its
 own status: **read that file's § Status for what to build next.**
 
 ## Built
@@ -360,6 +360,24 @@ _None currently._
   for real — 10 Medium + 15 YouTube + 25 Reddit posts, a second `poll_due` correctly reporting
   nothing due, and a manual re-poll returning 0 new / 25 updated. Next is T4 — `/home` and
   `/settings`.
+  **T4 landed _(2026-08-25)_:** the app's cold-start round-trip and account-level preferences
+  are real. `backend/core/api/home.py`'s `GET /home` returns one aggregate — folders, every
+  feed (with `Source`'s `type`/`site_url`/`feed_url`/`icon_url` flattened onto it, `type` typed
+  as a `Literal` matching `app/assets/types.ts`'s hand-written `FeedType` union, so `source_uid`
+  never leaks), the shared top-level order, and saved counts — in a constant 5
+  queries no matter how many feeds an account has; `PUT /home/order` writes the one shared
+  0..n-1 sequence across `Folder.order` and `Feed.order` in a transaction, and strictly rejects
+  (422, naming the offending uids) a duplicate, a foreign uid, a folder-member uid, or a
+  top-level uid left out, writing nothing on failure. `UserSettings` gained `scrollbar_style`
+  (migration `0003_usersettings_scrollbar_style.py`, mirroring `app/stores/settings.ts`'s
+  `thin`/`comfortable`/`auto`); `backend/core/api/settings.py`'s `GET`/`PUT /settings` read and
+  fully replace it, `theme`/`feed_list_style`/`scrollbar_style` typed as `Literal` unions, with
+  `GET` answering from an unsaved instance rather than creating a row on read. Verified: 76
+  tests green (was 51), `ruff` clean, and against the real dev database — `/home` returning the
+  three real feeds and a folder (one member muted) with correct top-level ordering, a reorder
+  round-tripping through `PUT /home/order`, all three 422 branches firing correctly, and
+  `/settings` returning defaults with no row then round-tripping through a `PUT`. Next is T5 —
+  posts: list, detail, save.
 
 - **Routing scheme** _(2026-06-29)_ — **nested routes**: posts nest under feeds
   (`/feed/[uid]/post/[postUid]`), settings subpages nest under settings (`/settings/*`). The

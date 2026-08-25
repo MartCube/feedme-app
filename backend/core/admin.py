@@ -96,4 +96,4 @@ class SavedPostAdmin(admin.ModelAdmin):
 
 @admin.register(UserSettings)
 class UserSettingsAdmin(admin.ModelAdmin):
-    list_display = ('user', 'theme', 'feed_list_style')
+    list_display = ('user', 'theme', 'feed_list_style', 'scrollbar_style')

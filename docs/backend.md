@@ -133,7 +133,7 @@ Folder        uid (folder_*), user FK, name, order
 FolderMember  folder FK, feed FK, muted (bool), order — unique (folder, feed)
 SavedPost     user FK, post FK, group (bookmarks|favorites|later), saved_at
               — unique (user, post): a post lives in exactly one group
-UserSettings  user 1:1, theme, feed_list_style, … (grows with Appearance options)
+UserSettings  user 1:1, theme, feed_list_style, scrollbar_style, … (grows with Appearance options)
 ```
 
 **Cascade rules** are exactly [data-model.md](./data-model.md#cascade-rules)'s, enforced
