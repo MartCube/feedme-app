@@ -1,4 +1,6 @@
 from django.contrib import admin
+from django.urls import reverse
+from django.utils.html import format_html
 
 from .models import (
     AuthToken,
@@ -12,6 +14,67 @@ from .models import (
     UserSettings,
 )
 
+# Everything a user owns — settings, feeds, folders, saved posts, sessions — is edited from
+# the user's own page, because that is the question admin gets asked first: what does this
+# account actually have? Only the global tables (Source and Post, one copy shared by every
+# subscriber) and the accounts themselves are listed on the index.
+
+
+class UserSettingsInline(admin.StackedInline):
+    model = UserSettings
+    can_delete = False
+    max_num = 1
+    # stacked.html titles each form from verbose_name, not the plural, so both are set
+    verbose_name = 'Appearance settings'
+    verbose_name_plural = 'Appearance settings'
+    # The row is created by the first PUT /settings, not at signup (a read never writes —
+    # core/api/settings.py), so an account can legitimately have none yet and the form has
+    # to offer to add it.
+
+
+class FeedInline(admin.TabularInline):
+    model = Feed
+    extra = 0
+    fields = ('name', 'source', 'order', 'uid')
+    readonly_fields = ('uid',)
+    autocomplete_fields = ('source',)
+    show_change_link = True
+    verbose_name_plural = 'Feeds (subscriptions to a source)'
+
+
+class FolderInline(admin.TabularInline):
+    model = Folder
+    extra = 0
+    fields = ('name', 'order', 'uid')
+    readonly_fields = ('uid',)
+    show_change_link = True
+    verbose_name_plural = 'Folders'
+    # Members and the per-folder mute are edited on the folder's own page: Django admin has
+    # no nested inlines, so FolderMemberInline cannot ride along inside this one. The change
+    # link on each row is the way through.
+
+
+class SavedPostInline(admin.TabularInline):
+    model = SavedPost
+    extra = 0
+    fields = ('post', 'group', 'saved_at')
+    readonly_fields = ('saved_at',)
+    autocomplete_fields = ('post',)
+    verbose_name_plural = 'Saved posts'
+
+
+class AuthTokenInline(admin.TabularInline):
+    model = AuthToken
+    extra = 0
+    fields = ('device_label', 'created_at', 'last_used_at')
+    readonly_fields = fields
+    verbose_name_plural = 'Sessions (bearer tokens)'
+
+    def has_add_permission(self, request, obj=None):
+        """Deleting a row is the revoke button; issuing is `manage.py issue_token`, which is
+        the only place the plaintext token ever exists — admin only ever sees the hash."""
+        return False
+
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
@@ -19,12 +82,30 @@ class UserAdmin(admin.ModelAdmin):
     search_fields = ('email',)
     # password is a hash — managed by createsuperuser / ensure_superuser, not edited raw
     exclude = ('password',)
-    readonly_fields = ('created_at', 'last_login')
+    readonly_fields = ('created_at', 'last_login', 'saved_posts_link')
+    inlines = (
+        UserSettingsInline,
+        FeedInline,
+        FolderInline,
+        SavedPostInline,
+        AuthTokenInline,
+    )
+
+    @admin.display(description='All saved posts')
+    def saved_posts_link(self, user):
+        """The inline above edits the pile; this reaches the filtered changelist, which is
+        the readable view once an account has saved more rows than fit on a form."""
+        if user.pk is None:
+            return '—'
+        url = reverse('admin:core_savedpost_changelist')
+        count = user.saved_posts.count()
+        return format_html('<a href="{}?user__id__exact={}">{} saved</a>', url, user.pk, count)
 
 
 @admin.register(AuthToken)
 class AuthTokenAdmin(admin.ModelAdmin):
     list_display = ('user', 'device_label', 'created_at', 'last_used_at')
+    list_filter = ('user',)
     search_fields = ('user__email',)
     readonly_fields = ('token_hash', 'created_at', 'last_used_at')
 
@@ -60,6 +141,7 @@ class SourceAdmin(admin.ModelAdmin):
 class PostAdmin(admin.ModelAdmin):
     list_display = ('title', 'source', 'published_at')
     list_select_related = ('source',)
+    list_filter = ('source',)
     search_fields = ('title',)
     readonly_fields = ('uid',)
     date_hierarchy = 'published_at'
@@ -68,32 +150,52 @@ class PostAdmin(admin.ModelAdmin):
 class FolderMemberInline(admin.TabularInline):
     model = FolderMember
     extra = 0
+    autocomplete_fields = ('feed',)
 
 
 @admin.register(Feed)
 class FeedAdmin(admin.ModelAdmin):
     list_display = ('name', 'user', 'source', 'order')
     list_select_related = ('user', 'source')
+    list_filter = ('user',)
     search_fields = ('name', 'user__email')
+    autocomplete_fields = ('user', 'source')
     readonly_fields = ('uid',)
 
 
+class OwnedByUserAdmin(admin.ModelAdmin):
+    """Registered, but not listed on the admin index.
+
+    Folders and saved posts belong to one account, so the user's own page is where they are
+    edited. These still need registering — Django admin has no nested inlines, so a folder's
+    members and per-folder mute can only be edited on the folder's own page, and the saved
+    pile needs a changelist to link to once it outgrows a form. `get_model_perms` returning
+    empty drops the model from the index while leaving those URLs working, which is the one
+    supported way to have exactly that.
+    """
+
+    def get_model_perms(self, request):
+        return {}
+
+
 @admin.register(Folder)
-class FolderAdmin(admin.ModelAdmin):
+class FolderAdmin(OwnedByUserAdmin):
     list_display = ('name', 'user', 'order')
     list_select_related = ('user',)
+    list_filter = ('user',)
     search_fields = ('name', 'user__email')
+    autocomplete_fields = ('user',)
     readonly_fields = ('uid',)
     inlines = (FolderMemberInline,)
 
 
 @admin.register(SavedPost)
-class SavedPostAdmin(admin.ModelAdmin):
+class SavedPostAdmin(OwnedByUserAdmin):
     list_display = ('user', 'post', 'group', 'saved_at')
     list_select_related = ('user', 'post')
-    list_filter = ('group',)
+    list_filter = ('group', 'user')
+    autocomplete_fields = ('user', 'post')
 
 
-@admin.register(UserSettings)
-class UserSettingsAdmin(admin.ModelAdmin):
-    list_display = ('user', 'theme', 'feed_list_style', 'scrollbar_style')
+# UserSettings is deliberately not registered on its own: it is one row per account with
+# nothing to list across accounts, and UserSettingsInline edits it in place on the user.
