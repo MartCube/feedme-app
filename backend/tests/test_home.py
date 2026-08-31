@@ -5,7 +5,7 @@ from typing import get_args
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 
-from core.api.home import HomeFeedSchema
+from core.api.home import HomeFeedSchema, SavedCountsSchema
 from core.models import Feed, Folder, SavedPost, Source
 
 EMPTY_COUNTS = {'bookmarks': 0, 'favorites': 0, 'later': 0}
@@ -23,6 +23,10 @@ def query_count(client):
 
 def test_home_401s_without_a_token(client):
     assert client.get('/api/v1/home').status_code == 401
+
+
+def test_reordering_401s_without_a_token(client):
+    assert put_order(client, []).status_code == 401
 
 
 def test_home_is_empty_for_a_fresh_account(authed_client):
@@ -210,3 +214,9 @@ def test_the_feed_types_literal_matches_the_models_choices():
     annotation = HomeFeedSchema.model_fields['type'].annotation
 
     assert set(get_args(annotation)) == set(Source.Type.values)
+
+
+def test_the_saved_count_keys_match_the_models_groups():
+    """Same drift guard, on the other list written out by hand: a fourth saved group would
+    otherwise be dropped from saved_counts without a single test noticing."""
+    assert set(SavedCountsSchema.model_fields) == set(SavedPost.Group.values)
