@@ -16,7 +16,11 @@ from ..models import SavedPost
 from ..postlist import decode_cursor, encode_cursor, resolve_stream, visible_posts
 from .errors import ErrorSchema
 
-router = Router()
+# tagged `feeds`, not `posts`: from the app's side this whole module is reading a feed —
+# the list endpoint's uid is polymorphic over all / saved / a saved group / a folder / a
+# feed, and detail and save are what you do to something you found there. T7's subscription
+# writes (POST /feeds, PATCH /feeds/{uid}) join this group.
+router = Router(tags=['feeds'])
 
 # 10 is the page the frontend's infinite scroll asks for. The cap exists only so a caller
 # can't ask for the whole table at once; ninja rejects anything outside the range for free.
@@ -62,6 +66,7 @@ class SavedSchema(Schema):
 @router.get(
     '/feeds/{uid}/posts',
     response={200: PostPageSchema, 401: ErrorSchema, 404: ErrorSchema, 422: ErrorSchema},
+    operation_id='list_posts',
 )
 def feed_posts(
     request,
@@ -85,7 +90,11 @@ def feed_posts(
     }
 
 
-@router.get('/posts/{uid}', response={200: PostSchema, 401: ErrorSchema, 404: ErrorSchema})
+@router.get(
+    '/posts/{uid}',
+    response={200: PostSchema, 401: ErrorSchema, 404: ErrorSchema},
+    operation_id='get_post',
+)
 def post_detail(request, uid: str):
     return _visible_post(request.auth, uid)
 
@@ -93,6 +102,7 @@ def post_detail(request, uid: str):
 @router.put(
     '/posts/{uid}/save',
     response={200: SavedSchema, 401: ErrorSchema, 404: ErrorSchema, 422: ErrorSchema},
+    operation_id='save_post',
 )
 def save_post(request, uid: str, payload: SaveSchema):
     post = _visible_post(request.auth, uid)
@@ -105,7 +115,11 @@ def save_post(request, uid: str, payload: SaveSchema):
     return saved
 
 
-@router.delete('/posts/{uid}/save', response={204: None, 401: ErrorSchema, 404: ErrorSchema})
+@router.delete(
+    '/posts/{uid}/save',
+    response={204: None, 401: ErrorSchema, 404: ErrorSchema},
+    operation_id='unsave_post',
+)
 def unsave_post(request, uid: str):
     post = _visible_post(request.auth, uid)
     # idempotent on purpose — a double-tapped save toggle shouldn't raise

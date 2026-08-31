@@ -20,7 +20,7 @@ from ninja.errors import HttpError
 from ..models import Feed, Folder, FolderMember, SavedPost
 from .errors import ErrorSchema
 
-router = Router()
+router = Router(tags=['home'])
 
 
 class HomeFeedSchema(Schema):
@@ -64,7 +64,7 @@ class HomeOrderSchema(Schema):
     uids: list[str]
 
 
-@router.get('/home', response={200: HomeSchema, 401: ErrorSchema})
+@router.get('/home', response={200: HomeSchema, 401: ErrorSchema}, operation_id='get_home')
 def home(request):
     user = request.auth
 
@@ -89,7 +89,11 @@ def home(request):
     }
 
 
-@router.put('/home/order', response={204: None, 401: ErrorSchema, 422: ErrorSchema})
+@router.put(
+    '/home/order',
+    response={204: None, 401: ErrorSchema, 422: ErrorSchema},
+    operation_id='set_home_order',
+)
 def set_home_order(request, payload: HomeOrderSchema):
     user = request.auth
 

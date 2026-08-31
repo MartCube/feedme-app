@@ -16,7 +16,8 @@ from ninja import Router, Schema
 from ..models import UserSettings
 from .errors import ErrorSchema
 
-router = Router()
+# tagged `user` alongside account.py — see that module's docstring
+router = Router(tags=['user'])
 
 
 class SettingsSchema(Schema):
@@ -27,7 +28,9 @@ class SettingsSchema(Schema):
     scrollbar_style: Literal['thin', 'comfortable', 'auto']
 
 
-@router.get('/settings', response={200: SettingsSchema, 401: ErrorSchema})
+@router.get(
+    '/settings', response={200: SettingsSchema, 401: ErrorSchema}, operation_id='get_settings'
+)
 def get_settings(request):
     # Nothing creates a UserSettings row today, so most first reads find none. Answer from
     # an unsaved instance holding the model defaults rather than get_or_create: a read
@@ -37,7 +40,11 @@ def get_settings(request):
     return user_settings or UserSettings(user=request.auth)
 
 
-@router.put('/settings', response={200: SettingsSchema, 401: ErrorSchema, 422: ErrorSchema})
+@router.put(
+    '/settings',
+    response={200: SettingsSchema, 401: ErrorSchema, 422: ErrorSchema},
+    operation_id='set_settings',
+)
 def put_settings(request, payload: SettingsSchema):
     # A full replace, true to the verb: every field is required, so there's no ambiguity
     # about what an omitted one means.
