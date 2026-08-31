@@ -314,8 +314,10 @@ _None currently._
   `Source`, `Post`, `Feed`, `Folder`, `FolderMember`, `SavedPost`, `UserSettings`), the
   spec's unique constraints and cascade/`PROTECT` rules, and uid minting via
   `core/uids.py`'s `make_uid(prefix)` (the backend mints `source_*`/`post_*`/`feed_*`/
-  `folder_*`, per the vocabulary table). All models are registered in Django admin (Source
-  gets the ops treatment — active/error-count visibility). One migration
+  `folder_*`, per the vocabulary table). All models are covered by Django admin (Source
+  gets the ops treatment — active/error-count visibility; **reshaped 2026-09-01** so that
+  settings, feeds, folders, saved posts and sessions are edited as inlines on the user's own
+  page and only the global tables are listed on the index). One migration
   (`core/migrations/0001_initial.py`), an idempotent `ensure_superuser` management command
   driven by `DJANGO_SUPERUSER_*` env vars, and a dev `entrypoint.sh` (migrate →
   ensure_superuser → runserver) wired into the Dockerfile. Verified: full stack bootstrap
@@ -378,6 +380,25 @@ _None currently._
   round-tripping through `PUT /home/order`, all three 422 branches firing correctly, and
   `/settings` returning defaults with no row then round-tripping through a `PUT`. Next is T5 —
   posts: list, detail, save.
+  **T5 landed _(2026-08-26)_:** the posts are readable. `backend/core/postlist.py` owns the
+  polymorphic uid in the frontend's own order — `all` → `saved` → `saved_*` → `folder_*`
+  (members minus the ones muted in *that* folder) → `feed_*` — plus the base64 keyset cursor
+  and the rule for which posts a caller may open at all: one from a source they subscribe to,
+  or one they have already saved, so a saved post stays readable forever after unsubscribing.
+  `backend/core/api/posts.py` serves `GET /feeds/{uid}/posts` (`?cursor=&limit=`, default 10,
+  capped at 100, newest-first) in a constant **2 queries whatever the page size** — the caller's
+  sources and the three fields that depend on who is asking (`feed_uid`, `saved_group`,
+  `saved_at`) are correlated subqueries rather than joins. `feed_uid` resolves the global source
+  to *your* feed and is `null` when you no longer have one; `saved_group` is `null` until you
+  save, so a card renders its save state without a second request. Saved lists order by
+  `saved_at`, everything else by `published_at`. `GET /posts/{uid}`, `PUT /posts/{uid}/save`
+  (an upsert — moving between groups is the same call, and `saved_at` survives the move) and
+  `DELETE /posts/{uid}/save` (idempotent, so a double-tapped toggle is a no-op) round it out.
+  Verified: 108 tests green (was 76), `ruff` clean, and against the real dev database — paging
+  the 50 real posts eight pages at a time with no repeat and no skip, every uid branch returning
+  the right set, a save round-trip that `/home`'s `saved_counts` agrees with, and
+  `/api/v1/openapi.json` carrying `feed_uid: string | null` and the `saved_group` union that T6
+  generates TypeScript from. Next is T6 — the vertical slice: wiring the Nuxt app to real data.
 
 - **Routing scheme** _(2026-06-29)_ — **nested routes**: posts nest under feeds
   (`/feed/[uid]/post/[postUid]`), settings subpages nest under settings (`/settings/*`). The

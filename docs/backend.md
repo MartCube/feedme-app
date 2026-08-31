@@ -159,6 +159,12 @@ Conventions:
 
 ### Endpoint catalog
 
+Grouped in the OpenAPI schema — and so in the docs UI at `/api/v1/docs` — under four tags:
+**home** (the home aggregate and its reorder), **feeds** (reading: the polymorphic post list,
+post detail, save, and T7's subscription writes), **user** (identity, sessions, settings), and
+**default** (`/health`). The tag is declared on each router in `core/api/`; the order and the
+per-group descriptions come from `TAGS` in `feedme/api.py`.
+
 | Method & path | Purpose |
 | --- | --- |
 | `POST /auth/google` | Body: Google `id_token`. Verify signature → find-or-create User → issue opaque bearer token. Returns token + profile |

@@ -14,8 +14,8 @@ deliberate checkpoint that wires the real frontend before the backlog grows furt
 
 ## Status
 
-**Last completed:** T4 — `/home` and `/settings` _(2026-08-25)_
-**Next up:** **T5 — Posts: list, detail, save**
+**Last completed:** T5 — Posts: list, detail, save _(2026-08-26)_
+**Next up:** **T6 — Vertical slice: wire the Nuxt app to real data**
 **Roadmap written:** 2026-08-19
 
 | # | Task | State |
@@ -25,8 +25,8 @@ deliberate checkpoint that wires the real frontend before the backlog grows furt
 | T2 | Auth — bearer tokens, global guard, `/me` | ✅ done _(2026-08-23)_ |
 | T3 | Ingest core (synchronous) | ✅ done _(2026-08-25)_ |
 | T4 | `/home` and `/settings` | ✅ done _(2026-08-25)_ |
-| T5 | Posts — list, detail, save | ⬜ next |
-| T6 | **Vertical slice — wire the Nuxt app** | ⬜ |
+| T5 | Posts — list, detail, save | ✅ done _(2026-08-26)_ |
+| T6 | **Vertical slice — wire the Nuxt app** | ⬜ next |
 | T7 | Subscribe and folder writes | ⬜ |
 | T8 | Google OAuth | ⬜ (unblocked from T2) |
 | T9 | Dramatiq, `worker`, `scheduler` | ⬜ |
@@ -42,9 +42,11 @@ healthchecked) and `redis`. `worker` and `scheduler` don't exist yet — they ar
 
 **Built.** Django 5.2 + django-ninja project `feedme` with one app, `core`. All nine models
 from [backend.md](./backend.md) § Data model live in `backend/core/models.py` with the spec's
-unique constraints and cascade / `PROTECT` rules, behind one migration. Every model is
-registered in Django admin, with the ops treatment on `Source` (active flag, error count,
-fetch timestamps). Public uids are minted by `core/uids.py`'s `make_uid(prefix)`. An idempotent
+unique constraints and cascade / `PROTECT` rules, behind one migration. Django admin covers
+every model, with the ops treatment on `Source` (active flag, error count, fetch timestamps)
+and — since 2026-09-01 — everything a user owns edited from the user's own page rather than as
+tables of its own (§ Decision log). Public uids are minted by `core/uids.py`'s
+`make_uid(prefix)`. An idempotent
 `ensure_superuser` command and `entrypoint.sh` (migrate → ensure_superuser → runserver) handle
 dev bootstrap.
 
@@ -79,10 +81,20 @@ top-level uid left out. `backend/core/api/settings.py`'s `GET`/`PUT /settings` r
 (migration `0003_usersettings_scrollbar_style.py`) — typed as `Literal` unions; `GET` answers
 from an unsaved instance when no row exists yet, so a read never causes a write.
 
+T5 made the posts readable. `backend/core/postlist.py` owns the polymorphic uid — `all` →
+`saved` → `saved_*` → `folder_*` (members minus muted) → `feed_*`, the frontend's order — plus
+the base64 keyset cursor and the "may this caller see this post" rule. `backend/core/api/posts.py`
+serves `GET /feeds/{uid}/posts` (`?cursor=&limit=`, default 10, capped at 100, newest-first) in
+**2 queries regardless of page size**: the caller's sources and the three per-caller fields
+(`feed_uid`, `saved_group`, `saved_at`) are all correlated subqueries, not joins. `GET /posts/{uid}`,
+`PUT /posts/{uid}/save` (an upsert, so moving groups is the same call) and `DELETE /posts/{uid}/save`
+(idempotent) complete the set, all three 404ing on a post the caller neither follows nor saved.
+
 **Not built.** Everything else: no background queue (T3's poller is a command you run), no
 article extraction and no search columns, and the only endpoints are `/health`, `/me`,
-`/auth/logout`, `/home`, `/home/order`, and `/settings`. On the frontend, `nuxt.config.ts` has
-no `runtimeConfig` and the `feeds` store still imports `app/assets/data.ts` directly.
+`/auth/logout`, `/home`, `/home/order`, `/settings`, `/feeds/{uid}/posts`, `/posts/{uid}` and
+`/posts/{uid}/save`. On the frontend, `nuxt.config.ts` has no `runtimeConfig` and the `feeds`
+store still imports `app/assets/data.ts` directly.
 
 ## Contract resolutions
 
@@ -94,7 +106,10 @@ them. [data-model.md](./data-model.md) carries the same resolutions.
 backend posts belong to a global `Source` shared across all users. The post-list serializer
 resolves source → *the requesting user's* `Feed` uid. The public contract is unchanged; the
 join is backend work. Merged streams make this load-bearing — an `all` response carries posts
-from many feeds and each card needs its own `feed_uid`.
+from many feeds and each card needs its own `feed_uid`. **Amended in T5:** the field is
+**nullable**. A saved post outlives unsubscribing, so a `saved` response can carry a post whose
+source the reader no longer has a feed for; it returns `feed_uid: null` rather than being
+dropped from the list.
 
 **2. `Post.content` vs `summary` / `article_html`.** The frontend has one `content` field; the
 backend deliberately splits what RSS gave us (`summary`) from on-demand extracted article text
@@ -233,6 +248,72 @@ Decided 2026-08-25 while building T4:
   per the vocabulary table, so `type` / `site_url` / `feed_url` / `icon_url` appear as fields on
   the feed and `source_uid` never appears at all.
 
+Decided 2026-08-26 while building T5:
+
+- **Saved lists order by `saved_at`, everything else by `published_at`** — `saved` is a pile you
+  built, not a timeline you follow, so a post you saved this morning leads it even if it was
+  published in 2019. The cost is that the ordering column is part of what resolving a uid
+  decides (`Stream.order_field`) and the cursor pages over whichever one it named.
+- **The cursor carries the post's public `uid`, not its pk** — base64 is decodable, so an
+  integer pk inside an "opaque" cursor is still a pk on the wire, and the `backend-dev` skill's
+  rule is to return the uid and never the pk. `uid` is unique and indexed, so it's a valid
+  tiebreak within an identical timestamp.
+- **A post is readable and savable only if you subscribe to its source or have already saved
+  it** — posts are global rows, so "is it mine" isn't a user FK; it's this rule, and it 404s
+  rather than 403s because which of the two it is isn't the caller's business. The *or saved*
+  half is what keeps a saved post readable forever after you unsubscribe.
+- **The per-caller fields are correlated subqueries, not joins** — `Feed` is unique per
+  (user, source) and `SavedPost` per (user, post), so `feed_uid` / `saved_group` / `saved_at`
+  each resolve to exactly one row and none of them can multiply the post rows. The join spelling
+  (`filter(saves__user=…)` + `annotate(F('saves__…'))`) is the trap: Django's join reuse across
+  `filter` and `annotate` on a multi-valued relation isn't the one you'd guess. This is what
+  holds the list at 2 queries whatever the page size.
+- **No new index in T5** — `Post` already has `(source, -published_at)`, which covers the
+  per-source scan the merged streams merge over. Adding the `uid` tiebreak column would fatten
+  a 32-char varchar into the index for a case that only fires on identical timestamps, and T13
+  caps the table anyway. Revisit when `EXPLAIN` on a real page request shows a sort.
+
+Decided 2026-09-01, outside any task (admin and the OpenAPI schema, no endpoint behaviour):
+
+- **Admin is organised by owner, not by table** — settings, feeds, folders, saved posts and
+  sessions are inlines on the user's own page, because the question admin gets asked first is
+  "what does this account actually have?". The index keeps only the global tables (`Source`,
+  `Post`) and `User`. Until T7's write endpoints exist this *is* the subscribe UI, so the
+  ergonomics are worth the config.
+- **`get_model_perms` returning empty, not unregistering** — `Folder` and `SavedPost` are
+  hidden from the index but stay registered, because Django admin has no nested inlines: a
+  folder's members and per-folder mute can only be edited on the folder's own page, and the
+  saved pile needs a changelist to link to once it outgrows a form. `UserSettings` is the one
+  model unregistered outright — it is one row per account and nothing links to it.
+- **Tokens can't be created in admin, only revoked** — the plaintext exists once, at mint time
+  in `manage.py issue_token`; the table stores a SHA-256 hash. An add form there would be a
+  form that cannot produce a working token, so the inline disables adding and deleting a row
+  is the revoke button.
+- **Four OpenAPI tags — `home` / `feeds` / `user` / `default`** — grouped by what the caller
+  is doing, not by module, so `account.py` and `settings.py` share `user` and the whole posts
+  module sits under `feeds` (its list endpoint's uid is polymorphic over all / saved / a saved
+  group / a folder / a feed — it is "read a feed", not "read posts"). T7's `POST /feeds` and
+  `PATCH /feeds/{uid}` join `feeds` rather than opening a fifth group.
+- **Hand-written `operation_id` on every route** — ninja derives one from the module path
+  otherwise (`core_api_posts_feed_posts`), and T6 generates the frontend's types from this
+  schema, so those names would leak into generated client code. `tests/test_openapi.py` pins
+  all of it: every operation lands in exactly one declared tag, and no id is left generated.
+
+Recorded 2026-08-26 while reviewing T4 (no code changed):
+
+- **`PUT /home/order` validates outside its transaction** — folders, feeds and the nested set
+  are read and validated before `transaction.atomic()` is entered, so two devices reordering at
+  once can both pass validation. `select_for_update()` inside the transaction would close the
+  concurrent-*reorder* case but not a concurrent *subscribe* (no gap locks under READ
+  COMMITTED). Left alone deliberately: the drag-and-drop UI that would trigger it doesn't exist
+  yet, the failure is cosmetic (a misplaced row, corrected by the next `/home`), and a partial
+  fix that reads as complete is worse than a recorded one. **Revisit in T7.**
+- **Two obligations T4 handed to T7.** `Feed.order` is never normalised for feeds inside
+  folders, so a feed removed from a folder arrives at the top level carrying a stale `order`
+  (usually 0) — `PATCH`/`DELETE /folders/{uid}` must assign it a fresh position. And
+  `FolderMember` has no constraint that `folder.user == feed.user`, so `PATCH /folders/{uid}`'s
+  set-members path has to verify every feed uid belongs to the caller.
+
 ## Tasks
 
 ### T1 — Foundations: CORS, linting, test harness
@@ -356,7 +437,7 @@ dedupe on re-poll, the 304 no-op, a malformed feed not raising, and backoff grow
 grow with the number of feeds, order survives a round-trip, and a test proves a second user's
 folders and feeds never appear in the first user's response.
 
-### T5 — Posts: list, detail, save
+### T5 — Posts: list, detail, save ✅
 
 **Goal.** The polymorphic post list that every reader screen is built on.
 

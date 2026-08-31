@@ -11,9 +11,11 @@ which is not yet in code.
 > ([backend-roadmap.md](./backend-roadmap.md) § Contract resolutions), and land in the app
 > when the frontend is wired to the API:
 >
-> - **`Post.feed_uid` still exists**, but it is *derived*: backend posts belong to a global
->   `Source`, and the API resolves that source to **the requesting user's** `Feed` uid. Merged
->   streams (`all`, a folder) carry posts from many feeds, so each post needs its own.
+> - **`Post.feed_uid` still exists**, but it is *derived* and **nullable**: backend posts
+>   belong to a global `Source`, and the API resolves that source to **the requesting user's**
+>   `Feed` uid. Merged streams (`all`, a folder) carry posts from many feeds, so each post
+>   needs its own. It is `null` when the reader has no feed for that source — a saved post
+>   outlives unsubscribing and is never hidden for want of a feed to point at.
 > - **`Post.content` becomes `summary`** — what RSS gave us. Full article text is fetched
 >   separately from `/posts/{uid}/article`, extracted on first open and cached globally.
 > - **`feed_url` is read-only.** It lives on the shared global `Source`, so editing it would
