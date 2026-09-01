@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // The shared confirm sheet standing in front of every destructive edit action —
-// delete a feed, delete a source, remove a source from a feed. Purely
+// delete a folder, delete a feed, remove a feed from a folder. Purely
 // presentational: Drawer.vue supplies the copy and owns the store mutation.
 const props = defineProps<{
   // Doubles as the heading and the confirm button's label.

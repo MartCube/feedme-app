@@ -25,7 +25,7 @@ function isActive(uid: string) {
   return selectedUid.value === uid || props.activeUid === uid
 }
 
-// Long-press a folder or loose-source row to edit it (mobile); the same edit
+// Long-press a folder or loose-feed row to edit it (mobile); the same edit
 // route is reached on desktop via a hover-revealed 3-dot on the row.
 const editPress = useLongPress(uid => navigateTo(`/edit/${uid}`))
 

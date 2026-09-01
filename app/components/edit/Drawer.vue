@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Hosts the edit-feed / edit-source bottom sheet. Like the settings and add
+// Hosts the edit-folder / edit-feed bottom sheet. Like the settings and add
 // drawers, every /edit/* URL renders the home page component (see the
 // pages:extend hook in nuxt.config) so the feed list stays mounted behind the
 // sheet. The route-driven panels themselves live in EditPanels; this component
@@ -9,7 +9,7 @@ const open = ref(false)
 
 const wizard = useAddFeedWizard()
 
-const EDIT_NAMES = new Set(['edit', 'edit-source', 'edit-add', 'edit-add-input', 'edit-delete', 'edit-source-delete'])
+const EDIT_NAMES = new Set(['edit', 'edit-feed', 'edit-add', 'edit-add-input', 'edit-delete', 'edit-feed-delete'])
 // Every panel inside needs the folder or feed the URL names, and the account's data only
 // arrives after hydration — so a cold deep link would otherwise slide up an empty sheet,
 // hold it for the length of GET /home, and (for a stale uid) slide it back down still

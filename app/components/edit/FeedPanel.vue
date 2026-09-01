@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import type { Feed } from '~/assets/types'
 
-// The edit-source panel. Reached two ways: as a subpage of a folder
-// (folderUid set → back caret + swipe-back, destructive action = remove from
-// this feed) or directly for a loose source (no folderUid → X close,
-// destructive action = delete the source). Edits the name only — feed_url
-// belongs to the shared global Source, so editing it here would repoint every
-// other subscriber's feed (backend-roadmap.md § Contract resolutions, 3). It
-// stays on screen as read-only context: it's what tells two feeds apart.
+// The edit-feed panel. Reached two ways: as a subpage of a folder (folderUid
+// set → back caret + swipe-back, destructive action = remove it from that
+// folder) or directly for a loose feed (no folderUid → X close, destructive
+// action = unsubscribe). Edits the name only — feed_url belongs to the shared
+// global Source, so editing it here would repoint every other subscriber's feed
+// (backend-roadmap.md § Contract resolutions, 3). It stays on screen as
+// read-only context: it's what tells two feeds apart.
 const props = defineProps<{ feed: Feed, folderUid?: string }>()
 
 const feedsStore = useFeedsStore()
@@ -35,7 +35,7 @@ function save() {
 }
 
 // Swipe right pops back: to the folder panel for a member, or closes to home
-// for a loose source (it has no parent). The panel-slide / drawer animates the
+// for a loose feed (it has no parent). The panel-slide / drawer animates the
 // same root div this style binds to.
 const backTo = () => (props.folderUid ? `/edit/${props.folderUid}` : '/')
 const panel = useTemplateRef('panel')
@@ -43,7 +43,7 @@ const { style: swipeStyle } = useSwipeBack(panel, backTo)
 
 // Both destructive paths go through a confirm sheet — the panel only routes.
 const deletePath = computed(() => props.folderUid
-  ? `/edit/${props.folderUid}/source/${props.feed.uid}/delete`
+  ? `/edit/${props.folderUid}/feed/${props.feed.uid}/delete`
   : `/edit/${props.feed.uid}/delete`)
 </script>
 
@@ -59,12 +59,12 @@ const deletePath = computed(() => props.folderUid
         v-if="folderUid"
         icon="i-ph-caret-left-bold"
         :to="`/edit/${folderUid}`"
-        aria-label="Back to feed"
+        aria-label="Back to folder"
       />
       <IconButton
         v-else
         icon="i-ph-x-bold"
-        aria-label="Close edit source"
+        aria-label="Close edit feed"
         @click="closeDrawer"
       />
       <PillButton
@@ -103,7 +103,7 @@ const deletePath = computed(() => props.folderUid
 
     <DangerButton
       class="mt-xl"
-      :label="folderUid ? 'Remove source from feed' : 'Delete source'"
+      :label="folderUid ? 'Remove from this folder' : 'Delete feed'"
       :to="deletePath"
     />
   </div>

@@ -1,16 +1,16 @@
 <script setup lang="ts">
 import type { FeedType } from '~/assets/types'
 
-// The route-driven edit panels (folder / source / scoped add / confirm),
+// The route-driven edit panels (folder / feed / scoped add / confirm),
 // switched by /edit/* route — no nested NuxtPage. Hosted by the mobile bottom
 // sheet (edit/Drawer.vue) and the desktop content page.
 //
 // One route per panel: /edit/:uid is the base (a folder_* uid → folder panel;
-// a loose feed_* uid → source panel directly), /edit/:uid/source/:sourceUid is
-// a member source subpage, /edit/:uid/add[/input] is the scoped add flow, and
-// the two confirm sheets are /edit/:uid/delete (delete this folder, or this
-// source when the uid is a loose feed_*) and /edit/:uid/source/:sourceUid/delete
-// (remove that source from the folder).
+// a loose feed_* uid → feed panel directly), /edit/:uid/feed/:feedUid is a
+// member feed subpage, /edit/:uid/add[/input] is the scoped add flow, and the
+// two confirm sheets are /edit/:uid/delete (delete this folder, or unsubscribe
+// this feed when the uid is a loose feed_*) and /edit/:uid/feed/:feedUid/delete
+// (remove that feed from the folder).
 //
 // vue-router's live route, not Nuxt's useRoute(): on desktop these panels
 // render without a NuxtPage, where Nuxt's route object never re-syncs.
@@ -27,22 +27,22 @@ const { folderDeleteImpact, deleteFolder, deleteFeed, removeFromFolder } = feeds
 const wizard = useAddFeedWizard()
 
 const uid = computed(() => route.params.uid as string)
-const sourceUid = computed(() => route.params.sourceUid as string | undefined)
+const memberUid = computed(() => route.params.feedUid as string | undefined)
 
 const view = computed(() => {
   switch (route.name) {
-    case 'edit-source': return 'source'
+    case 'edit-feed': return 'member'
     case 'edit-add': return 'add-type'
     case 'edit-add-input': return 'add-input'
     case 'edit-delete':
-    case 'edit-source-delete': return 'confirm'
+    case 'edit-feed-delete': return 'confirm'
     default: return uid.value?.startsWith('folder_') ? 'folder' : 'loose'
   }
 })
 
 const folder = computed(() => folders.value.find(f => f.uid === uid.value))
 const baseFeed = computed(() => feeds.value.find(f => f.uid === uid.value))
-const sourceFeed = computed(() => feeds.value.find(f => f.uid === sourceUid.value))
+const memberFeed = computed(() => feeds.value.find(f => f.uid === memberUid.value))
 
 // Every destructive action in the edit flow, side by side: its copy, where
 // Cancel goes back to, and the store call it commits. ConfirmPanel just
@@ -58,38 +58,38 @@ interface Confirm {
 }
 
 const confirm = computed<Confirm | undefined>(() => {
-  // Unlink a member source from the folder it's being edited under.
-  if (route.name === 'edit-source-delete') {
+  // Unlink a member feed from the folder it's being edited under.
+  if (route.name === 'edit-feed-delete') {
     const f = folder.value
-    const source = sourceFeed.value
-    if (!f || !source) return
+    const member = memberFeed.value
+    if (!f || !member) return
     return {
-      action: 'Remove source from feed',
+      action: 'Remove from this folder',
       verb: 'Remove',
-      subject: source.name,
+      subject: member.name,
       context: f.name,
-      note: 'It stays subscribed — it moves to your list unless it\'s in another feed.',
-      backTo: `/edit/${f.uid}/source/${source.uid}`,
+      note: 'It stays subscribed — it moves to your list unless it\'s in another folder.',
+      backTo: `/edit/${f.uid}/feed/${member.uid}`,
       act: () => {
-        removeFromFolder(f.uid, source.uid)
+        removeFromFolder(f.uid, member.uid)
         navigateTo(`/edit/${f.uid}`)
       },
     }
   }
-  // Delete the whole feed. Cascades: members in no other folder get
+  // Delete the whole folder. Cascades: members in no other folder get
   // unsubscribed, so the note names how many that is.
   if (folder.value) {
     const f = folder.value
     const impact = folderDeleteImpact(f.uid)
     return {
-      action: 'Delete feed',
+      action: 'Delete folder',
       verb: 'Delete',
       subject: f.name,
       note: impact === 1
-        ? '1 source that isn\'t in another feed will be unsubscribed.'
+        ? '1 feed that isn\'t in another folder will be unsubscribed.'
         : impact > 1
-          ? `${impact} sources that aren't in another feed will be unsubscribed.`
-          : 'Its sources stay subscribed — they\'re in other feeds or the list.',
+          ? `${impact} feeds that aren't in another folder will be unsubscribed.`
+          : 'Its feeds stay subscribed — they\'re in other folders or the list.',
       backTo: `/edit/${f.uid}`,
       act: () => {
         deleteFolder(f.uid)
@@ -97,17 +97,17 @@ const confirm = computed<Confirm | undefined>(() => {
       },
     }
   }
-  // Unsubscribe a standalone source.
+  // Unsubscribe a loose feed.
   if (baseFeed.value) {
-    const source = baseFeed.value
+    const feed = baseFeed.value
     return {
-      action: 'Delete source',
+      action: 'Delete feed',
       verb: 'Delete',
-      subject: source.name,
+      subject: feed.name,
       note: 'Unsubscribes it everywhere — its posts leave your list.',
-      backTo: `/edit/${source.uid}`,
+      backTo: `/edit/${feed.uid}`,
       act: () => {
-        deleteFeed(source.uid)
+        deleteFeed(feed.uid)
         navigateTo('/')
       },
     }
@@ -123,7 +123,7 @@ const confirm = computed<Confirm | undefined>(() => {
 const missing = computed(() => {
   if (!loaded.value && !unreachable.value) return false
   if (view.value === 'folder') return !folder.value
-  if (view.value === 'source') return !sourceFeed.value
+  if (view.value === 'member') return !memberFeed.value
   if (view.value === 'loose') return !baseFeed.value
   if (view.value === 'confirm') return !confirm.value
   return false
@@ -182,13 +182,13 @@ async function onAddCommit() {
         :key="route.path"
         :folder="folder"
       />
-      <EditSourcePanel
-        v-else-if="view === 'source' && sourceFeed"
+      <EditFeedPanel
+        v-else-if="view === 'member' && memberFeed"
         :key="route.path"
-        :feed="sourceFeed"
+        :feed="memberFeed"
         :folder-uid="uid"
       />
-      <EditSourcePanel
+      <EditFeedPanel
         v-else-if="view === 'loose' && baseFeed"
         :key="route.path"
         :feed="baseFeed"

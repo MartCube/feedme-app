@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import type { Folder } from '~/assets/types'
 
-// The edit-feed (folder) base panel: rename the folder, toggle its member
-// sources on/off (per-folder mute), add a source straight into it, drill into
-// a source, or delete the folder.
+// The edit-folder base panel: rename the folder, toggle its member feeds
+// on/off (per-folder mute), add a feed straight into it, drill into a member,
+// or delete the folder.
 const props = defineProps<{ folder: Folder }>()
 
 const feedsStore = useFeedsStore()
@@ -13,9 +13,9 @@ const wizard = useAddFeedWizard()
 const closeDrawer = inject(editDrawerCloseKey, () => {})
 const { selectedUid, select } = useTapSelection()
 
-const sources = computed(() => memberFeeds(props.folder))
+const members = computed(() => memberFeeds(props.folder))
 
-// Local drafts so edits are explicit — the name and the per-source mutes are
+// Local drafts so edits are explicit — the name and the per-feed mutes are
 // both staged here and committed together by the Save pill, never on the
 // keystroke or the toggle. Key the reset on uid, not the folder object, so an
 // unrelated store update can't wipe an in-progress draft.
@@ -72,7 +72,7 @@ const deletePath = computed(() => `/edit/${props.folder.uid}/delete`)
     <header class="flex items-center justify-between gap-sm">
       <IconButton
         icon="i-ph-x-bold"
-        aria-label="Close edit feed"
+        aria-label="Close edit folder"
         @click="closeDrawer"
       />
       <PillButton
@@ -96,24 +96,24 @@ const deletePath = computed(() => `/edit/${props.folder.uid}/delete`)
 
     <section class="mt-lg">
       <h3 class="text-caption font-semibold uppercase tracking-wide text-muted text-inset">
-        Sources
+        Feeds
       </h3>
       <ul
-        v-if="sources.length"
+        v-if="members.length"
         class="mt-xs flex flex-col"
       >
         <!-- Rows span the full width like the inputs and block buttons, and
              carry the inset as real padding (pl-sm on the link, pr-sm here) —
-             so the row name lands at the same x as input text and the 'Sources'
+             so the row name lands at the same x as input text and the 'Feeds'
              heading, and the selected card matches the inputs exactly. -->
         <li
-          v-for="feed in sources"
+          v-for="feed in members"
           :key="feed.uid"
           class="flex items-center rounded-2xl pr-sm transition-colors"
           :class="selectedUid === feed.uid && 'bg-elevated shadow-elevated'"
         >
           <NuxtLink
-            :to="`/edit/${folder.uid}/source/${feed.uid}`"
+            :to="`/edit/${folder.uid}/feed/${feed.uid}`"
             class="min-w-0 flex-1 truncate py-sm pl-sm text-body"
             :class="isMuted(feed.uid) && 'text-muted opacity-60'"
             @pointerdown="select(feed.uid)"
@@ -124,7 +124,7 @@ const deletePath = computed(() => `/edit/${props.folder.uid}/delete`)
                is invalid). -->
           <Toggle
             :model-value="!isMuted(feed.uid)"
-            :aria-label="`${isMuted(feed.uid) ? 'Enable' : 'Mute'} ${feed.name} in this feed`"
+            :aria-label="`${isMuted(feed.uid) ? 'Enable' : 'Mute'} ${feed.name} in this folder`"
             @update:model-value="toggleMute(feed.uid)"
           />
         </li>
@@ -133,7 +133,7 @@ const deletePath = computed(() => `/edit/${props.folder.uid}/delete`)
         v-else
         class="mt-xs text-caption text-muted text-inset"
       >
-        No sources yet.
+        No feeds yet.
       </p>
 
       <!-- Dashed ghost row, full width like the rows above it. -->
@@ -146,13 +146,13 @@ const deletePath = computed(() => `/edit/${props.folder.uid}/delete`)
           name="i-ph-plus-bold"
           class="size-5 shrink-0"
         />
-        Add source
+        Add feed
       </button>
     </section>
 
     <DangerButton
       class="mt-xl"
-      label="Delete feed"
+      label="Delete folder"
       :to="deletePath"
     />
   </div>
