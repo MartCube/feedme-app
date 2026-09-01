@@ -9,11 +9,15 @@ withDefaults(defineProps<{
   // Opt-in: focus on mount (wizard steps). The delay lets the panel-slide
   // finish so the dialog's own focus management doesn't steal it back.
   autofocus?: boolean
+  // What the submit arrow does, for screen readers. Every use is a search bar
+  // except the login screen's token field.
+  submitLabel?: string
 }>(), {
   placeholder: '',
   size: 'xl',
   paste: false,
   autofocus: false,
+  submitLabel: 'Search',
 })
 
 const emit = defineEmits<{ submit: [] }>()
@@ -58,7 +62,7 @@ async function pasteFromClipboard() {
           variant="ghost"
           size="sm"
           type="submit"
-          aria-label="Search"
+          :aria-label="submitLabel"
         />
         <UButton
           v-else-if="paste && focused"

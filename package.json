@@ -11,7 +11,8 @@
     "postinstall": "nuxt prepare",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "typecheck": "nuxt typecheck"
+    "typecheck": "nuxt typecheck",
+    "types:api": "openapi-typescript http://localhost:8000/api/v1/openapi.json -o app/types/api.d.ts"
   },
   "dependencies": {
     "@formkit/auto-animate": "^0.10.0",
@@ -34,6 +35,7 @@
     "@iconify-json/solar": "^1.2.5",
     "@nuxt/eslint": "^1.16.0",
     "eslint": "^10.7.0",
+    "openapi-typescript": "^7.13.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^6.0.3",
     "vue-tsc": "^3.3.7"

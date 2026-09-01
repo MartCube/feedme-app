@@ -1,6 +1,5 @@
 import type { FeedCandidate, FeedType } from '~/assets/types'
 import type { Destination } from '~/stores/feeds'
-import { mockSearch } from '~/assets/mock-search'
 
 export type WizardStep = 'type' | 'input' | 'destination' | 'folder'
 export type WizardDirection = 'forward' | 'back'
@@ -18,6 +17,9 @@ export function useAddFeedWizard() {
   const results = useState<FeedCandidate[]>('add-results', () => [])
   const selectedFeeds = useState<FeedCandidate[]>('add-selected', () => [])
   const direction = useState<WizardDirection>('add-direction', () => 'forward')
+  // Distinguishes "haven't searched yet" from "searched and found nothing", so
+  // the step only explains itself once the user has actually asked.
+  const searched = useState('add-searched', () => false)
 
   function selectType(t: FeedType) {
     // Re-picking a type (e.g. back to phase 1, then a different type) must clear
@@ -26,22 +28,25 @@ export function useAddFeedWizard() {
     query.value = ''
     results.value = []
     loading.value = false
+    searched.value = false
     selectedFeeds.value = []
     type.value = t
     direction.value = 'forward'
     step.value = 'input'
   }
 
-  async function search() {
+  // Discovery is T11 (GET /discover?type=&q=), so a search currently finds
+  // nothing and the step says so. The shape around it is the real one — loading
+  // in, results out — which is what makes wiring the endpoint a one-line swap.
+  function search() {
     if (!type.value) return
     direction.value = 'forward'
-    loading.value = true
+    loading.value = false
     results.value = []
     // A new search invalidates prior picks — stale selections would keep the
     // forward button enabled on feeds no longer visible in the list.
     selectedFeeds.value = []
-    results.value = await mockSearch(type.value, query.value)
-    loading.value = false
+    searched.value = true
   }
 
   function isSelected(feed: FeedCandidate) {
@@ -92,9 +97,10 @@ export function useAddFeedWizard() {
     query.value = ''
     loading.value = false
     results.value = []
+    searched.value = false
     selectedFeeds.value = []
     direction.value = 'forward'
   }
 
-  return { step, type, query, loading, results, selectedFeeds, direction, selectType, search, isSelected, toggleFeed, proceedToDestination, chooseDestination, goToNewFolder, createFolder, back, reset }
+  return { step, type, query, loading, results, searched, selectedFeeds, direction, selectType, search, isSelected, toggleFeed, proceedToDestination, chooseDestination, goToNewFolder, createFolder, back, reset }
 }

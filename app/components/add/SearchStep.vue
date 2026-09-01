@@ -2,7 +2,7 @@
 const emit = defineEmits<{ back: [], forward: [] }>()
 
 const wizard = useAddFeedWizard()
-const { type, query, loading, results, selectedFeeds } = wizard
+const { type, query, loading, results, searched, selectedFeeds } = wizard
 
 // Heading label/icon and placeholder all come from the type card the user
 // just tapped (website when the type is somehow unset).
@@ -109,5 +109,14 @@ function displayUrl(url: string) {
         </button>
       </li>
     </ul>
+
+    <!-- Discovery (GET /discover) is a later task; until it exists a search
+         finds nothing, and saying so beats a blank panel. -->
+    <p
+      v-else-if="searched"
+      class="mt-md text-body text-muted"
+    >
+      Nothing found — feed search is coming.
+    </p>
   </div>
 </template>

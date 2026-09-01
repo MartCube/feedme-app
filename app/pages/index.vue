@@ -5,7 +5,9 @@ useHead({ title: 'FeedMe' })
 // a stable key keeps this page mounted across those navigations.
 definePageMeta({ key: 'home' })
 
-const { hasFeeds } = storeToRefs(useFeedsStore())
+// `loaded` gates the first paint: without it the home screen flashes the
+// first-run empty state for as long as GET /home is in flight.
+const { hasFeeds, loaded, unreachable } = storeToRefs(useFeedsStore())
 </script>
 
 <template>
@@ -28,7 +30,7 @@ const { hasFeeds } = storeToRefs(useFeedsStore())
       class="mt-lg"
     />
     <HomeEmptyState
-      v-else
+      v-else-if="loaded || unreachable"
       class="grow"
     />
   </main>

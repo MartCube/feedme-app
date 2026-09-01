@@ -9,7 +9,7 @@
 const props = defineProps<{ activeUid?: string | null }>()
 
 const feedsStore = useFeedsStore()
-const { folders, looseFeeds } = storeToRefs(feedsStore)
+const { folders, looseFeeds, savedCounts } = storeToRefs(feedsStore)
 const { memberFeeds, isExpanded, toggleFolder } = feedsStore
 
 const settings = useSettingsStore()
@@ -128,11 +128,14 @@ onScopeDispose(() => clearTimeout(flashTimer))
         >
           <NuxtLink
             :to="`/feed/${group.uid}`"
-            class="-mr-sm block truncate rounded-2xl py-sm pl-md pr-sm text-body transition-colors"
+            class="-mr-sm flex items-baseline gap-xs rounded-2xl py-sm pl-md pr-sm text-body transition-colors"
             :class="isActive(group.uid) && 'bg-elevated shadow-elevated'"
             @pointerdown="select(group.uid)"
           >
-            {{ group.name }}
+            <span class="truncate">{{ group.name }}</span>
+            <!-- Same muted count a folder row carries, for the same reason:
+                 how much is in there without opening it. -->
+            <span class="text-caption text-muted">{{ savedCounts[group.group] }}</span>
           </NuxtLink>
         </li>
       </template>

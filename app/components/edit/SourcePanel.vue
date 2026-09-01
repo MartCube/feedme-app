@@ -4,7 +4,10 @@ import type { Feed } from '~/assets/types'
 // The edit-source panel. Reached two ways: as a subpage of a folder
 // (folderUid set → back caret + swipe-back, destructive action = remove from
 // this feed) or directly for a loose source (no folderUid → X close,
-// destructive action = delete the source). Edits name + the RSS feed_url only.
+// destructive action = delete the source). Edits the name only — feed_url
+// belongs to the shared global Source, so editing it here would repoint every
+// other subscriber's feed (backend-roadmap.md § Contract resolutions, 3). It
+// stays on screen as read-only context: it's what tells two feeds apart.
 const props = defineProps<{ feed: Feed, folderUid?: string }>()
 
 const feedsStore = useFeedsStore()
@@ -16,21 +19,18 @@ const closeDrawer = inject(editDrawerCloseKey, () => {})
 // Key the reset on uid, not the feed object, so an unrelated store update
 // doesn't wipe in-progress drafts (see FolderPanel).
 const name = ref(props.feed.name)
-const feedUrl = ref(props.feed.feed_url)
 watch(() => props.feed.uid, () => {
   name.value = props.feed.name
-  feedUrl.value = props.feed.feed_url
 })
 
 const dirty = computed(() => {
   const n = name.value.trim()
-  const u = feedUrl.value.trim()
-  return (n.length > 0 && n !== props.feed.name) || (u.length > 0 && u !== props.feed.feed_url)
+  return n.length > 0 && n !== props.feed.name
 })
 
 function save() {
   if (!dirty.value) return
-  updateFeed(props.feed.uid, { name: name.value, feed_url: feedUrl.value })
+  updateFeed(props.feed.uid, { name: name.value })
   closeDrawer()
 }
 
@@ -94,16 +94,11 @@ const deletePath = computed(() => props.folderUid
       <h3 class="text-caption font-semibold uppercase tracking-wide text-muted text-inset">
         RSS URL
       </h3>
-      <UInput
-        v-model="feedUrl"
-        class="mt-xs w-full"
-        type="url"
-        inputmode="url"
-        autocapitalize="off"
-        autocorrect="off"
-        :ui="{ base: 'px-sm py-sm text-body rounded-2xl transition duration-300 ease-out' }"
-        @keydown.enter="save"
-      />
+      <!-- Plain text, not a disabled input: an elevated box here reads as a
+           field you could type in, and this one you can't. -->
+      <p class="mt-xs break-all text-body text-muted text-inset">
+        {{ feed.feed_url }}
+      </p>
     </section>
 
     <DangerButton

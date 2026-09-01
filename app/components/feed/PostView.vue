@@ -1,10 +1,11 @@
 <script setup lang="ts">
-// The post detail: title, time, and body for one post. Rendered by the
-// mobile post page and, on desktop, by the detail pane.
-const props = defineProps<{ postUid: string }>()
+import type { Post } from '~/assets/types'
 
-const { posts } = storeToRefs(useFeedsStore())
-const post = computed(() => posts.value.find(p => p.uid === props.postUid))
+// The post detail: title, time, and body for one post. Presentational — the
+// host (the mobile post page, or the desktop shell's detail pane) owns the
+// fetch through usePost, because the host is also what needs the title and the
+// save state.
+defineProps<{ post: Post | null, failed?: boolean }>()
 </script>
 
 <template>
@@ -17,15 +18,19 @@ const post = computed(() => posts.value.find(p => p.uid === props.postUid))
         :datetime="post.published_at"
         class="mt-2xs text-caption text-muted"
       >{{ formatDate(post.published_at) }}</time>
+      <!-- What RSS gave us, as text (see utils/stripHtml). The extracted
+           article text is a separate field behind /posts/{uid}/article (T10). -->
       <p class="mt-md text-body">
-        {{ post.content }}
+        {{ stripHtml(post.summary) }}
       </p>
     </template>
+    <!-- `failed` is any error, not only a 404 — same wording rule as the home
+         screen's unreachable state: don't blame the content for the server. -->
     <p
-      v-else
-      class="mt-lg text-muted"
+      v-else-if="failed"
+      class="mt-md text-body text-muted"
     >
-      Post not found.
+      Couldn't load this post.
     </p>
   </div>
 </template>

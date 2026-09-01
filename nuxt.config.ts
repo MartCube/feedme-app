@@ -67,6 +67,14 @@ export default defineNuxtConfig({
       },
     },
   },
+  // The Django API. Client-only: every call runs in the browser (the bearer
+  // token never reaches the Nuxt server), which is also how the planned
+  // Capacitor build behaves. Override with NUXT_PUBLIC_API_BASE.
+  runtimeConfig: {
+    public: {
+      apiBase: 'http://localhost:8000/api/v1',
+    },
+  },
   compatibilityDate: '2025-07-15',
   vite: {
     optimizeDeps: {

@@ -15,7 +15,7 @@
         </div>
       </div>
       <p class="mt-xs text-caption text-muted text-inset">
-        A minimal, functional, scalable feed reader. Mock content for now.
+        A minimal, functional, scalable feed reader.
       </p>
     </section>
   </SettingsPage>

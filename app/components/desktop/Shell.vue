@@ -10,7 +10,7 @@
 // useRoute() the URL changes but the panes never update.
 const route = useRouter().currentRoute
 const feedsStore = useFeedsStore()
-const { feeds, folders, posts, hasFeeds, readerFeedUid, readerPostUid } = storeToRefs(feedsStore)
+const { feeds, folders, hasFeeds, loaded, unreachable, readerFeedUid, readerPostUid } = storeToRefs(feedsStore)
 
 // Sync selection from reader routes only; content routes leave it frozen.
 watch(() => route.value.fullPath, () => {
@@ -24,7 +24,9 @@ watch(() => route.value.fullPath, () => {
   }
 }, { immediate: true })
 
-const readerPost = computed(() => posts.value.find(p => p.uid === readerPostUid.value))
+// The shell owns the open post the way the mobile post page does, and passes
+// it into the detail pane below.
+const { post: readerPost, failed: readerPostFailed } = usePost(readerPostUid)
 
 // The reused settings/edit panels close themselves via these injected keys
 // (on mobile they collapse the sheet); here closing means returning to the
@@ -65,7 +67,8 @@ useHead({
         <section class="min-w-0 basis-3/5 scroll-host page-inset">
           <FeedPostView
             v-if="readerPostUid"
-            :post-uid="readerPostUid"
+            :post="readerPost"
+            :failed="readerPostFailed"
             class="max-w-post"
           />
           <div
@@ -79,7 +82,7 @@ useHead({
         </section>
       </template>
       <HomeEmptyState
-        v-else
+        v-else-if="loaded || unreachable"
         class="h-full w-full"
       />
 
