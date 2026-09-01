@@ -15,7 +15,7 @@ screen or feature is ambiguous in code, this folder wins.
 | [product-overview.md](./product-overview.md) | Vision, target user, and design principles |
 | [user-stories.md](./user-stories.md) | What a user can do, grouped by feature area |
 | [screens-and-flows.md](./screens-and-flows.md) | Every screen, its purpose, and how navigation connects them |
-| [data-model.md](./data-model.md) | The `Feed`, `Folder`, and `Post` entities and the saved-posts state |
+| [data-model.md](./data-model.md) | The `Feed`, `Folder`, and `Post` entities (as the API serves them) and the saved-posts state |
 | [design-system.md](./design-system.md) | The visual vocabulary — 9 color roles, 4 text sizes, the two themes, and how switching works |
 | [backend.md](./backend.md) | The server spec — architecture, data model, API endpoints, auth, fetching jobs, search |
 | [backend-roadmap.md](./backend-roadmap.md) | The backend build order — what's done, what's next, and what "done" means per task |
@@ -26,7 +26,9 @@ screen or feature is ambiguous in code, this folder wins.
 
 - **Nuxt 4** (`app/` srcDir convention) + **Vue 3** + **vue-router**
 - **Nuxt UI 4** + **Tailwind v4** for UI; dark mode is forced on
-- **Pinia** for state (`feeds` and `settings` stores)
+- **Pinia** for state (`auth`, `feeds`, and `settings` stores)
+- **Django + django-ninja** API in `backend/`; the app's TypeScript types are generated from its
+  OpenAPI document (`pnpm types:api`)
 - **VeeValidate + Zod** for forms/validation (installed, not yet used)
 - **@formkit/auto-animate** + **@vueuse/motion** for animation
 - **pnpm** package manager; **ESLint** (`@nuxt/eslint`, stylistic)

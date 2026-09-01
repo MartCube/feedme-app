@@ -1,15 +1,16 @@
 # Data Model
 
-The current type definitions live in `app/assets/types.ts`; mock data lives in
-`app/assets/data.ts`. This doc is the agreed model — including the **saved-posts** state,
-which is not yet in code.
+This doc is the agreed model. The shapes below are **the API's** — since 2026-09-01 the app's
+types are generated from the backend's OpenAPI document into `app/types/api.d.ts`
+(`pnpm types:api`), and `app/assets/types.ts` is a thin alias layer over them, so a field named
+here is the field on the wire. There is no mock data.
 
-> **Persistence** now lives in [backend.md](./backend.md): the server stores global
+> **Persistence** lives in [backend.md](./backend.md): the server stores global
 > `Source`/`Post` tables with a per-user `Feed`/`Folder`/`SavedPost` layer on top. A backend
 > `Feed` (+ its `Source`) serializes to this `Feed` shape, and the backend mints the prefixed
 > uids these docs assume. Three details were settled against the built models
-> ([backend-roadmap.md](./backend-roadmap.md) § Contract resolutions), and land in the app
-> when the frontend is wired to the API:
+> ([backend-roadmap.md](./backend-roadmap.md) § Contract resolutions) and are live in the app
+> as of 2026-09-01:
 >
 > - **`Post.feed_uid` still exists**, but it is *derived* and **nullable**: backend posts
 >   belong to a global `Source`, and the API resolves that source to **the requesting user's**
@@ -30,9 +31,10 @@ type FeedType = 'youtube' | 'reddit' | 'website'
 
 interface Feed {
   uid: string       // stable id, e.g. 'feed_medium_vuejs'
-  name: string      // display name, e.g. 'Vue.js on Medium'
-  feed_url: string  // the RSS endpoint we pull items from
+  name: string      // display name, e.g. 'Vue.js on Medium' — the only editable field
+  feed_url: string  // the RSS endpoint we pull items from (read-only: it's the Source's)
   site_url: string  // human-facing site; where "visit source" for the feed points
+  icon_url: string  // the source's icon, when the feed advertised one
   type: FeedType    // drives icon / small rendering differences
 }
 ```
@@ -40,8 +42,10 @@ interface Feed {
 - `type` is used for per-source treatment: a YouTube item shows a video thumbnail, a website
   article shows body text, etc.
 - `feed_url` is the machine endpoint (RSS); `site_url` is the human page.
+- Everything but `name` belongs to the shared global `Source`, flattened onto the feed — a
+  `Source` never surfaces as an entity of its own ([backend.md](./backend.md) § Vocabulary).
 
-## Folder *(new — not yet in code)*
+## Folder
 
 A named container that **groups feeds** on the home screen. Membership lives on the folder
 (a list of feed ids), which makes the relationship **many-to-many**: the same `feed_uid` can
@@ -81,50 +85,49 @@ An item belonging to a feed.
 
 ```ts
 interface Post {
-  uid: string          // stable id, e.g. 'art_med_1'
-  feed_uid: string     // FK -> Feed.uid (which feed this belongs to)
+  uid: string             // stable id, e.g. 'post_a1b2c3'
+  feed_uid: string | null // the reader's Feed for this post's source; null once unsubscribed
   title: string
-  image_url: string    // card image; for YouTube this is the video thumbnail
-  published_at: string // ISO 8601 timestamp
-  post_url: string     // link to the original (or the YouTube watch page)
-  content: string      // body shown on the post detail page (whatever we have)
+  image_url: string       // card image; for YouTube this is the video thumbnail
+  published_at: string    // ISO 8601 timestamp
+  post_url: string        // link to the original (or the YouTube watch page)
+  summary: string         // what RSS gave us — HTML, from an arbitrary third party
+  saved_group: SavedGroup | null  // which saved pile it's in, null when unsaved
 }
 ```
 
-## Saved state *(new — not yet in code)*
+- `summary` is **not trusted markup**: it comes from whatever the feed published (Reddit wraps
+  every post in a `<table>`), so the reader strips it to plain text rather than rendering it.
+  The article text meant for reading is fetched separately from `/posts/{uid}/article`.
+- `feed_uid` is per-reader and derived: merged streams (`all`, a folder, `saved`) carry posts
+  from many feeds, so each post names its own.
+
+## Saved state
 
 To support the **Saved** entry on the home list, a user can mark a post as saved — into one
-of three fixed **groups**: Bookmarks, Favorites, Later (defined in `app/utils/saved.ts`,
-uids `saved_bookmarks` / `saved_favorites` / `saved_later`). The simplest model is a map
-from post id to its group:
+of three fixed **groups**: Bookmarks, Favorites, Later (`app/utils/saved.ts` maps the home
+rows' uids `saved_bookmarks` / `saved_favorites` / `saved_later` onto the API's group names).
 
 ```ts
-// e.g. a Pinia store: useSavedStore()
-saved: Map<string, string>   // Post.uid → the saved-group uid it was saved into
+type SavedGroup = 'bookmarks' | 'favorites' | 'later'
 ```
 
-- "Saved" is a per-user flag derived against `Post.uid`; a post lives in exactly one group.
-- `/feed/saved` lists every saved `Post` (all groups merged); `/feed/saved_*` lists one group.
-- Toggling save on the Post page adds/removes the post's `uid` (group picking TBD).
-
-When persistence is introduced, saved state should survive reloads (local storage at
-minimum, backend later — see [current-state.md](./current-state.md)).
+- Saved state is **per-user and server-side**. It rides along on the post itself as
+  `saved_group`, so a card renders its save state without a second request, and it survives a
+  reload and follows the account to another device.
+- A post lives in exactly one group. `/feed/saved` lists every saved `Post` (all groups merged,
+  newest **save** first — a pile you built, not a timeline you follow); `/feed/saved_*` lists
+  one group, and `GET /home` carries the counts the home rows show.
+- Saving on the Post page is a **toggle**, not a chooser: it saves into **Bookmarks** and
+  unsaves from wherever the post was. Moving a post between groups is the same call, waiting
+  on a UI for it.
+- A saved post outlives unsubscribing from its source: it stays in the list, stays readable,
+  and reports `feed_uid: null`.
 
 ## Relationships
 
 ```
-Feed (1) ───< (many) Post         via Post.feed_uid -> Feed.uid
+Feed (1) ───< (many) Post         via Post.feed_uid -> Feed.uid (per reader, nullable)
 Folder (many) >───< (many) Feed   via Folder.feed_uids contains Feed.uid
-User (saved) ───< (many) Post     via saved maps Post.uid → a saved-group uid
+User (saved) ───< (many) Post     via Post.saved_group (null when unsaved)
 ```
-
-## Mock data today
-
-`app/assets/data.ts` ships:
-
-- **3 feeds:** `feed_medium_vuejs` (website), `feed_youtube` (youtube),
-  `feed_reddit_onepiece` (reddit).
-- **15 posts:** 5 per feed.
-- **Folders:** none yet — mock folders are added with the folders feature.
-
-This is the data the screens should be built against until real RSS fetching lands.

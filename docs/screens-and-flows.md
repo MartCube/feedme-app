@@ -28,6 +28,9 @@ navigates. File references point at `app/pages/` and `app/components/`.
    uid can be 'all' → every followed feed merged, 'saved' → the Saved feed,
    or a folder uid → its merged stream.
    Desktop: sidebar + posts pane + post pane side by side. See screens 1, 6, and 7.
+
+   Signed out, every route above redirects to /login (screen 0) — there is no
+   anonymous surface. Signing out, or a session going stale mid-use, lands there too.
 ```
 
 > **Routing.** Posts nest under feeds and Settings subpages nest under Settings, so the route
@@ -53,6 +56,8 @@ navigates. File references point at `app/pages/` and `app/components/`.
 > ```
 > pages/
 >   index.vue                  → /
+>   login.vue                  → /login   (screen 0; the one route the global auth guard
+>                                          lets through, and the one that renders no layout)
 >   feed/
 >     [uid].vue                → mobile: <NuxtPage/> passthrough;  uid: feed | 'all' | 'saved' | folder
 >     [uid]/
@@ -79,10 +84,42 @@ navigates. File references point at `app/pages/` and `app/components/`.
 > 3. a **folder** uid (`folder_*`) → the folder's merged stream (member feeds minus muted).
 > 4. otherwise a **feed** uid (`feed_*`) → that feed's own posts.
 >
-> Ids are prefixed (`feed_*`, `folder_*`, `saved_*`, plus the literals `all` and `saved`) so resolution is
-> unambiguous. Keep the page thin: it should delegate to a resolver (e.g. a `usePostList(uid)`
-> composable returning `{ kind, title, posts }`) and just render the result, so feed / folder /
-> saved differences live in the resolver, not in template conditionals.
+> Ids are prefixed (`feed_*`, `folder_*`, `saved_*`, plus the literals `all` and `saved`) so
+> resolution is unambiguous. **The API resolves the uid in this same order**
+> (`GET /feeds/{uid}/posts`), so the page stays thin for real: `usePostList(uid)` pages the
+> stream it's handed and the screen renders it — feed / folder / saved differences live in one
+> place, on the server, not in template conditionals on either side.
+
+---
+
+## 0. Sign in — `pages/login.vue`
+
+**Purpose:** the one screen a signed-out person can see. FeedMe is **login-only** — no guest
+mode, no anonymous browsing ([backend.md](./backend.md#auth)) — so this is the gate in front of
+every other screen.
+
+**The user can:**
+- **Sign in.** In the finished app that's a single **Google** action; today it's a **dev-token**
+  field, swapped for Google's button in T8 ([backend-roadmap.md](./backend-roadmap.md)).
+- Nothing else. There is no sign-up (the account is created by the first sign-in), no password
+  recovery, and no way past this screen.
+
+**Layout:** brand, one line of what the app is for, one action — and the action sits in its own
+block with nothing above depending on its size, because Google owns the chrome of the button
+that replaces it. It renders **without the app layout**, so the desktop shell never appears
+around it.
+
+**Feedback:** a rejected sign-in says so on this screen (the credential is proved against the
+API before it's kept), rather than letting the user through into a redirect loop.
+
+**Data:** `GET /me` — the profile that proves the session. Nothing else on this screen calls
+the API, and no other screen loads anything until this one has been passed.
+
+**Flow:**
+- Signed out, any route → `/login`. After signing in → the feeds list (`/`).
+- Already signed in, `/login` → the feeds list. The session survives reloads.
+- **Sign out** (Settings → Account) or a **session the server no longer accepts** → back here,
+  with the app's data cleared, so the next person to sign in never sees the last one's feeds.
 
 ---
 
@@ -113,17 +150,18 @@ an **All feeds** caption) — tapping it opens the merged read of every followed
   overflow** affordance on desktop. Contents differ by row (see screen 7).
 - Tap the **menu** icon (navbar) → open the Settings drawer.
 
-**Data:** `feeds` and `folders` from `app/assets/data.ts` (later: the user's subscribed feeds
-and folders), plus the **Saved** group backed by saved state (each saved `Post.uid` mapped to
-one of the three groups). A
-feed is **loose** when its `uid` is in no folder's `feed_uids`.
+**Data:** one `GET /home` round-trip — the account's `feeds`, `folders`, the shared top-level
+order, and the per-group saved counts the Saved rows show. A feed is **loose** when its `uid` is
+in no folder's `feed_uids`.
 
 **Navbar:** `components/Navbar.vue` provides the menu (`→ /settings`) and the **+** create menu
 via `components/IconButton.vue`.
 
 **Empty state:** if the user follows nothing yet (no feeds, no folders), the list is replaced
 by a first-run nudge — an explainer and a primary **Add your first feed** action into the Add
-flow.
+flow. If the home request **failed** instead, the same space says the server couldn't be
+reached and offers **Try again** — an unreachable app must never be mistaken for an empty
+account. Neither appears while the request is still in flight.
 
 **Desktop:** this same list renders in the sidebar, persistent beside the posts/post panes
 (not behind a drawer) — see the Routing note.
@@ -139,14 +177,20 @@ the Routing note's resolution order). The render is identical; only the post lis
 differs.
 
 **The user can:**
-- See a scrollable list of **PostCards** (`components/PostCard.vue`) for this feed.
+- See a scrollable list of **PostCards** (`components/PostCard.vue`) for this feed, which
+  **keeps loading as they scroll** — there is no "load more" button and no page count.
 - **Tap a post** → open the Post page (`/feed/[uid]/post/[postUid]`).
 - Go **back** → Feeds list.
 
-**Data:** the `Feed` matching the route `uid`, plus all `Post`s where
-`post.feed_uid === feed.uid`. Posts shown newest-first by `published_at`. When `uid` is
-`saved`, the list is every saved `Post`; when `uid` is a **folder**, the list is its member
-feeds' posts merged (minus muted) — see screen 6.
+**Data:** `GET /feeds/{uid}/posts`, cursor-paged — the same polymorphic `uid` resolved
+server-side in the order below, so the screen renders the stream it is given rather than
+filtering one. Posts are newest-first by `published_at`, except the saved lists, which are
+newest-**save** first. When `uid` is `saved`, the list is every saved `Post`; when `uid` is a
+**folder**, the list is its member feeds' posts merged (minus muted) — see screen 6.
+
+**When there's nothing to show:** an empty stream says so plainly ("No posts here yet"); a
+failed page says the posts couldn't be loaded and stops asking, rather than retrying into a
+server that just refused.
 
 **PostCard** shows: `image_url`, `title`, and `published_at` (and a type cue from the parent
 feed). Tapping it opens the Post page.
@@ -162,14 +206,17 @@ no back navigation for it (nothing to go back to — the sidebar is always there
 it renders beside the feed list on desktop and full-screen on mobile.
 
 **The user can:**
-- Read the post: `title`, `image_url`, formatted `published_at`, and `content`.
-- **Save** the post (toggle) — adds/removes its `uid` from saved state. See
-  [data-model.md](./data-model.md#saved-state-new--not-yet-in-code).
+- Read the post: `title`, `image_url`, formatted `published_at`, and its text. The **article
+  text** is the goal; until it can be extracted, the screen shows what RSS gave us (`summary`)
+  as plain text — a summary is untrusted third-party markup and is never rendered as HTML.
+- **Save** the post (toggle) — it lands in **Bookmarks**; toggling again unsaves it. See
+  [data-model.md](./data-model.md#saved-state).
 - **Open source** — opens `post.post_url` (the original article / YouTube watch page) in a
   new tab.
 - Go **back** → the Feed page (the `[uid]` it was opened from — a real feed, or `saved`).
 
-**Data:** the `Post` matching `postUid`; the route `uid` is the feed context it was opened in.
+**Data:** `GET /posts/{uid}` for the post named by `postUid`; the route `uid` is the feed
+context it was opened in.
 
 **Desktop:** until a post is tapped, the post pane shows a placeholder ("Select a post")
 instead of this screen — there is no auto-selected first or last-read post.
@@ -203,10 +250,10 @@ reflects it.
 **Scope:** one feed → one destination per pass (multi-select / multi-folder deferred; the data
 model stays many-to-many, so a feed can join more folders later via a folder's *Edit feeds*).
 
-**Data:** results come from a mock `mockSearch(type, query)` (`app/assets/mock-search.ts`) that
-ignores the query and returns a fixed per-type list after ~1s — no backend yet. Committing calls
-`useFeedsStore().addFeed(candidate, destination)`, which mints a `feed_*` uid and (for a folder
-destination) appends to that folder's `feed_uids`.
+**Data:** candidates come from `GET /discover?type=&q=`, which **isn't built yet** — a search
+finds nothing today and the step says so rather than showing a blank panel. Committing calls
+`useFeedsStore().addFeed(candidate, destination)`, which is still store-local until `POST /feeds`
+lands: the feed appears in the list and is gone on reload.
 
 **Components:** `add/Drawer.vue` (mobile sheet host: open protocol + commit/close/reset),
 `add/Steps.vue` (the phase switch itself — reused by the desktop presentation below),
@@ -230,7 +277,8 @@ its panel by path. On desktop the same panels render as a full content page over
 reading panes, with the section list also always visible in the sidebar.
 
 **Subpages:**
-- **Account** — `/settings/account` — how you're signed in (Google / Apple), member since, etc.
+- **Account** — `/settings/account` — how you're signed in, member since, and **Sign out**
+  (which ends the session server-side and returns to screen 0).
 - **Appearance** — `/settings/appearance` — card style, font size, theme (see
   [product-overview.md → Planned](./product-overview.md#planned-not-now)).
 - **About** — `/settings/about` — app info.
@@ -320,3 +368,7 @@ actions confirm before committing:
   `pages:extend` records don't change.
 - **Type-aware rendering:** `Feed.type` drives small differences (YouTube thumbnail vs.
   article body), but the layout and interactions are the same across types.
+- **Signed out is a state, not an error:** every route redirects to screen 0 without one, and a
+  session the server stops accepting drops the user there mid-use with the app's data cleared.
+  An **unreachable server** is different and is never confused with it — the app stays on its
+  feet and says the data couldn't be loaded (screen 1).

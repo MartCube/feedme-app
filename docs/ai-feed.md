@@ -25,8 +25,8 @@ is the product-side spec.
   user feature ever returns, it is scoped to open-licensed books only.
 - **No FeedMe changes.** [backend.md](./backend.md) already defines a Source as any RSS
   endpoint, polled once. The generator emits a valid `feed.xml` at a public URL; the app
-  consumes it like any blog. Until the backend lands (the app is frontend-only on mock
-  data today), the feed is read in any standard RSS reader.
+  consumes it like any blog — and until subscribing from the app is wired up, the feed is read
+  in any standard RSS reader.
 - **No authoritative summaries.** A post is a reflection and a pointer, never "everything
   in chapter 7" — see the post format contract below.
 

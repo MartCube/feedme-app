@@ -3,21 +3,21 @@
 A snapshot of what's actually built vs. what the spec (these docs) describes. The goal is to
 make the gap visible so implementation has a clear backlog. Update this as work lands.
 
-_Last reviewed: 2026-08-07._
+_Last reviewed: 2026-09-01._
 
 ## Summary
 
 The **design system** and **navigation/drawer UX** are well developed, and the three **reader
-screens** (feeds list, feed page, post page) now navigate end to end on mock data. **Desktop
+screens** (feeds list, feed page, post page) navigate end to end. **Desktop
 (≥1024px) v1** now renders those same screens as a three-column shell — sidebar, posts pane,
 post pane — composed by the layout from the same routes and store state; Settings/Add/Edit
-present as full content pages over the reading panes instead of drawers. There is **no data
-layer** (no RSS fetching, no persistence beyond a handful of appearance settings — theme,
-feed-list style, scrollbar style — and the two sidebar-expansion flags). The app runs entirely
-on static mock data in `app/assets/data.ts`, served through the `feeds` store. A **backend**
-now exists in `backend/` (Django + django-ninja, Docker Compose) with auth, feed ingest, and
-the `/home` and `/settings` endpoints working — see Resolved decisions → Backend stack & API —
-but the frontend isn't wired to it yet. Backend work is sequenced in [backend-roadmap.md](./backend-roadmap.md), which tracks its
+present as full content pages over the reading panes instead of drawers. **The app runs on real
+data** _(2026-09-01)_: a `/login` screen takes a dev token, and the account's own feeds,
+folders, fetched posts, saved posts and settings all come from the Django API in `backend/`
+(Django + django-ninja, Docker Compose) — the mock data files are deleted and nothing falls
+back to them. What has no endpoint behind it yet says so: the add wizard's search finds nothing,
+and every add/edit write is still store-local. See Resolved decisions → Backend stack & API.
+Backend work is sequenced in [backend-roadmap.md](./backend-roadmap.md), which tracks its
 own status: **read that file's § Status for what to build next.**
 
 ## Built
@@ -31,8 +31,9 @@ own status: **read that file's § Status for what to build next.**
   wrapper uses for the screen inset (lg sides/top, xl bottom).
   See [design-system.md](./design-system.md).
 - **Theme switch** — Settings → Appearance picks Ink or Claude via the persisted Pinia
-  `settings` store (`pinia-plugin-persistedstate`, cookie);
-  `app.vue` applies `data-theme` on `<html>` via `useHead`.
+  `settings` store (`pinia-plugin-persistedstate`, cookie — now a local cache in front of
+  `GET`/`PUT /settings`, see **Data layer** below, which is what still paints the chosen theme
+  server-side without a flash); `app.vue` applies `data-theme` on `<html>` via `useHead`.
 - **Feed-list style switch** — Settings → Appearance → Feed list picks **List** (plain rows,
   default) or **Cards** (**top-level** home rows — Home, Saved, folders, loose feeds — become
   permanent `bg-elevated` + `shadow-elevated` cards, spaced `md` apart via per-row margins;
@@ -62,7 +63,9 @@ own status: **read that file's § Status for what to build next.**
   `settingsSections` and reused by the desktop sidebar). Both `settings/Page.vue` and the route
   map that picks a panel per path read `useRouter().currentRoute` rather than Nuxt's `useRoute()`
   so they stay correct when rendered inside the desktop content overlay (see Desktop shell v1,
-  below). Appearance is functional (theme switch); the rest are mock content.
+  below). Appearance and Account are functional (theme/list/scrollbar switches; real profile +
+  Sign out — see **Auth & login** below); About is static info (hardcoded version string) and
+  Report is still a mock panel.
 - **Add-feed wizard** — `app/components/add/Drawer.vue` hosts the sheet, like the settings
   drawer. The `/add` URL renders the home component (via the `pages:extend` hook) so the feed
   list stays behind the sheet on mobile; the navbar **+** links straight to `/add` (no dropdown),
@@ -70,7 +73,8 @@ own status: **read that file's § Status for what to build next.**
   `app/components/add/Steps.vue` (`AddSteps`, emits `close`/`done` — the host decides what those
   mean, which is what lets the desktop content overlay reuse it), state in
   `useAddFeedWizard()`: **pick type** (`add/TypeStep.vue`, cards with an accent caret tap flash) →
-  **paste/search** with a Paste chip, ~1s skeleton, and mock results as **multi-select cards**
+  **paste/search** with a Paste chip, a loading skeleton (kept for the real search; nothing is
+  in flight today), and results as **multi-select cards**
   (whole card toggles a trailing page-bg circle "well" that gains an accent checkmark when
   picked; a header forward button at IconButton size — disabled until ≥1 picked, accent when
   enabled — advances) (`add/SearchStep.vue`) → **choose destination** — a quiet "Adding"
@@ -83,9 +87,10 @@ own status: **read that file's § Status for what to build next.**
   `transitions.css`. Headers follow the settings drawer's language: step 1 has an in-flow close
   above the title; steps 2–4 have a md caret back + `text-subtitle` title (no close). The search
   input is enlarged for mobile (taller padding, `text-body`, `rounded-2xl`).
-  Committing calls `useFeedsStore().addFeed()` per picked feed and the home list updates. Results
-  are a mock (`app/assets/mock-search.ts`, fixed per-type, query ignored); real search/RSS is not
-  wired.
+  Committing calls `useFeedsStore().addFeed()` per picked feed and the home list updates (still
+  store-local — `POST /feeds` is T7). The search itself **finds nothing** until T11's
+  `/discover`: the step keeps its real shape (query in, loading flag, candidates out) and says
+  "Nothing found — searching for feeds isn't wired up yet" once a search has actually been run.
 - **Edit-feed / edit-source drawer** — `app/components/edit/Drawer.vue` hosts the sheet (UDrawer
   + open protocol + close-key provide + animation-end navigation), like the settings/add
   drawers; every `/edit/*` URL renders the home component (`pages:extend`) so the list stays
@@ -99,7 +104,9 @@ own status: **read that file's § Status for what to build next.**
   (`ui/Toggle.vue`), a dashed full-width ghost row labelled "Add source" that runs the add
   wizard scoped to this folder — skipping the destination step and returning here — and a
   `ui/DangerButton.vue` labelled "Delete feed"); a loose `feed_*` uid opens the **source panel**
-  directly (`edit/SourcePanel.vue` — edits name + RSS `feed_url`, back caret + `useSwipeBack`
+  directly (`edit/SourcePanel.vue` — edits the **name only**, with the RSS `feed_url` shown as
+  read-only text below it (it lives on the shared global `Source`; [backend-roadmap.md](./backend-roadmap.md)
+  § Contract resolutions, 3), back caret + `useSwipeBack`
   when reached as a folder member (`/edit/:uid/source/:sourceUid`), X close when standalone; its
   `DangerButton` reads "Remove source from feed" as a member or "Delete source" standalone).
   Both the name and, in the folder panel, each source's mute toggle are staged as **local
@@ -120,7 +127,8 @@ own status: **read that file's § Status for what to build next.**
   `nuxt.config.ts` `pages:extend`) which unlinks a member feed from the folder. Confirm/Cancel on
   the sheet itself are `ui/BlockButton.vue`. Row content in both panels is inset `sm` as real
   padding on the row (`pl-sm` on the link, `pr-sm` on the `li`) rather than a `text-inset` margin
-  on the list, so row text lines up with the Name/RSS-URL input text and the section headings.
+  on the list, so row text lines up with the Name input, the RSS URL text, and the section
+  headings.
   Panels slide with the shared `panel-slide` classes. Backing `feeds`-store actions:
   `renameFolder`, `setMutedFeeds` (replaces the folder's whole muted set in one immutable
   write — the folder panel's draft toggles it once, on Save), `updateFeed`, `removeFromFolder`,
@@ -163,19 +171,54 @@ own status: **read that file's § Status for what to build next.**
   deliberately unpolished:** no desktop transitions, keyboard focus rings still suppressed, and
   `HomeOptionsDrawer` still opens as a bottom sheet on desktop — all queued for a later
   design/polish pass.
-- **First-run empty state** — `app/components/home/EmptyState.vue` ("Nothing here yet" + an
-  explainer + a primary "Add your first feed" action → `/add`), driven by the `feeds` store's
-  `hasFeeds` computed (feeds or folders non-empty). Shown on the mobile home page in place of
-  the list, and on desktop in place of both reading panes (the sidebar keeps working, so Add
-  feed stays reachable). New spec surface — nothing was specced for the zero-feeds state
-  before.
-- **Mock data & types** — `app/assets/data.ts` (3 feeds, 1 folder, 15 posts),
-  `app/assets/types.ts` (incl. the `Folder` type).
+- **Empty / unreachable state** — `app/components/home/EmptyState.vue` carries two states in one
+  layout: the first-run nudge ("Nothing here yet" + an explainer + a primary "Add your first
+  feed" action → `/add`), driven by the `feeds` store's `hasFeeds` computed (feeds or folders
+  non-empty), and — when `GET /home` failed — "Can't reach the server" + a **Try again** action
+  that retries the load. Neither renders until the store is `loaded` (or has failed), so the
+  first paint can't flash "Nothing here yet" while the request is in flight. Shown on the mobile
+  home page in place of the list, and on desktop in place of both reading panes (the sidebar
+  keeps working, so Add feed stays reachable). New spec surface — nothing was specced for the
+  zero-feeds state before.
+- **API client & types** — `runtimeConfig.public.apiBase` (default
+  `http://localhost:8000/api/v1`, override `NUXT_PUBLIC_API_BASE`) and `app/plugins/api.ts`,
+  a `$fetch.create` instance (`$api`) that is the one way the app talks to the server: it
+  attaches `Authorization: Bearer` on request and, on a 401, clears the session and redirects to
+  `/login` (inside `nuxtApp.runWithContext`, since an ofetch hook runs outside the Nuxt
+  context). Types are **generated from the API**: `pnpm types:api` runs `openapi-typescript`
+  against `/api/v1/openapi.json` into `app/types/api.d.ts` (committed, so typecheck doesn't need
+  Docker; ESLint-ignored). `app/assets/types.ts` survives as a thin alias layer over
+  `components['schemas']` — `Feed`, `Folder`, `Post`, `FeedType`, plus `Home`/`PostPage`/
+  `Settings`/`Me`/`SavedGroupName` — so component imports are unchanged and a renamed backend
+  field breaks typecheck instead of silently rendering blank. `FeedCandidate` stays hand-written
+  until T11's `/discover` gives it a schema.
+- **Auth & login** — `app/pages/login.vue` (brand, one line, one field: a **dev token** until
+  T8's Google button; `definePageMeta({ layout: false })` is load-bearing, since the default
+  layout renders `DesktopShell` instead of the page above 1024px). `app/stores/auth.ts` holds
+  the token (cookie-persisted, `pick: ['token']` only) and the `/me` profile; `signIn()` proves
+  a token against `/me` before keeping it, so a bad token fails on the login screen instead of
+  as a redirect loop. `app/middleware/auth.global.ts` is a **pure guard** — everything except
+  `/login` needs a token, and it does no fetching (see Resolved decisions → Backend stack & API
+  → T6). Sign out (Settings → Account) revokes the token server-side via `POST /auth/logout`,
+  clears both stores, and returns to `/login`.
+- **Data layer** — the `feeds` store loads `GET /home` once (in-flight-guarded; a failure is
+  swallowed rather than raised, so it can never surface as Nuxt's error page, and retries from
+  the home screen's **Try again** or the next app boot) into feeds, folders and `savedCounts`,
+  behind a `loaded` gate and an `unreachable` flag; the response's `order` is applied as a sort at load time and not retained
+  (the list renders as folders-then-loose-feeds; interleaving is T7's drag-and-drop).
+  `app/composables/usePostList.ts` cursor-pages `GET /feeds/{uid}/posts` (limit 10) behind a
+  sentinel + VueUse `useIntersectionObserver` rooted on the viewport, so the same composable
+  serves the mobile page scroll and the desktop pane. `app/composables/usePost.ts` owns one post
+  plus its save toggle. The `settings` store loads `GET /settings` and `PUT`s on change (a full
+  replace; `sidebarSettingsOpen` stays device-local and is never synced). Both loads run from
+  `app.vue`'s `onMounted` (and again on sign-in), never from middleware — see Resolved decisions.
 - **Feeds list v1** — `app/components/home/FeedList.vue` (`HomeFeedList`) renders the home list
-  from mock data — used by the mobile home page (`app/pages/index.vue`) and, on desktop, the
+  from the `feeds` store's `/home` load — used by the mobile home page (`app/pages/index.vue`)
+  and, on desktop, the
   sidebar (an `activeUid` prop drives the desktop persistent-selection highlight): a pinned
   **Saved** row (links to `/feed/saved`; chevron expands to the three saved groups —
-  Bookmarks / Favorites / Later from `app/utils/saved.ts`, each → `/feed/saved_*`), then
+  Bookmarks / Favorites / Later from `app/utils/saved.ts`, each → `/feed/saved_*`, each showing
+  its count from `/home`'s `saved_counts`, the same muted count a folder row carries), then
   folder rows (name + feed count, expand/collapse chevron with auto-animate and an accent tap
   flash, sitting **inside** the row's tap-flash card surface at IconButton size on the navbar
   buttons' vertical axis; members indented and greyed when muted), then loose feeds; every row
@@ -190,19 +233,30 @@ own status: **read that file's § Status for what to build next.**
   **edit-feed / edit-source drawer** (see Built, below).
 - **Feed page v1** — `app/components/feed/PostList.vue` (`FeedPostList`, `uid` + `activePostUid`
   props) lists PostCards with the resolved feed/folder name as title — used by the mobile feed
-  page (`app/pages/feed/[uid]/index.vue`) and, on desktop, the shell's posts pane.
-  **Temporary:** every uid shows all posts from all feeds, newest first — the `usePostList(uid)`
-  resolver comes with the data layer. `feed/[uid].vue` stays a `<NuxtPage/>` passthrough on
+  page (`app/pages/feed/[uid]/index.vue`) and, on desktop, the shell's posts pane. Posts come
+  from `usePostList(uid)` — the uid resolves **server-side** in the frontend's own order
+  (`all` → `saved` → `saved_*` → `folder_*` → `feed_*`), so the component filters nothing and
+  just renders what pages in; a uid change resets the list rather than appending. The list says
+  "No posts here yet" when a stream is genuinely empty and "Couldn't load posts." when a page
+  request failed (paging stops rather than retrying into a refusing server).
+  `feed/[uid].vue` stays a `<NuxtPage/>` passthrough on
   mobile; on desktop the shell bypasses it (and every route's `<NuxtPage/>`) entirely, composing
   the posts/post panes itself from the feeds store.
-- **Post page v1** — `app/components/feed/PostView.vue` (`FeedPostView`, `postUid` prop) renders
-  title, date, content (no Save / Open source yet) — used by the mobile post page
-  (`app/pages/feed/[uid]/post/[postUid].vue`) and, on desktop, the shell's post pane.
+- **Post page v1** — `app/components/feed/PostView.vue` (`FeedPostView`) renders title, date and
+  the post's `summary`; it is **presentational** — the host that owns the uid (the mobile post
+  page, or the desktop shell for its post pane) fetches through `usePost(uid)` and passes the
+  post down, because the host also needs the title and the save state. The mobile navbar's
+  bookmark is wired: it toggles `PUT`/`DELETE /posts/{uid}/save` into **Bookmarks** (Save is a
+  toggle, not a group chooser) and reflects the saved state in its icon and `aria-pressed`. The
+  **desktop post pane has no action bar**, so saving is mobile-only for now (it never had one —
+  queued with Desktop polish). Summaries are RSS HTML and are rendered as **plain text**
+  (`app/utils/strip-html.ts`) — nothing sanitises third-party markup, and T10's extracted
+  article text is the real answer. Open source is still missing on both viewports.
 - **PostCard v1** — `app/components/feed/PostCard.vue`: date + title only (no image / type cue
   yet), whole card links to the post; rows separated by spacing (no divider lines).
 - **Context-aware navbar** — both slots swap per page: home = menu + add, feed page =
   sidebar icon (→ home) + search (no-op for now), post page = back (→ its feed) + save
-  (no-op for now). Navigation is hierarchical, not history-based.
+  (wired — see Post page v1). Navigation is hierarchical, not history-based.
 - **Reader slide transitions** — **mobile only** (the desktop shell renders no `<NuxtPage/>`,
   so this machinery never runs there — see Desktop shell v1). home → feed → post slide like a
   navigation stack (deeper pushes in from the right, back pops out to the right). Direction is
@@ -223,44 +277,39 @@ own status: **read that file's § Status for what to build next.**
 ## Stubs (exist but placeholder content)
 
 - **Add-feed search** — the wizard flow, add action, and destination picker are built (see
-  Built), but results come from a fixed mock (`mockSearch`), not real search/RSS discovery.
+  Built), but no search backs them: the step reports "Nothing found" until T11's `/discover`.
 
 ## Not started
 
-- **Feed page (rest)** — the `usePostList(uid)` resolver (all → saved → folder → feed,
-  per-feed filtering, folder mute). Includes `/feed/all`, `/feed/saved`, and the
-  `/feed/saved_*` groups (titles already resolve; the post list is still the
-  show-everything mock).
-- **Post page (rest)** — Save + Open source actions.
+- **Post page (rest)** — Open source, and the **article text** itself: the reader shows the RSS
+  `summary` as plain text until T10's `/posts/{uid}/article`.
 - **Desktop polish** — v1 (see Built → Desktop shell v1) ships the structural three columns
   only: no desktop pane/overlay transitions, keyboard focus rings still globally suppressed,
-  and `HomeOptionsDrawer` still opens as a mobile-style bottom sheet on desktop. Auto-selecting
+  and `HomeOptionsDrawer` still opens as a mobile-style bottom sheet on desktop. The post pane
+  has **no action bar**, so the save toggle is mobile-only. Auto-selecting
   a detail post (e.g. the last-read one) on entering a feed is also deferred — v1 always starts
   at the "Select a post" placeholder.
-- **Settings content** — the drawer, its four subpages, and transitions are built (see Built);
-  Account / About / Report still need real content and actions behind their mock panels.
+- **Settings content** — the drawer, its four subpages, and transitions are built, and
+  Appearance and Account are real (see Built); About's version string is hardcoded and Report
+  still needs real content and a way to actually send anything.
 - **PostCard (rest)** — image and source-feed type cue.
 - **Add feed (rest)** — real search / RSS discovery + live metadata (sub counts, latest items)
-  behind the wizard, and input validation via VeeValidate/Zod. The wizard UI + mock + add action
-  are built (see Built).
-- **Saved posts** — the pinned **Saved** row + its three group rows are built on the home
-  list (see Built), but the saved state itself (which posts are saved, into which group) and
-  the Post-page save action are missing — every saved route still shows the all-posts mock.
-- **Folders (rest)** — the `Folder` type, one mock folder, the expandable rows on the
-  home list, **folder creation inside the add wizard** (`addFolder` store action +
-  `add/FolderStep.vue`), and the **edit-feed / edit-source drawer** (see Built) are done.
-  Still missing: the folder merged-stream read (`/feed/[uid]` with a folder uid, via the
-  `usePostList(uid)` resolver) and the actions behind the home options sheet
+  behind the wizard, subscribing for real (`POST /feeds`, T7 — `addFeed` is still store-local),
+  and input validation via VeeValidate/Zod. The wizard UI + add action are built (see Built).
+- **Saved posts (rest)** — saving, unsaving and reading the saved streams work end to end (see
+  Built), but every save lands in **Bookmarks**: there is no group chooser and no way to move a
+  post between Bookmarks / Favorites / Later, though the API call for it is the same upsert.
+- **Folders (rest)** — the expandable rows on the home list, the merged-stream read, **folder
+  creation inside the add wizard** (`addFolder` store action + `add/FolderStep.vue`), and the
+  **edit-feed / edit-source drawer** (see Built) are done. Still missing: the folder writes
+  themselves (`POST`/`PATCH`/`DELETE /folders`, T7 — rename, membership, mute and delete are
+  store-local) and the actions behind the home options sheet
   (New folder / Edit feeds / Reorder feeds are still placeholder rows). See
-  [data-model.md](./data-model.md#folder-new--not-yet-in-code) and
+  [data-model.md](./data-model.md#folder) and
   [screens-and-flows.md](./screens-and-flows.md).
-- **State layer (rest)** — the `feeds` store exists but is mock-seeded; still missing: saved
-  state and wiring to real data.
-- **Data fetching / RSS** — no `server/` routes, no `$fetch`/`useAsyncData`, no parser. All
-  data is static. The fetching + persistence stack is specced ([backend.md](./backend.md);
-  see Resolved decisions → Backend stack & API) and `backend/` now runs a hello-world API
-  plus the full data model, but the frontend isn't wired to it — nothing beyond the mock
-  data layer exists on this side yet.
+- **Writes (rest)** — reads are wired end to end; every **write** except save and settings is
+  still store-local: subscribing, renaming, folder membership, mute, delete, and the home
+  reorder all wait on T7's endpoints.
 
 ## Installed but unused
 
@@ -343,7 +392,7 @@ _None currently._
   globally via `NinjaAPI(auth=…)`. `/health` is the one `auth=None` opt-out, and now backs a
   compose healthcheck on the `api` service. Endpoints moved into `backend/core/api/`:
   `account.py` serves `GET /me` (email, member-since, provider — the three lines
-  `settings/Account.vue` hardcodes today), `DELETE /me` and `POST /auth/logout`, and
+  `settings/Account.vue` hardcoded at the time), `DELETE /me` and `POST /auth/logout`, and
   `errors.py` holds the single `{"detail": string}` error body. `manage.py issue_token
   <email>` prints a usable token, so every later endpoint is testable before Google OAuth
   lands in T8. Verified: 21 tests green, `ruff` clean, and a real curl loop — 401 without a
@@ -398,7 +447,31 @@ _None currently._
   the 50 real posts eight pages at a time with no repeat and no skip, every uid branch returning
   the right set, a save round-trip that `/home`'s `saved_counts` agrees with, and
   `/api/v1/openapi.json` carrying `feed_uid: string | null` and the `saved_group` union that T6
-  generates TypeScript from. Next is T6 — the vertical slice: wiring the Nuxt app to real data.
+  generates TypeScript from.
+  **T6 landed _(2026-09-01)_:** the frontend runs on this API — the checkpoint the roadmap was
+  built around. Sign-in is a dev token on a new `/login` screen, proven against `/me` before
+  it's kept; `app/plugins/api.ts` is the single `$api` instance that attaches the bearer and
+  turns a 401 into a redirect; the `feeds` store loads `GET /home`; `usePostList(uid)`
+  cursor-pages `GET /feeds/{uid}/posts` behind an intersection sentinel; `usePost(uid)` reads a
+  post and toggles `PUT`/`DELETE /posts/{uid}/save`; the `settings` store round-trips
+  `GET`/`PUT /settings`; and Settings → Account shows the real `/me` profile with a working
+  Sign out. Types are generated from the OpenAPI document into `app/types/api.d.ts`
+  (`pnpm types:api`), with `app/assets/types.ts` reduced to aliases over it, so the two sides
+  can no longer drift. `app/assets/data.ts` and `app/assets/mock-search.ts` are **deleted** — no
+  fallback path. Four decisions worth knowing, all in
+  [backend-roadmap.md](./backend-roadmap.md) § Decision log (2026-09-01, T6): SSR renders the
+  shell but **every API call is client-only** (the token never reaches the Nuxt server, which is
+  how Capacitor will behave); the account's data loads in `app.vue`'s `onMounted`, **not** in
+  middleware, because filling the stores before the hydration render is a real mismatch against
+  a server render done on empty stores; each store captures `useNuxtApp()` at setup, since an
+  action can run past an await where no Nuxt context exists; and the open post is fetched by its
+  host rather than through a shared `useAsyncData` entry, which the mobile/desktop swap at the
+  `lg` breakpoint clears out from under the survivor. An unreachable API is its own state
+  ("Can't reach the server" + Try again), never the first-run empty state. Verified: `pnpm lint`
+  and `pnpm typecheck` clean, and against the running API — sign-in on both viewports, all five
+  post-list uid branches, paging 50 posts with no repeats, a save surviving a reload, the
+  settings round-trip, sign-out revoking server-side, and the 401 redirect. Next is T7 —
+  subscribe and folder writes.
 
 - **Routing scheme** _(2026-06-29)_ — **nested routes**: posts nest under feeds
   (`/feed/[uid]/post/[postUid]`), settings subpages nest under settings (`/settings/*`). The
@@ -417,7 +490,7 @@ _None currently._
   via a long-press / 3-dot context menu (rename, add/remove feeds, **per-folder mute**, delete).
   **Mute** is per-folder only. **Remove from folder** unlinks; **delete feed** unsubscribes
   everywhere; **delete folder** also unsubscribes its feeds except those in another folder (with
-  confirmation). See [data-model.md](./data-model.md#folder-new--not-yet-in-code).
+  confirmation). See [data-model.md](./data-model.md#folder).
 - **Saved groups** _(2026-07-11)_ — Saved is not one pile: saves organize into three fixed
   groups — **Bookmarks / Favorites / Later** (`app/utils/saved.ts`, uids `saved_*`). On the
   home list Saved is an expandable pinned row (tap → `/feed/saved`, all groups merged; expand →

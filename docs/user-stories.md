@@ -51,6 +51,16 @@ app. These map directly to the screens in [screens-and-flows.md](./screens-and-f
 - As a user, I can **open an edit menu** on any feed or folder — **long-press** on mobile, a
   **3-dot / overflow** control on desktop.
 
+## Account
+
+- As a user, I **sign in before I can read anything** — the app has no guest mode, and my feeds
+  are mine (see [backend.md](./backend.md#auth)).
+- As a user, I **stay signed in** across reloads and app launches until I sign out.
+- As a user, I can **sign out** from Settings → Account, which ends the session everywhere it
+  could be replayed, not just on this device's screen.
+- As a user, I can **see how I signed in and how long I've been a member** in Settings →
+  Account.
+
 ## App & settings
 
 - As a user, I can **open Settings** to manage my account and view app info.
@@ -64,5 +74,5 @@ app. These map directly to the screens in [screens-and-flows.md](./screens-and-f
 - Every story above should be reachable through the navigation map in
   [screens-and-flows.md](./screens-and-flows.md) — no orphan features.
 - Saving relies on the saved-posts state described in
-  [data-model.md](./data-model.md#saved-state-new--not-yet-in-code).
+  [data-model.md](./data-model.md#saved-state).
 - "Add a feed by URL" should validate input using the installed VeeValidate + Zod stack.

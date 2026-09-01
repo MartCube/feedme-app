@@ -89,8 +89,9 @@ and visit the design page, or read `app/pages/design.vue`.
 - Not an engagement machine — no "popular," "trending," or "hot news" surfaces, and no
   algorithmic recommendations. You see your sources, nothing else.
 - Not multi-theme *yet* — dark only for now (see [Planned](#planned-not-now)).
-- Not (yet) a live reader — RSS fetching and persistence are not implemented; the app
-  currently runs on static mock data. See [current-state.md](./current-state.md).
+- Not (yet) a *self-updating* reader — the app reads real fetched posts from its own backend,
+  but polling is still run by hand until the background queue lands. See
+  [current-state.md](./current-state.md).
 
 ## Planned (not now)
 

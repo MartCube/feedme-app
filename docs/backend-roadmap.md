@@ -14,8 +14,8 @@ deliberate checkpoint that wires the real frontend before the backlog grows furt
 
 ## Status
 
-**Last completed:** T5 — Posts: list, detail, save _(2026-08-26)_
-**Next up:** **T6 — Vertical slice: wire the Nuxt app to real data**
+**Last completed:** T6 — Vertical slice: wire the Nuxt app to real data _(2026-09-01)_
+**Next up:** **T7 — Subscribe and folder writes**
 **Roadmap written:** 2026-08-19
 
 | # | Task | State |
@@ -26,8 +26,8 @@ deliberate checkpoint that wires the real frontend before the backlog grows furt
 | T3 | Ingest core (synchronous) | ✅ done _(2026-08-25)_ |
 | T4 | `/home` and `/settings` | ✅ done _(2026-08-25)_ |
 | T5 | Posts — list, detail, save | ✅ done _(2026-08-26)_ |
-| T6 | **Vertical slice — wire the Nuxt app** | ⬜ next |
-| T7 | Subscribe and folder writes | ⬜ |
+| T6 | Vertical slice — wire the Nuxt app | ✅ done _(2026-09-01)_ |
+| T7 | **Subscribe and folder writes** | ⬜ next |
 | T8 | Google OAuth | ⬜ (unblocked from T2) |
 | T9 | Dramatiq, `worker`, `scheduler` | ⬜ |
 | T10 | Article extraction | ⬜ |
@@ -90,17 +90,28 @@ serves `GET /feeds/{uid}/posts` (`?cursor=&limit=`, default 10, capped at 100, n
 `PUT /posts/{uid}/save` (an upsert, so moving groups is the same call) and `DELETE /posts/{uid}/save`
 (idempotent) complete the set, all three 404ing on a post the caller neither follows nor saved.
 
+T6 put the real app on this API. The Nuxt frontend now calls it for everything: a `/login`
+screen takes a dev token, `app/plugins/api.ts` attaches the bearer on every request and
+redirects to `/login` on a 401, the `feeds` store loads `GET /home`, `usePostList(uid)` pages
+`GET /feeds/{uid}/posts`, `usePost(uid)` reads and saves one post, and the `settings` store
+round-trips `GET`/`PUT /settings`. The frontend's types are generated from this server's
+OpenAPI document (`pnpm types:api` → `app/types/api.d.ts`), so a renamed field breaks the
+frontend's typecheck. The mock data files are deleted.
+
 **Not built.** Everything else: no background queue (T3's poller is a command you run), no
 article extraction and no search columns, and the only endpoints are `/health`, `/me`,
 `/auth/logout`, `/home`, `/home/order`, `/settings`, `/feeds/{uid}/posts`, `/posts/{uid}` and
-`/posts/{uid}/save`. On the frontend, `nuxt.config.ts` has no `runtimeConfig` and the `feeds`
-store still imports `app/assets/data.ts` directly.
+`/posts/{uid}/save`. The frontend surfaces that have no endpoint behind them yet say so: the
+add wizard's search finds nothing until T11's `/discover`, and every write in the add and edit
+flows is still store-local until T7.
 
 ## Contract resolutions
 
 The models were built from [backend.md](./backend.md); the frontend types in
 `app/assets/types.ts` predate it. Five conflicts, settled here so no task has to rediscover
-them. [data-model.md](./data-model.md) carries the same resolutions.
+them. [data-model.md](./data-model.md) carries the same resolutions. **Items 1–3 are applied in
+the app as of T6**, and `app/assets/types.ts` is now an alias layer over the generated schema,
+so these shapes live on the backend rather than in a hand-written file.
 
 **1. `Post.feed_uid` vs `Post.source`.** The frontend gives every post a `feed_uid`, but
 backend posts belong to a global `Source` shared across all users. The post-list serializer
@@ -114,13 +125,15 @@ dropped from the list.
 **2. `Post.content` vs `summary` / `article_html`.** The frontend has one `content` field; the
 backend deliberately splits what RSS gave us (`summary`) from on-demand extracted article text
 (`article_html`). Lists and detail return `summary`; the reader calls `/posts/{uid}/article`
-separately. `Post.content` is renamed to `summary` in `app/assets/types.ts` during T6.
+separately. **Applied in T6:** the reader renders `summary`, and — since a summary is arbitrary
+third-party HTML — renders it as plain text until T10 (§ Decision log, 2026-09-01).
 
 **3. `feed_url` is not user-editable.** `updateFeed()` in `app/stores/feeds.ts` currently
-patches `feed_url`, but that field lives on the shared global `Source` — editing it would
-repoint every other subscriber's feed. `PATCH /feeds/{uid}` accepts **name only**, and T6
-removes the `feed_url` branch from `updateFeed`. The API still *returns* `feed_url`, so the
-`Feed` type itself doesn't change.
+patched `feed_url`, but that field lives on the shared global `Source` — editing it would
+repoint every other subscriber's feed. `PATCH /feeds/{uid}` accepts **name only**. **Applied in
+T6:** `updateFeed` takes a name, and the edit panel shows the RSS URL as read-only text rather
+than an input — it's what tells two feeds apart, so it stays on screen. The API still *returns*
+`feed_url`, so the `Feed` type itself doesn't change.
 
 **4. `UserSettings` scope.** The model gained `scrollbar_style` in T4 — it's an appearance
 preference that should follow the account across devices. `sidebarSettingsOpen` stays
@@ -299,6 +312,46 @@ Decided 2026-09-01, outside any task (admin and the OpenAPI schema, no endpoint 
   schema, so those names would leak into generated client code. `tests/test_openapi.py` pins
   all of it: every operation lands in exactly one declared tag, and no id is left generated.
 
+Decided 2026-09-01 while building T6 (all frontend):
+
+- **SSR renders the shell, every API call runs in the browser** — the cookie-persisted theme
+  still paints server-side with no flash, but the bearer token never reaches the Nuxt server.
+  That is also exactly how the planned Capacitor build behaves, so there is one data path, not
+  a web one and a native one.
+- **Generated types land in `app/types/api.d.ts`; `app/assets/types.ts` survives as an alias
+  layer** — `Feed`, `Folder`, `Post`, `FeedType` and the response shapes are one-line aliases
+  over `components['schemas']`, so no component's imports changed and the aliases still carry
+  the prose that explains each shape. The generated file is committed (typecheck must not need
+  Docker) and ignored by ESLint.
+- **The account's data loads in `app.vue`'s `onMounted`, not in route middleware** — filling
+  the stores from client middleware happens *before* the hydration render, so the client
+  disagreed with a server render done on empty stores (the feed page's `<h1>` rendered "Feed"
+  server-side and "Dev" client-side). `onMounted` is the first moment that can't happen.
+  Signing in loads the same two reads, since the app booted signed-out.
+- **Stores capture `useNuxtApp()` at setup, not inside actions** — an action can run past an
+  await (sign-in loads the account once `/me` returns) and by then there is no Nuxt context to
+  find. This was a real bug: sign-in reported an invalid token while `/me` had answered 200.
+- **No shared `useAsyncData` cache for the open post** — the mobile tree and the desktop shell
+  swap places at the `lg` breakpoint, and a shared entry got cleared out from under the
+  survivor, blanking the desktop detail pane. The host that owns the uid fetches the post and
+  passes it down to a presentational `FeedPostView`. Cost: one duplicate `GET /posts/{uid}` on
+  a desktop deep-load, avoided with the existing `isDesktopNow()` guard.
+- **RSS summaries are rendered as text** — a summary is HTML (Reddit wraps a whole `<table>`
+  around every post), and nothing sanitises it, so `v-html` is not an option; `stripHtml`
+  parses it inertly and shows the text. The real answer is T10's extracted article text — this
+  is the honest interim, not the intended reading experience.
+- **An unreachable API is a first-class state** — a failed `GET /home` shows "Can't reach the
+  server" + Try again, never the first-run empty state: telling someone they follow nothing is
+  worse than telling them the network failed. The failure is swallowed inside the store rather
+  than raised, so an API that isn't up leaves the app on its feet instead of on Nuxt's error
+  page.
+- **Settings persistence picks fields explicitly** — persisting the whole store restored
+  `loaded: true` from the cookie, which skipped the `GET` and turned every page load into a
+  `PUT`, breaking T4's "a read shouldn't cause a write" rule from the other side.
+- **The home `order` is applied as a sort at load, not retained** — the home list renders as
+  two blocks (folders, then loose feeds), so the one shared sequence only has to survive as far
+  as the sort. Interleaving the two blocks is T7's drag-and-drop, which re-reads `/home` anyway.
+
 Recorded 2026-08-26 while reviewing T4 (no code changed):
 
 - **`PUT /home/order` validates outside its transaction** — folders, feeds and the nested set
@@ -460,7 +513,7 @@ folders and feeds never appear in the first user's response.
 that folder's stream but still complete on its own page. Paging through a list while inserting
 a newer post skips nothing and repeats nothing. Cross-user isolation is tested.
 
-### T6 — Vertical slice: wire the Nuxt app to real data
+### T6 — Vertical slice: wire the Nuxt app to real data ✅
 
 **Goal.** The real app, on real data, end to end. The checkpoint that proves the contract.
 
@@ -482,7 +535,10 @@ docs UI.
   field** for now. Keep the layout independent of the sign-in control's chrome — Google
   Identity Services constrains how its own button looks, and T8 drops that button in here.
 - Generate TypeScript types from `/api/v1/openapi.json` (`openapi-typescript`) and replace the
-  hand-written shapes in `app/assets/types.ts`. From here the two sides can't drift.
+  hand-written shapes in `app/assets/types.ts`. From here the two sides can't drift. **As
+  built:** the generated file is `app/types/api.d.ts` (committed, ESLint-ignored, refreshed
+  with `pnpm types:api`) and `app/assets/types.ts` stays as a thin alias layer over it, so
+  every component's `import type { Feed } from '~/assets/types'` is unchanged.
 - The `feeds` store loads `/home`. Posts leave the store for a `usePostList(uid)` composable
   over `/feeds/{uid}/posts` with infinite scroll — this finally replaces `PostList.vue`'s
   deliberate "show every post for every uid" placeholder.
@@ -511,6 +567,11 @@ The **delete-folder cascade** is API logic, not a database rule: delete the fold
 unsubscribe its members *except* any that also belong to another folder, and return
 `unsubscribed_count` for the confirmation dialog.
 
+**From T6.** Every write in the add wizard and edit drawer is store-local today — the store
+actions exist and the UI is finished, so this task is replacing each action's body with a call.
+The home list's `order` is applied as a sort at load and not kept, so the drag-and-drop this
+task unblocks re-reads `/home` after `PUT /home/order` rather than reconciling locally.
+
 **Done when.** The add wizard and edit drawer flows work against the API, and each cascade rule
 in [data-model.md](./data-model.md) § Cascade rules has its own test.
 
@@ -532,8 +593,12 @@ consent screen, web client id — and `GOOGLE_OAUTH_CLIENT_ID` in `.env`.
 the OAuth code flow instead). Confirm the current API with the `librarian` agent before
 designing the control.
 
+**From T6.** Settings → Account already reads `/me` — real email, member-since, provider — and
+Sign out already revokes the token server-side, so this task only replaces the provider it
+reports (`dev` → `google`) and the control that mints the token.
+
 **Done when.** Signing in with a real Google account creates the user and lands on the home
-screen, and Settings → Account shows real values instead of today's hardcoded placeholders.
+screen, and no dev-token path remains on `/login`.
 
 ### T9 — Dramatiq, `worker`, `scheduler`
 
@@ -565,6 +630,11 @@ request, which argues for synchronous with a hard timeout.
 (served from `article_html`), and a page that can't be extracted falls back to summary + Open
 source rather than showing an error.
 
+**From T6.** This is what the reader is waiting on. A `summary` is arbitrary third-party HTML
+and nothing sanitises it, so the detail view strips it to plain text — Reddit posts arrive
+wrapped in a whole `<table>`. Extracted article text is the field the reader is meant to render,
+and it is the one that can be rendered as markup.
+
 ### T11 — Discovery
 
 **Goal.** The add wizard's search step returns real candidates.
@@ -579,6 +649,10 @@ units/day quota (≈100 searches), so cache results and prefer the paste path. *
 subreddit URL or name → its `.rss`. Every result carries `already_subscribed`.
 
 Needs `YOUTUBE_API_KEY` and Reddit app credentials in `.env`.
+
+**From T6.** The wizard's search step keeps its real shape — a query in, a loading flag, a
+candidate list out — and simply finds nothing today, saying so rather than showing a blank
+panel. Wiring this endpoint is a swap inside `useAddFeedWizard().search()`.
 
 **Done when.** Pasting a blog URL, a YouTube channel URL and a subreddit name each return a
 correct candidate in the add wizard, already-subscribed sources are flagged as such, and a
