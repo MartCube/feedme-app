@@ -15,8 +15,11 @@ present as full content pages over the reading panes instead of drawers. **The a
 data** _(2026-09-01)_: a `/login` screen takes a dev token, and the account's own feeds,
 folders, fetched posts, saved posts and settings all come from the Django API in `backend/`
 (Django + django-ninja, Docker Compose) — the mock data files are deleted and nothing falls
-back to them. What has no endpoint behind it yet says so: the add wizard's search finds nothing,
-and every add/edit write is still store-local. See Resolved decisions → Backend stack & API.
+back to them. **Writes are real too** _(2026-09-01)_: subscribing, renaming, folder membership,
+mute and both deletes all go through the API, and the edit drawer's copy moved onto the spec's
+nouns (folder / feed — no "source" on screen). What has no endpoint behind it yet says so: the
+add wizard resolves a **pasted feed URL** and finds nothing for a keyword or a handle, and the
+home reorder has no UI. See Resolved decisions → Backend stack & API.
 Backend work is sequenced in [backend-roadmap.md](./backend-roadmap.md), which tracks its
 own status: **read that file's § Status for what to build next.**
 
@@ -87,11 +90,20 @@ own status: **read that file's § Status for what to build next.**
   `transitions.css`. Headers follow the settings drawer's language: step 1 has an in-flow close
   above the title; steps 2–4 have a md caret back + `text-subtitle` title (no close). The search
   input is enlarged for mobile (taller padding, `text-body`, `rounded-2xl`).
-  Committing calls `useFeedsStore().addFeed()` per picked feed and the home list updates (still
-  store-local — `POST /feeds` is T7). The search itself **finds nothing** until T11's
-  `/discover`: the step keeps its real shape (query in, loading flag, candidates out) and says
-  "Nothing found — searching for feeds isn't wired up yet" once a search has actually been run.
-- **Edit-feed / edit-source drawer** — `app/components/edit/Drawer.vue` hosts the sheet (UDrawer
+  Committing calls `useFeedsStore().addFeed()` per picked feed, which `POST`s to `/feeds` and
+  awaits the server's row (uids are minted server-side). Subscribing is the one step that can be
+  **refused**, and the refusal surfaces in both places that commit: `add/DestinationStep.vue`
+  and — for the folder-scoped add, which commits straight from the search step since it already
+  knows its destination — `add/SearchStep.vue`. It's the API's `detail` verbatim ("That URL
+  isn't a feed.", "You already follow that feed."), sitting **above** the destination list (the
+  panel is `touch-none`, so anything below a long folder list is out of reach on mobile), with
+  the destination cards disabled while the request is in flight; the sheet **only closes on
+  success**. The search step
+  resolves the one case that needs no server: a **pasted feed URL** becomes a single candidate
+  (`candidateFromUrl` — its name/type are placeholders the server overwrites from the fetched
+  feed). A keyword, a `youtube.com/@handle` or a bare subreddit name still says "Nothing found"
+  until T11's `/discover`.
+- **Edit drawer (folder / feed)** — `app/components/edit/Drawer.vue` hosts the sheet (UDrawer
   + open protocol + close-key provide + animation-end navigation), like the settings/add
   drawers; every `/edit/*` URL renders the home component (`pages:extend`) so the list stays
   behind the sheet on mobile. The route-driven panel switch and confirm-descriptor table live in
@@ -99,17 +111,17 @@ own status: **read that file's § Status for what to build next.**
   the content overlay. Opened by **long-press** on a folder or loose-feed home
   row (mobile, `useLongPress` — suppresses the follow-up nav click) or a **hover-revealed 3-dot**
   on the row (desktop only, `@media (hover: hover)`). Polymorphic by uid: a `folder_*` uid opens
-  the **folder panel** (`edit/FolderPanel.vue` — rename input + a **Save** pill, a "Sources"
+  the **folder panel** (`edit/FolderPanel.vue` — rename input + a **Save** pill, a "Feeds"
   list of member feeds each row spanning the full drawer width with an on/off mute toggle
-  (`ui/Toggle.vue`), a dashed full-width ghost row labelled "Add source" that runs the add
+  (`ui/Toggle.vue`), a dashed full-width ghost row labelled "Add feed" that runs the add
   wizard scoped to this folder — skipping the destination step and returning here — and a
-  `ui/DangerButton.vue` labelled "Delete feed"); a loose `feed_*` uid opens the **source panel**
-  directly (`edit/SourcePanel.vue` — edits the **name only**, with the RSS `feed_url` shown as
+  `ui/DangerButton.vue` labelled "Delete folder"); a loose `feed_*` uid opens the **feed panel**
+  directly (`edit/FeedPanel.vue` — edits the **name only**, with the RSS `feed_url` shown as
   read-only text below it (it lives on the shared global `Source`; [backend-roadmap.md](./backend-roadmap.md)
   § Contract resolutions, 3), back caret + `useSwipeBack`
-  when reached as a folder member (`/edit/:uid/source/:sourceUid`), X close when standalone; its
-  `DangerButton` reads "Remove source from feed" as a member or "Delete source" standalone).
-  Both the name and, in the folder panel, each source's mute toggle are staged as **local
+  when reached as a folder member (`/edit/:uid/feed/:feedUid`), X close when standalone; its
+  `DangerButton` reads "Remove from this folder" as a member or "Delete feed" standalone).
+  Both the name and, in the folder panel, each member's mute toggle are staged as **local
   drafts** — toggling a mute enables the Save pill same as editing the name does, and nothing
   reaches the store until Save is pressed. Text/mute edits commit via an explicit **Save**
   `ui/PillButton.vue` (muted until a draft differs from the committed folder/feed), and
@@ -122,8 +134,8 @@ own status: **read that file's § Status for what to build next.**
   purely presentational — props `action`/`verb`/`subject`/optional `context`/`note`/`backTo`,
   emits `confirm`), rendered at three routes whose copy, back path, and store call are owned by a
   single `confirm` computed in `Panels.vue`: `/edit/:uid/delete` (delete the folder, or the
-  standalone feed when `:uid` is a loose `feed_*`, branching on the prefix) and the new
-  `/edit/:uid/source/:sourceUid/delete` (route name `edit-source-delete`, registered in
+  standalone feed when `:uid` is a loose `feed_*`, branching on the prefix) and
+  `/edit/:uid/feed/:feedUid/delete` (route name `edit-feed-delete`, registered in
   `nuxt.config.ts` `pages:extend`) which unlinks a member feed from the folder. Confirm/Cancel on
   the sheet itself are `ui/BlockButton.vue`. Row content in both panels is inset `sm` as real
   padding on the row (`pl-sm` on the link, `pr-sm` on the `li`) rather than a `text-inset` margin
@@ -132,14 +144,17 @@ own status: **read that file's § Status for what to build next.**
   Panels slide with the shared `panel-slide` classes. Backing `feeds`-store actions:
   `renameFolder`, `setMutedFeeds` (replaces the folder's whole muted set in one immutable
   write — the folder panel's draft toggles it once, on Save), `updateFeed`, `removeFromFolder`,
-  `deleteFeed`, `folderDeleteImpact`, `deleteFolder`.
-  **Copy diverges from the agreed screen 7 wording** (see
-  [screens-and-flows.md](./screens-and-flows.md#7-create--edit-folders--feeds-from-the-home-list)):
-  spec calls the actions "Delete folder" / "Delete feed" / "Remove from this folder"; shipped
-  labels are "Delete feed" for deleting the *folder*, "Delete source" for deleting a standalone
-  *feed*, and "Remove source from feed" for unlinking a *feed* from a *folder* — a
-  Source/Feed/Folder vocabulary swap against [backend.md](./backend.md)'s vocabulary table that
-  hasn't been reconciled either way.
+  `deleteFeed`, `folderDeleteImpact`, `deleteFolder` — all of them API calls now (see **Data
+  layer**). **The label divergence this file tracked is closed** _(2026-09-01)_: the shipped
+  copy is now "Delete folder", "Delete feed" and "Remove from this folder" — the three actions
+  [screens-and-flows.md](./screens-and-flows.md#7-create--edit-folders--feeds-from-the-home-list)
+  § 7 already specced — and headings, aria-labels and route segments use
+  [backend.md](./backend.md)'s nouns throughout, so a `Source` is never named on screen.
+  A `/edit/*` route whose folder or feed can't be found — a stale link, or a store that never
+  loaded — redirects to `/` instead of leaving an empty panel open, and the sheet doesn't open
+  until the store has answered either way (`edit/Drawer.vue`, and the edit branch of the desktop
+  `ContentOverlay.vue`), so a cold deep link no longer slides up an empty sheet and holds it for
+  the length of `GET /home`.
 - **Layouts** — `app/layouts/default.vue` is the single layout and the mobile/desktop branch
   point: `useIsDesktop()` (`app/composables/useIsDesktop.ts` — VueUse `useMediaQuery` at the
   `lg` 1024px tier, gated behind `useMounted` so SSR and the hydration render always emit the
@@ -205,13 +220,22 @@ own status: **read that file's § Status for what to build next.**
   swallowed rather than raised, so it can never surface as Nuxt's error page, and retries from
   the home screen's **Try again** or the next app boot) into feeds, folders and `savedCounts`,
   behind a `loaded` gate and an `unreachable` flag; the response's `order` is applied as a sort at load time and not retained
-  (the list renders as folders-then-loose-feeds; interleaving is T7's drag-and-drop).
+  (the list renders as folders-then-loose-feeds; interleaving waits on the reorder UI — see
+  Not started → Home reorder).
   `app/composables/usePostList.ts` cursor-pages `GET /feeds/{uid}/posts` (limit 10) behind a
   sentinel + VueUse `useIntersectionObserver` rooted on the viewport, so the same composable
   serves the mobile page scroll and the desktop pane. `app/composables/usePost.ts` owns one post
   plus its save toggle. The `settings` store loads `GET /settings` and `PUT`s on change (a full
   replace; `sidebarSettingsOpen` stays device-local and is never synced). Both loads run from
   `app.vue`'s `onMounted` (and again on sign-in), never from middleware — see Resolved decisions.
+  **Writes** _(2026-09-01)_: every `feeds`-store action calls the API. `renameFolder`,
+  `setMutedFeeds`, `updateFeed`, `removeFromFolder`, `deleteFeed` and `deleteFolder` are
+  **optimistic with rollback** — the local array is replaced first and a shared `commit()` helper
+  restores the previous one if the request fails (the cascading `deleteFolder` re-reads `/home`
+  instead, via the store's new `reload()`, since its effect spans both arrays). `addFeed` and
+  `addFolder` **await** instead and let their error escape to the add wizard, because the backend
+  mints every uid. Membership is sent whole: `removeFromFolder` `PATCH`es the surviving
+  `feed_uids`.
 - **Feeds list v1** — `app/components/home/FeedList.vue` (`HomeFeedList`) renders the home list
   from the `feeds` store's `/home` load — used by the mobile home page (`app/pages/index.vue`)
   and, on desktop, the
@@ -230,7 +254,7 @@ own status: **read that file's § Status for what to build next.**
   (`app/components/home/OptionsDrawer.vue`, local-state drawer — not route-driven — with
   placeholder rows: New folder / Edit feeds / Reorder feeds). Names only for now — no type
   icons. Long-press (mobile) / hover 3-dot (desktop) on a folder or loose-feed row opens the
-  **edit-feed / edit-source drawer** (see Built, below).
+  **edit drawer** (see Built, below).
 - **Feed page v1** — `app/components/feed/PostList.vue` (`FeedPostList`, `uid` + `activePostUid`
   props) lists PostCards with the resolved feed/folder name as title — used by the mobile feed
   page (`app/pages/feed/[uid]/index.vue`) and, on desktop, the shell's posts pane. Posts come
@@ -268,7 +292,7 @@ own status: **read that file's § Status for what to build next.**
   `usePageSlide()`.
 - **Swipe navigation** — `app/composables/useSwipeNav.ts` (VueUse `useSwipe`, touch-only).
   `useSwipeBack`: swipe right anywhere on the feed page, post page, a settings subpage, or an
-  edit-source subpage drags the page with the finger and past 72px pops to the parent route
+  edit-feed subpage drags the page with the finger and past 72px pops to the parent route
   (reusing the page-slide / panel-slide pop); under threshold it snaps back. `useSwipeOpen`: swipe left
   on a home feed row or settings section row nudges it and opens it (gesture twin of
   tapping; one delegated listener per list). Axis-locked so vertical scrolling and vaul's
@@ -276,8 +300,10 @@ own status: **read that file's § Status for what to build next.**
 
 ## Stubs (exist but placeholder content)
 
-- **Add-feed search** — the wizard flow, add action, and destination picker are built (see
-  Built), but no search backs them: the step reports "Nothing found" until T11's `/discover`.
+- **Add-feed search** — the wizard flow, the real subscribe, and the destination picker are
+  built (see Built). What's still a stub is **finding** a feed: only a pasted feed URL resolves,
+  and everything else (keyword, YouTube handle, subreddit name, a site URL that isn't the feed
+  URL) reports "Nothing found" until T11's `/discover`.
 
 ## Not started
 
@@ -294,22 +320,22 @@ own status: **read that file's § Status for what to build next.**
   still needs real content and a way to actually send anything.
 - **PostCard (rest)** — image and source-feed type cue.
 - **Add feed (rest)** — real search / RSS discovery + live metadata (sub counts, latest items)
-  behind the wizard, subscribing for real (`POST /feeds`, T7 — `addFeed` is still store-local),
-  and input validation via VeeValidate/Zod. The wizard UI + add action are built (see Built).
+  behind the wizard (T11), and input validation via VeeValidate/Zod. The wizard UI and the
+  subscribe itself are built (see Built) — a pasted feed URL works end to end.
 - **Saved posts (rest)** — saving, unsaving and reading the saved streams work end to end (see
   Built), but every save lands in **Bookmarks**: there is no group chooser and no way to move a
   post between Bookmarks / Favorites / Later, though the API call for it is the same upsert.
 - **Folders (rest)** — the expandable rows on the home list, the merged-stream read, **folder
-  creation inside the add wizard** (`addFolder` store action + `add/FolderStep.vue`), and the
-  **edit-feed / edit-source drawer** (see Built) are done. Still missing: the folder writes
-  themselves (`POST`/`PATCH`/`DELETE /folders`, T7 — rename, membership, mute and delete are
-  store-local) and the actions behind the home options sheet
-  (New folder / Edit feeds / Reorder feeds are still placeholder rows). See
+  creation inside the add wizard** (`addFolder` store action + `add/FolderStep.vue`), the **edit
+  drawer** and every folder write (`POST`/`PATCH`/`DELETE /folders`) are done. Still missing: the
+  actions behind the home options sheet (New folder / Edit feeds / Reorder feeds are still
+  placeholder rows) and a standalone folder-creation entry point with member picking. See
   [data-model.md](./data-model.md#folder) and
   [screens-and-flows.md](./screens-and-flows.md).
-- **Writes (rest)** — reads are wired end to end; every **write** except save and settings is
-  still store-local: subscribing, renaming, folder membership, mute, delete, and the home
-  reorder all wait on T7's endpoints.
+- **Home reorder** — `PUT /home/order` exists and is strict, but **nothing drives it**: the home
+  list has no drag-and-drop, and the options sheet's Reorder feeds row is a placeholder. The
+  `order` from `/home` is applied as a sort at load and not retained, so the UI, when it lands,
+  re-reads `/home` after writing.
 
 ## Installed but unused
 
@@ -472,6 +498,35 @@ _None currently._
   post-list uid branches, paging 50 posts with no repeats, a save surviving a reload, the
   settings round-trip, sign-out revoking server-side, and the 401 redirect. Next is T7 —
   subscribe and folder writes.
+  **T7 landed _(2026-09-01)_:** the app writes. `backend/core/api/feeds.py` adds `POST /feeds`
+  (`{feed_url, folder_uid?}`) — find-or-create the global `Source`, with its `type` inferred
+  from the host rather than taken from the request, and for a **brand-new** source run T3's
+  `ingest_source()` **inline**, because fetching the feed is the only honest way to know a URL
+  is one; on failure the source row is deleted again and the caller gets a 422 ("That URL isn't
+  a feed."), so a typo leaves no dead global row. A source that was deactivated when its last
+  subscriber left is reactivated instead. `PATCH /feeds/{uid}` renames (name only, contract
+  resolution 3) and `DELETE /feeds/{uid}` unsubscribes — memberships cascade at the database
+  level, and the source is then deactivated rather than deleted, because its posts and other
+  readers' saves outlive your subscription. `backend/core/api/folders.py` — tagged **`home`**,
+  since a folder is home-screen structure — adds `POST /folders`, `PATCH /folders/{uid}` (name,
+  members and mutes each optional, so the folder panel's single Save is a single call) and
+  `DELETE /folders/{uid}`, returning the same `unsubscribed_count` the confirm sheet predicted.
+  Both obligations T4 left behind are settled there: a membership write verifies every feed uid
+  belongs to the caller, and a feed freed from its last folder is rehomed to the end of the
+  top-level order. `PUT /home/order` now reads, validates and writes inside one transaction
+  under `select_for_update()`, closing T4's recorded review note. On the frontend every
+  `feeds`-store write calls the API — optimistic with rollback, except the two creates, which
+  await the server-minted uid — the add wizard subscribes a pasted feed URL for real and shows
+  the API's refusal on the destination step instead of closing, and the edit drawer's copy,
+  aria-labels and route segments (`/edit/:uid/feed/:feedUid`) moved onto
+  [backend.md](./backend.md)'s vocabulary. Eight decisions are recorded in
+  [backend-roadmap.md](./backend-roadmap.md) § Decision log (2026-09-01, T7). Verified: 159
+  backend tests green (was 108), with a test per cascade rule, `ruff` clean, `pnpm lint` and
+  `pnpm typecheck` clean, and the flow driven in a real browser at both viewports — subscribe by
+  URL with the real title backfilled, the not-a-feed 422 leaving no source behind, rename,
+  rename + mute in one save, all three cascade rules with their counts, re-subscribing
+  reactivating a deactivated source, and an offline write rolling back. Next is T8 — Google
+  OAuth.
 
 - **Routing scheme** _(2026-06-29)_ — **nested routes**: posts nest under feeds
   (`/feed/[uid]/post/[postUid]`), settings subpages nest under settings (`/settings/*`). The

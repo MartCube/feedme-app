@@ -14,8 +14,8 @@ deliberate checkpoint that wires the real frontend before the backlog grows furt
 
 ## Status
 
-**Last completed:** T6 — Vertical slice: wire the Nuxt app to real data _(2026-09-01)_
-**Next up:** **T7 — Subscribe and folder writes**
+**Last completed:** T7 — Subscribe and folder writes _(2026-09-01)_
+**Next up:** **T8 — Google OAuth**
 **Roadmap written:** 2026-08-19
 
 | # | Task | State |
@@ -27,8 +27,8 @@ deliberate checkpoint that wires the real frontend before the backlog grows furt
 | T4 | `/home` and `/settings` | ✅ done _(2026-08-25)_ |
 | T5 | Posts — list, detail, save | ✅ done _(2026-08-26)_ |
 | T6 | Vertical slice — wire the Nuxt app | ✅ done _(2026-09-01)_ |
-| T7 | **Subscribe and folder writes** | ⬜ next |
-| T8 | Google OAuth | ⬜ (unblocked from T2) |
+| T7 | Subscribe and folder writes | ✅ done _(2026-09-01)_ |
+| T8 | **Google OAuth** | ⬜ next (unblocked from T2) |
 | T9 | Dramatiq, `worker`, `scheduler` | ⬜ |
 | T10 | Article extraction | ⬜ |
 | T11 | Discovery | ⬜ |
@@ -98,12 +98,29 @@ round-trips `GET`/`PUT /settings`. The frontend's types are generated from this 
 OpenAPI document (`pnpm types:api` → `app/types/api.d.ts`), so a renamed field breaks the
 frontend's typecheck. The mock data files are deleted.
 
+T7 made the app writable. `backend/core/api/feeds.py` serves `POST /feeds`
+(`{feed_url, folder_uid?}` — find-or-create the global `Source` with its `type` inferred from
+the host, and for a brand-new source **run T3's ingest inline**, because fetching the feed is
+what proves it is one; a failure deletes the source row again and answers 422 *"That URL isn't
+a feed."*), `PATCH /feeds/{uid}` (name only) and `DELETE /feeds/{uid}` (memberships cascade at
+the database level, then the source is deactivated if it lost its last subscriber — kept, so
+re-subscribing reactivates it). `backend/core/api/folders.py` — tagged **`home`**, not `feeds` —
+serves `POST /folders`, `PATCH /folders/{uid}` (name, members and mutes all optional, so the
+folder panel's one Save is one call) and `DELETE /folders/{uid}`, returning the
+`unsubscribed_count` the confirm sheet predicted. Both obligations T4 handed over are paid off,
+and `PUT /home/order` now reads, validates and writes inside one transaction with
+`select_for_update()`. On the frontend every `app/stores/feeds.ts` write action calls the API —
+optimistic with rollback, except the two creates, which await the server-minted uid — the add
+wizard resolves a pasted feed URL into a candidate, and the edit drawer's copy and routes moved
+onto [backend.md](./backend.md)'s vocabulary (folder / feed, no "source" on screen).
+
 **Not built.** Everything else: no background queue (T3's poller is a command you run), no
-article extraction and no search columns, and the only endpoints are `/health`, `/me`,
-`/auth/logout`, `/home`, `/home/order`, `/settings`, `/feeds/{uid}/posts`, `/posts/{uid}` and
-`/posts/{uid}/save`. The frontend surfaces that have no endpoint behind them yet say so: the
-add wizard's search finds nothing until T11's `/discover`, and every write in the add and edit
-flows is still store-local until T7.
+article extraction and no search columns, and the endpoints stop at `/health`, `/me`,
+`/auth/logout`, `/home`, `/home/order`, `/settings`, `/feeds`, `/feeds/{uid}`,
+`/feeds/{uid}/posts`, `/folders`, `/folders/{uid}`, `/posts/{uid}` and `/posts/{uid}/save`. The
+frontend surfaces that have no endpoint behind them yet say so: the add wizard's search resolves
+a pasted feed URL and nothing else — a YouTube handle, a bare subreddit name or a keyword finds
+nothing until T11's `/discover` — and `PUT /home/order` has no drag-and-drop UI driving it yet.
 
 ## Contract resolutions
 
@@ -352,6 +369,51 @@ Decided 2026-09-01 while building T6 (all frontend):
   two blocks (folders, then loose feeds), so the one shared sequence only has to survive as far
   as the sort. Interleaving the two blocks is T7's drag-and-drop, which re-reads `/home` anyway.
 
+Decided 2026-09-01 while building T7:
+
+- **Optimistic writes with rollback, except creates** — the local mutation lands first so Save
+  and Delete feel instant, and a failed call restores the previous array (the cascading folder
+  delete re-reads `/home` instead, since its effect spans both arrays by a rule the client only
+  mirrors). Creates await, because the backend mints every public uid: an optimistic row would
+  carry a client-invented uid the server is about to replace, and one you could tap through to a
+  404 in the meantime.
+- **Subscribing takes a pasted feed URL, and fetching it is the validation** — there is no
+  cheaper way to know whether a URL is a feed, and T3's ingest already backfills title, site and
+  icon from what comes back. The cost is one synchronous network call on the request, held
+  deliberately *outside* the transaction; a failure deletes the source row again, so a typo
+  leaves no dead global row. T11's discovery will front this with a resolution step for handles
+  and subreddit names.
+- **The source type is inferred server-side from the host, not taken from the request** — the
+  add wizard's type step is a UI filter, and a client is free to be wrong about it.
+- **A source outlives its last subscriber, deactivated** — deleting it would throw away every
+  post already fetched and every other reader's saves (`Feed.source` is `PROTECT`, `Post.source`
+  is `CASCADE`). Polling stops; re-subscribing reactivates the same row for free.
+- **Folder writes are tagged `home`, not `feeds`** — a folder is home-screen structure, read
+  only through `GET /home` and ordered by `PUT /home/order`. Sits beside the four-tag decision
+  above rather than opening a fifth group.
+- **The delete-folder orphan check is two plain queries, not one annotated count** — filtering
+  on a multi-valued relation and aggregating over it in the same queryset counts the *filtered*
+  join rows, the same join-reuse trap T5's post list documents.
+- **Removing a feed from a folder drops its mute** — carried-over mutes are intersected with the
+  surviving membership rather than validated against it, so one Save can drop a member and mute
+  another. A mute sent *explicitly* for a non-member is still a 422: that's incoherent, not a
+  leftover. (Found by a test.)
+- **A refused subscribe is surfaced in two places, not one** — the folder-scoped add
+  (`/edit/:uid/add/input`) commits straight from the search step, because it already knows its
+  destination and never renders the destination step. So the error line lives in both
+  `add/SearchStep.vue` and `add/DestinationStep.vue`; with only the latter, a bad URL pasted
+  inside a folder failed silently.
+- **The error sits above the destination list, not below it** — that panel is `touch-none`
+  (vaul owns the gesture), so anything under a long folder list can't be scrolled to on mobile,
+  and a failure that can't be read reads as nothing having happened.
+- **An `/edit/*` route with nothing to edit never shows an empty panel** — every panel is keyed
+  on finding its folder or feed, so a stale link or an unreachable API otherwise left the drawer
+  open with nothing to press. Two halves of one rule: the sheet doesn't **open** until the store
+  has answered (`edit/Drawer.vue`, and the edit branch of the desktop `ContentOverlay.vue`) —
+  account data arrives after hydration, so a cold deep link used to slide an empty sheet up, hold
+  it for the length of `GET /home`, then slide it back down still empty — and once the store has
+  answered, a uid it doesn't know **redirects home**.
+
 Recorded 2026-08-26 while reviewing T4 (no code changed):
 
 - **`PUT /home/order` validates outside its transaction** — folders, feeds and the nested set
@@ -360,12 +422,20 @@ Recorded 2026-08-26 while reviewing T4 (no code changed):
   concurrent-*reorder* case but not a concurrent *subscribe* (no gap locks under READ
   COMMITTED). Left alone deliberately: the drag-and-drop UI that would trigger it doesn't exist
   yet, the failure is cosmetic (a misplaced row, corrected by the next `/home`), and a partial
-  fix that reads as complete is worse than a recorded one. **Revisit in T7.**
+  fix that reads as complete is worse than a recorded one. **Revisit in T7.** — **Closed in T7
+  _(2026-09-01)_:** the read, the validation and the write now happen inside one
+  `transaction.atomic()` with `select_for_update()` on the caller's folders and feeds.
+  Concurrent reorders serialise; a subscribe landing in between still isn't gap-locked, but
+  re-reading inside the transaction makes it fail validation loudly (a uid missing from the
+  order) instead of half-applying.
 - **Two obligations T4 handed to T7.** `Feed.order` is never normalised for feeds inside
   folders, so a feed removed from a folder arrives at the top level carrying a stale `order`
   (usually 0) — `PATCH`/`DELETE /folders/{uid}` must assign it a fresh position. And
   `FolderMember` has no constraint that `folder.user == feed.user`, so `PATCH /folders/{uid}`'s
-  set-members path has to verify every feed uid belongs to the caller.
+  set-members path has to verify every feed uid belongs to the caller. — **Both paid off in T7
+  _(2026-09-01)_**, in `core/api/folders.py`: every uid in a membership write is checked against
+  the caller's own feeds, and a feed that leaves a folder into no other folder is rehomed to the
+  end of the top-level order.
 
 ## Tasks
 
@@ -550,7 +620,7 @@ docs UI.
 posts, on mobile and desktop. Saving a post survives a reload. `pnpm lint` and `pnpm typecheck`
 pass. No import of `assets/data` remains anywhere.
 
-### T7 — Subscribe and folder writes
+### T7 — Subscribe and folder writes ✅
 
 **Goal.** The add wizard and edit drawer — already built on the frontend — work for real.
 
@@ -567,10 +637,21 @@ The **delete-folder cascade** is API logic, not a database rule: delete the fold
 unsubscribe its members *except* any that also belong to another folder, and return
 `unsubscribed_count` for the confirmation dialog.
 
-**From T6.** Every write in the add wizard and edit drawer is store-local today — the store
-actions exist and the UI is finished, so this task is replacing each action's body with a call.
+**From T6.** Every write in the add wizard and edit drawer was store-local going in — the store
+actions existed and the UI was finished, so this task is replacing each action's body with a call.
 The home list's `order` is applied as a sort at load and not kept, so the drag-and-drop this
 task unblocks re-reads `/home` after `PUT /home/order` rather than reconciling locally.
+
+**As built _(2026-09-01)_.** Three things came out differently. `POST /feeds` takes a **pasted
+`feed_url`**, not a discovery result or a `source_uid` — discovery doesn't exist until T11 — and
+a brand-new Source is fetched **inline**, because that fetch is what validates the URL (§
+Decision log). Folder writes are tagged **`home`**, not `feeds`. And the frontend's writes are
+optimistic with rollback except the two creates, which await the server-minted uid. Alongside
+it, the edit drawer's copy and route segments moved onto [backend.md](./backend.md)'s vocabulary
+(`/edit/:uid/feed/:feedUid`), and its three destructive labels are now exactly the ones
+[screens-and-flows.md](./screens-and-flows.md) § 7 already specced — "Delete folder", "Delete
+feed", "Remove from this folder" — closing the divergence
+[current-state.md](./current-state.md) had recorded.
 
 **Done when.** The add wizard and edit drawer flows work against the API, and each cascade rule
 in [data-model.md](./data-model.md) § Cascade rules has its own test.
@@ -651,8 +732,10 @@ subreddit URL or name → its `.rss`. Every result carries `already_subscribed`.
 Needs `YOUTUBE_API_KEY` and Reddit app credentials in `.env`.
 
 **From T6.** The wizard's search step keeps its real shape — a query in, a loading flag, a
-candidate list out — and simply finds nothing today, saying so rather than showing a blank
-panel. Wiring this endpoint is a swap inside `useAddFeedWizard().search()`.
+candidate list out. **Since T7** it resolves one case on its own: a pasted **feed** URL becomes a
+single candidate, because that is all `POST /feeds` needs. Everything else — a YouTube handle, a
+bare subreddit name, a keyword, a site URL that isn't the feed URL — finds nothing until this
+endpoint lands. Wiring it is a swap inside `useAddFeedWizard().search()`.
 
 **Done when.** Pasting a blog URL, a YouTube channel URL and a subreddit name each return a
 correct candidate in the add wizard, already-subscribed sources are flagged as such, and a

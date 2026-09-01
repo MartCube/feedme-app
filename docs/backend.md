@@ -160,10 +160,11 @@ Conventions:
 ### Endpoint catalog
 
 Grouped in the OpenAPI schema — and so in the docs UI at `/api/v1/docs` — under four tags:
-**home** (the home aggregate and its reorder), **feeds** (reading: the polymorphic post list,
-post detail, save, and T7's subscription writes), **user** (identity, sessions, settings), and
-**default** (`/health`). The tag is declared on each router in `core/api/`; the order and the
-per-group descriptions come from `TAGS` in `feedme/api.py`.
+**home** (the home aggregate, its reorder, and the **folder** writes — a folder is home-screen
+structure, read only through `GET /home`), **feeds** (what you follow: the polymorphic post
+list, post detail, save, and the subscription writes), **user** (identity, sessions, settings),
+and **default** (`/health`). The tag is declared on each router in `core/api/`; the order and
+the per-group descriptions come from `TAGS` in `feedme/api.py`.
 
 | Method & path | Purpose |
 | --- | --- |
@@ -173,11 +174,11 @@ per-group descriptions come from `TAGS` in `feedme/api.py`.
 | `DELETE /me` | Delete account + all user data (tokens, feeds, folders, saved, settings) |
 | `GET /home` | **One aggregate round-trip for the home screen:** folders (with member uids + muted uids), feeds (uid, name, type, site_url, icon), top-level order, saved counts per group |
 | `PUT /home/order` | Persist home-list reorder: ordered list of top-level uids (folders + loose feeds) |
-| `POST /feeds` | Subscribe: a discovery result (or known `source_uid`) + optional destination `folder_uid`. Find-or-create the Source, create the Feed, first subscriber triggers the initial fetch |
+| `POST /feeds` | Subscribe: `{feed_url, folder_uid?}`. Find-or-create the Source (`type` inferred from the host), create the Feed, and fetch a brand-new Source inline — **fetching it is what validates it**, so a URL that isn't a feed answers 422 and leaves no Source behind. Returns the new feed |
 | `PATCH /feeds/{uid}` | Rename (the user's Feed row, never the shared Source) |
-| `DELETE /feeds/{uid}` | Unsubscribe everywhere (drops folder memberships too) |
+| `DELETE /feeds/{uid}` | Unsubscribe everywhere (drops folder memberships too). The Source survives its last subscriber, deactivated |
 | `POST /folders` | Create: name + optional member `feed_uids` |
-| `PATCH /folders/{uid}` | Rename / set members / toggle per-folder mute |
+| `PATCH /folders/{uid}` | Rename / set members / set per-folder mute — every field optional, so one call can commit a rename and the mutes together |
 | `DELETE /folders/{uid}` | Cascade delete per the rules above; returns `unsubscribed_count` |
 | `GET /feeds/{uid}/posts` | **The post list, polymorphic uid:** `all` \| `saved` \| `saved_*` \| `folder_*` (members minus muted) \| `feed_*` — same resolution order as the frontend's `usePostList`. Newest-first, cursor-paginated |
 | `GET /posts/{uid}` | Post detail (what RSS gave us) |

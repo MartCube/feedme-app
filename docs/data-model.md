@@ -79,6 +79,12 @@ interface Folder {
   member that also belongs to another folder (those survive). Destructive, so it requires a
   confirmation that names how many feeds will be unsubscribed.
 
+All three are **enforced by the API**, each with its own test _(2026-09-01)_: `DELETE /feeds/{uid}`
+for the second, `PATCH` / `DELETE /folders/{uid}` for the other two. Two consequences of the
+first rule worth naming: a member that leaves a folder loses its mute with it (mute only exists
+*inside* a folder), and a feed that goes loose is given a fresh position at the **end** of the
+top-level order rather than keeping the one it had before it joined.
+
 ## Post
 
 An item belonging to a feed.

@@ -69,8 +69,8 @@ navigates. File references point at `app/pages/` and `app/components/`.
 > desktop) — there are no separate settings.vue / settings/*.vue page files:
 >   /settings/:panel?          → SettingsDrawer (mobile) / DesktopContentOverlay (desktop)
 >   /add                       → AddDrawer (mobile) / DesktopContentOverlay (desktop)
->   /edit/:uid, /edit/:uid/source/:sourceUid, /edit/:uid/add, /edit/:uid/add/input,
->   /edit/:uid/delete, /edit/:uid/source/:sourceUid/delete
+>   /edit/:uid, /edit/:uid/feed/:feedUid, /edit/:uid/add, /edit/:uid/add/input,
+>   /edit/:uid/delete, /edit/:uid/feed/:feedUid/delete
 >                              → EditDrawer (mobile) / DesktopContentOverlay (desktop)
 > ```
 >
@@ -244,16 +244,23 @@ is in the header), each with an add `+`.
 
 **Phase 3 — choose destination.** Tapping a result's `+` advances here. Header is "Add to" + a
 back button. It reuses the home feed list: a **Feeds (top level)** row plus one row per **folder**.
-Tapping a destination **commits** — the feed is added there, the drawer closes, and the home list
-reflects it.
+Tapping a destination **commits** — the feed is subscribed there, the drawer closes, and the home
+list reflects it. Subscribing is the first step that can be **refused**: the sheet stays open
+with the server's reason on it (a URL that turns out not to be a feed, or one already followed),
+shown above the destination list where a long list can't push it out of reach, and only closes
+once the subscribe lands. Run **scoped to a folder** (from screen 7's *Add feed*), the wizard
+skips this phase — the destination is already known — and commits, and reports the same
+refusal, from the paste/search step.
 
 **Scope:** one feed → one destination per pass (multi-select / multi-folder deferred; the data
 model stays many-to-many, so a feed can join more folders later via a folder's *Edit feeds*).
 
-**Data:** candidates come from `GET /discover?type=&q=`, which **isn't built yet** — a search
-finds nothing today and the step says so rather than showing a blank panel. Committing calls
-`useFeedsStore().addFeed(candidate, destination)`, which is still store-local until `POST /feeds`
-lands: the feed appears in the list and is gone on reload.
+**Data:** candidates come from `GET /discover?type=&q=`, which **isn't built yet** (T11). Until
+it lands the step resolves one case without a server — a pasted **feed** URL becomes a single
+candidate, which is all `POST /feeds` needs — and says it found nothing for anything else (a
+keyword, a YouTube handle, a bare subreddit name). Committing calls `POST /feeds`
+(`{feed_url, folder_uid?}`) through `useFeedsStore().addFeed()`; the server finds-or-creates the
+shared source, fetches it, and answers with the feed's real name.
 
 **Components:** `add/Drawer.vue` (mobile sheet host: open protocol + commit/close/reset),
 `add/Steps.vue` (the phase switch itself — reused by the desktop presentation below),
@@ -324,12 +331,15 @@ Routing note: `saved` → folder → feed.)
 
 **Edit — context menu** (long-press on mobile; 3-dot / overflow on desktop). Built as a
 route-driven **edit drawer** (`app/components/edit/Drawer.vue`, `/edit/*`) rather than a popover
-menu: long-press (or a desktop hover 3-dot) on a folder opens a folder panel (rename, per-feed
-mute toggles, add a feed, delete), and tapping a member feed — or long-pressing a loose feed —
-opens a feed subpage (edit name + RSS url, remove/delete). The options below map to that drawer;
-the shipped button copy currently uses different nouns than this list — see
-[current-state.md](./current-state.md) for the divergence. On desktop this presents as a full
-content page over the reading panes (see the Routing note) instead of a bottom sheet.
+menu: long-press (or a desktop hover 3-dot) on a folder opens the **folder panel** (rename,
+per-feed mute toggles, add a feed, delete the folder), and tapping a member feed — or
+long-pressing a loose feed — opens the **feed panel** (`/edit/:uid/feed/:feedUid`): rename it,
+with its RSS URL shown as read-only context, and remove or delete. The destructive buttons are
+labelled with the three actions below, word for word, and a `Source` is never named on screen
+([backend.md](./backend.md) § Vocabulary). On desktop this presents as a full content page over the reading panes (see the
+Routing note) instead of a bottom sheet. An `/edit/*` route never shows an empty panel: the
+drawer waits for the account's data before opening, and a uid it then can't find — a stale link,
+a folder deleted on another device — sends the reader home.
 
 - **Folder row:**
   - **Rename** the folder.
