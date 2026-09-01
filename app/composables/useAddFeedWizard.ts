@@ -20,6 +20,10 @@ export function useAddFeedWizard() {
   // Distinguishes "haven't searched yet" from "searched and found nothing", so
   // the step only explains itself once the user has actually asked.
   const searched = useState('add-searched', () => false)
+  // The destination step commits over the network now, so it has both a busy
+  // state and something to say when the server refuses.
+  const adding = useState('add-adding', () => false)
+  const error = useState<string | null>('add-error', () => null)
 
   function selectType(t: FeedType) {
     // Re-picking a type (e.g. back to phase 1, then a different type) must clear
@@ -29,24 +33,48 @@ export function useAddFeedWizard() {
     results.value = []
     loading.value = false
     searched.value = false
+    error.value = null
     selectedFeeds.value = []
     type.value = t
     direction.value = 'forward'
     step.value = 'input'
   }
 
-  // Discovery is T11 (GET /discover?type=&q=), so a search currently finds
-  // nothing and the step says so. The shape around it is the real one — loading
-  // in, results out — which is what makes wiring the endpoint a one-line swap.
+  // Searching by keyword is T11 (GET /discover?type=&q=). The one thing that can be
+  // resolved without a server is a pasted feed URL — which is where T11's website branch
+  // ends up anyway — so a URL becomes a single candidate and anything else finds nothing.
   function search() {
     if (!type.value) return
     direction.value = 'forward'
     loading.value = false
-    results.value = []
+    error.value = null
     // A new search invalidates prior picks — stale selections would keep the
     // forward button enabled on feeds no longer visible in the list.
     selectedFeeds.value = []
     searched.value = true
+    const candidate = candidateFromUrl(query.value, type.value)
+    results.value = candidate ? [candidate] : []
+  }
+
+  // Name and type here are placeholders the server overwrites: it fetches the feed and
+  // takes the real title from it, and infers the type from the host. All that has to
+  // survive to POST /feeds is the URL.
+  function candidateFromUrl(input: string, feedType: FeedType): FeedCandidate | null {
+    let url: URL
+    try {
+      url = new URL(input.trim())
+    }
+    catch {
+      return null
+    }
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
+    return {
+      name: url.hostname.replace(/^www\./, ''),
+      feed_url: url.href,
+      site_url: url.origin,
+      type: feedType,
+      icon_url: '',
+    }
   }
 
   function isSelected(feed: FeedCandidate) {
@@ -65,9 +93,29 @@ export function useAddFeedWizard() {
     step.value = 'destination'
   }
 
-  function chooseDestination(dest: Destination) {
-    if (!selectedFeeds.value.length) return
-    for (const feed of selectedFeeds.value) feedsStore.addFeed(feed, dest)
+  // Awaited, and reports whether it worked: the host only closes the sheet on success,
+  // because a URL that isn't a feed comes back as a 422 this step has to show.
+  async function chooseDestination(dest: Destination): Promise<boolean> {
+    if (!selectedFeeds.value.length || adding.value) return false
+    adding.value = true
+    error.value = null
+    try {
+      for (const feed of selectedFeeds.value) await feedsStore.addFeed(feed, dest)
+      return true
+    }
+    catch (failure) {
+      error.value = detailOf(failure)
+      return false
+    }
+    finally {
+      adding.value = false
+    }
+  }
+
+  // The API's one error shape, {"detail": string}, as ofetch hands it back.
+  function detailOf(failure: unknown) {
+    const detail = (failure as { data?: { detail?: string } })?.data?.detail
+    return detail || 'Couldn\'t add that feed.'
   }
 
   function goToNewFolder() {
@@ -75,9 +123,9 @@ export function useAddFeedWizard() {
     step.value = 'folder'
   }
 
-  function createFolder(name: string) {
+  async function createFolder(name: string) {
     if (!name.trim()) return
-    feedsStore.addFolder(name)
+    await feedsStore.addFolder(name)
     // Returning is a pop: the destination list slides back in (from the left)
     // with the new folder in place.
     direction.value = 'back'
@@ -86,6 +134,9 @@ export function useAddFeedWizard() {
 
   function back() {
     direction.value = 'back'
+    // A failure belongs to the attempt that caused it — stepping back and forward again
+    // is a fresh one, and the old line under it would be a lie.
+    error.value = null
     if (step.value === 'folder') step.value = 'destination'
     else if (step.value === 'destination') step.value = 'input'
     else if (step.value === 'input') step.value = 'type'
@@ -98,9 +149,11 @@ export function useAddFeedWizard() {
     loading.value = false
     results.value = []
     searched.value = false
+    adding.value = false
+    error.value = null
     selectedFeeds.value = []
     direction.value = 'forward'
   }
 
-  return { step, type, query, loading, results, searched, selectedFeeds, direction, selectType, search, isSelected, toggleFeed, proceedToDestination, chooseDestination, goToNewFolder, createFolder, back, reset }
+  return { step, type, query, loading, results, searched, adding, error, selectedFeeds, direction, selectType, search, isSelected, toggleFeed, proceedToDestination, chooseDestination, goToNewFolder, createFolder, back, reset }
 }

@@ -2,7 +2,7 @@
 const emit = defineEmits<{ back: [], forward: [] }>()
 
 const wizard = useAddFeedWizard()
-const { type, query, loading, results, searched, selectedFeeds } = wizard
+const { type, query, loading, results, searched, error, selectedFeeds } = wizard
 
 // Heading label/icon and placeholder all come from the type card the user
 // just tapped (website when the type is somehow unset).
@@ -117,6 +117,15 @@ function displayUrl(url: string) {
       class="mt-md text-body text-muted"
     >
       Nothing found — feed search is coming.
+    </p>
+
+    <!-- The folder-scoped add commits straight from this step (it already knows the
+         destination), so a refused subscribe has to be able to say so here too. -->
+    <p
+      v-if="error"
+      class="mt-xs text-caption text-error text-inset"
+    >
+      {{ error }}
     </p>
   </div>
 </template>

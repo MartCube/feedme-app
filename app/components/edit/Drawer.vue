@@ -10,7 +10,14 @@ const open = ref(false)
 const wizard = useAddFeedWizard()
 
 const EDIT_NAMES = new Set(['edit', 'edit-source', 'edit-add', 'edit-add-input', 'edit-delete', 'edit-source-delete'])
-const onEdit = computed(() => EDIT_NAMES.has(route.name as string))
+// Every panel inside needs the folder or feed the URL names, and the account's data only
+// arrives after hydration — so a cold deep link would otherwise slide up an empty sheet,
+// hold it for the length of GET /home, and (for a stale uid) slide it back down still
+// empty. Waiting for the store to answer either way is what keeps the sheet honest.
+const { loaded, unreachable } = storeToRefs(useFeedsStore())
+const onEdit = computed(() =>
+  EDIT_NAMES.has(route.name as string) && (loaded.value || unreachable.value),
+)
 
 // vaul emits animationEnd(false) for its initial closed state — only a close
 // that follows a completed open animation should navigate home.

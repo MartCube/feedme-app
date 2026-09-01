@@ -22,7 +22,7 @@ const route = reactive({
 })
 
 const feedsStore = useFeedsStore()
-const { folders, feeds } = storeToRefs(feedsStore)
+const { folders, feeds, loaded, unreachable } = storeToRefs(feedsStore)
 const { folderDeleteImpact, deleteFolder, deleteFeed, removeFromFolder } = feedsStore
 const wizard = useAddFeedWizard()
 
@@ -115,6 +115,24 @@ const confirm = computed<Confirm | undefined>(() => {
   return undefined
 })
 
+// Nothing here to edit: a stale /edit/* link (the folder or feed was deleted, on this
+// device or another), or data that never arrived. Every panel below is keyed on finding
+// its entity, so the drawer would otherwise sit open and empty with nothing to press —
+// send the reader back to the home screen, which knows how to explain itself. Held until
+// the store has answered one way or the other, so a deep link doesn't bounce mid-load.
+const missing = computed(() => {
+  if (!loaded.value && !unreachable.value) return false
+  if (view.value === 'folder') return !folder.value
+  if (view.value === 'source') return !sourceFeed.value
+  if (view.value === 'loose') return !baseFeed.value
+  if (view.value === 'confirm') return !confirm.value
+  return false
+})
+
+watch(missing, (gone) => {
+  if (gone) navigateTo('/')
+}, { immediate: true })
+
 // Same push/pop mechanism as the settings drawer: a FIXED panel-slide
 // transition whose direction rides on --panel-* variables (transitions.css).
 // Deeper path pushes in from the right, shallower pops back.
@@ -145,9 +163,9 @@ function onAddSelect(type: FeedType) {
   navigateTo(`/edit/${uid.value}/add/input`)
 }
 
-function onAddCommit() {
+async function onAddCommit() {
   if (!wizard.selectedFeeds.value.length) return
-  wizard.chooseDestination(uid.value)
+  if (!await wizard.chooseDestination(uid.value)) return
   wizard.reset()
   navigateTo(`/edit/${uid.value}`)
 }

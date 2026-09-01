@@ -22,9 +22,10 @@ const slideVars = computed(() => {
   return { '--panel-enter-from': '100%', '--panel-leave-to': '-25%', '--panel-enter-z': '1' }
 })
 
-function onChoose(destination: Destination) {
-  wizard.chooseDestination(destination)
-  emit('done')
+// The sheet closes only if the subscribe actually landed — otherwise the step stays up
+// with the server's reason on it.
+async function onChoose(destination: Destination) {
+  if (await wizard.chooseDestination(destination)) emit('done')
 }
 </script>
 

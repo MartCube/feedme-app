@@ -13,7 +13,7 @@ from collections import Counter
 from typing import Literal
 
 from django.db import transaction
-from django.db.models import Count, Prefetch
+from django.db.models import Count, Max, Prefetch
 from ninja import Field, Router, Schema, Status
 from ninja.errors import HttpError
 
@@ -97,27 +97,51 @@ def home(request):
 def set_home_order(request, payload: HomeOrderSchema):
     user = request.auth
 
-    folders = {folder.uid: folder for folder in Folder.objects.filter(user=user)}
-    feeds = {feed.uid: feed for feed in Feed.objects.filter(user=user)}
-    nested = set(FolderMember.objects.filter(folder__user=user).values_list('feed__uid', flat=True))
-    top_level = set(folders) | (set(feeds) - nested)
-
-    _validate_order(payload.uids, top_level, nested)
-
-    reordered_folders, reordered_feeds = [], []
-    for position, uid in enumerate(payload.uids):
-        if uid in folders:
-            folders[uid].order = position
-            reordered_folders.append(folders[uid])
-        else:
-            feeds[uid].order = position
-            reordered_feeds.append(feeds[uid])
-
+    # Read, validate and write inside one transaction, with the caller's rows locked. T4
+    # left this validating outside — two devices reordering at once could both pass and one
+    # would half-apply. select_for_update() serialises them; a subscribe that lands in
+    # between still isn't gap-locked, but re-reading in here means it fails the validation
+    # loudly (a uid missing from the order) instead of quietly writing a stale sequence.
     with transaction.atomic():
+        folders = {
+            folder.uid: folder for folder in Folder.objects.filter(user=user).select_for_update()
+        }
+        feeds = {feed.uid: feed for feed in Feed.objects.filter(user=user).select_for_update()}
+        nested = set(
+            FolderMember.objects.filter(folder__user=user).values_list('feed__uid', flat=True)
+        )
+        top_level = set(folders) | (set(feeds) - nested)
+
+        _validate_order(payload.uids, top_level, nested)
+
+        reordered_folders, reordered_feeds = [], []
+        for position, uid in enumerate(payload.uids):
+            if uid in folders:
+                folders[uid].order = position
+                reordered_folders.append(folders[uid])
+            else:
+                feeds[uid].order = position
+                reordered_feeds.append(feeds[uid])
+
         Folder.objects.bulk_update(reordered_folders, ['order'])
         Feed.objects.bulk_update(reordered_feeds, ['order'])
 
     return Status(204, None)
+
+
+def next_top_level_order(user):
+    """One past the end of the shared top-level sequence, for a row joining it.
+
+    Folders and loose feeds share one 0..n-1 order across two tables, so "the end" is the max
+    of both. A feed created straight into a folder gets a position too — it simply never uses
+    it until the feed goes loose, which is what stops it arriving at the top level with the
+    stale 0 that T4 flagged.
+    """
+    highest = [
+        Folder.objects.filter(user=user).aggregate(Max('order'))['order__max'],
+        Feed.objects.filter(user=user).aggregate(Max('order'))['order__max'],
+    ]
+    return max([value for value in highest if value is not None], default=-1) + 1
 
 
 def _folder_payload(folder):

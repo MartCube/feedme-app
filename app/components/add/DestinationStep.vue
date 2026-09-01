@@ -6,7 +6,7 @@ const emit = defineEmits<{ back: [], choose: [destination: Destination], newFold
 const feedsStore = useFeedsStore()
 const { folders } = storeToRefs(feedsStore)
 
-const { selectedFeeds } = useAddFeedWizard()
+const { selectedFeeds, adding, error } = useAddFeedWizard()
 </script>
 
 <template>
@@ -36,6 +36,16 @@ const { selectedFeeds } = useAddFeedWizard()
       </div>
     </section>
 
+    <!-- Above the destination list, not below it: this panel is touch-none (vaul owns
+         the gesture), so anything under a long folder list is unreachable on mobile —
+         and a failure that can't be read is a failure that looks like nothing happened. -->
+    <p
+      v-if="error"
+      class="mt-xs text-caption text-error text-inset"
+    >
+      {{ error }}
+    </p>
+
     <p class="mt-md text-caption text-muted text-inset">
       Add to
     </p>
@@ -45,13 +55,17 @@ const { selectedFeeds } = useAddFeedWizard()
       <li>
         <button
           type="button"
+          :disabled="adding"
           class="flex w-full items-center gap-sm rounded-2xl bg-elevated p-sm text-left shadow-elevated transition-colors"
           aria-label="Add to top level"
           @click="emit('choose', 'loose')"
         >
-          <span class="flex min-w-0 flex-1 items-baseline gap-xs">
+          <span
+            class="flex min-w-0 flex-1 items-baseline gap-xs"
+            :class="adding && 'text-dimmed'"
+          >
             <span class="min-w-0 truncate text-body">Feeds</span>
-            <span class="text-caption text-muted">Top level</span>
+            <span :class="adding ? 'text-caption' : 'text-caption text-muted'">Top level</span>
           </span>
         </button>
       </li>
@@ -61,25 +75,32 @@ const { selectedFeeds } = useAddFeedWizard()
       >
         <button
           type="button"
+          :disabled="adding"
           class="flex w-full items-center gap-sm rounded-2xl bg-elevated p-sm text-left shadow-elevated transition-colors"
           :aria-label="`Add to ${folder.name}`"
           @click="emit('choose', folder.uid)"
         >
-          <span class="flex min-w-0 flex-1 items-baseline gap-xs">
+          <span
+            class="flex min-w-0 flex-1 items-baseline gap-xs"
+            :class="adding && 'text-dimmed'"
+          >
             <span class="min-w-0 truncate text-body">{{ folder.name }}</span>
-            <span class="text-caption text-muted">{{ folder.feed_uids.length }}</span>
+            <span :class="adding ? 'text-caption' : 'text-caption text-muted'">{{ folder.feed_uids.length }}</span>
           </span>
         </button>
       </li>
       <li>
         <button
           type="button"
+          :disabled="adding"
           class="flex w-full items-center gap-sm rounded-2xl bg-elevated p-sm text-left shadow-elevated transition-colors"
+          :class="adding && 'text-dimmed'"
           @click="emit('newFolder')"
         >
           <UIcon
             name="i-ph-folder-plus-bold"
-            class="size-5 shrink-0 text-muted"
+            class="size-5 shrink-0"
+            :class="adding ? 'text-dimmed' : 'text-muted'"
           />
           <span class="text-body">New folder</span>
         </button>

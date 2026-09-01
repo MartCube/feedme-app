@@ -2,6 +2,8 @@ from ninja import NinjaAPI
 
 from core.api.account import router as account_router
 from core.api.errors import register_error_handlers
+from core.api.feeds import router as feeds_router
+from core.api.folders import router as folders_router
 from core.api.home import router as home_router
 from core.api.posts import router as posts_router
 from core.api.settings import router as settings_router
@@ -45,5 +47,7 @@ def health(request):
 
 api.add_router('', account_router)
 api.add_router('', home_router)
+api.add_router('', folders_router)
+api.add_router('', feeds_router)
 api.add_router('', posts_router)
 api.add_router('', settings_router)

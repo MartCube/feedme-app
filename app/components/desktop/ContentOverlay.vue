@@ -10,7 +10,12 @@ const wizard = useAddFeedWizard()
 
 const settingsPanel = computed(() => settingsPanels[route.value.path])
 const onAdd = computed(() => route.value.path === '/add')
-const onEdit = computed(() => route.value.path.startsWith('/edit/'))
+// Gated on the store like the mobile sheet (edit/Drawer.vue): the edit panels render from
+// the folder or feed the URL names. Settings and add need none of that, so they don't wait.
+const { loaded, unreachable } = storeToRefs(feedsStore)
+const onEdit = computed(() =>
+  route.value.path.startsWith('/edit/') && (loaded.value || unreachable.value),
+)
 const open = computed(() => Boolean(settingsPanel.value) || onAdd.value || onEdit.value)
 
 // The mobile sheets reset the wizard when they finish closing; on desktop the
