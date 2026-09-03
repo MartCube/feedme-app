@@ -1,4 +1,4 @@
-import type { Me } from '~/assets/types'
+import type { Me, TokenResponse } from '~/assets/types'
 
 // The bearer token IS the session (backend.md § Auth): opaque, hashed
 // server-side, revocable instantly, sliding 30-day expiry. Persisted in a
@@ -16,8 +16,9 @@ export const useAuthStore = defineStore('auth', () => {
 
   // Set the token, then prove it: a mistyped dev token has to fail on the
   // login screen, not as a redirect loop on the next page. Throws so the form
-  // can say so.
-  async function signIn(candidate: string) {
+  // can say so. Both ways in end here — Google's only extra step is trading a
+  // credential for one of these tokens first.
+  async function signInWithToken(candidate: string) {
     const value = candidate.trim()
     if (!value) return
     token.value = value
@@ -32,6 +33,17 @@ export const useAuthStore = defineStore('auth', () => {
     // runWithContext because we're past an await: the stores loadAccount()
     // reaches for are resolved through the Nuxt instance this restores.
     await nuxtApp.runWithContext(loadAccount)
+  }
+
+  // Google's button hands us an id_token; the API verifies it and answers with
+  // one of our own. It answers with the token alone precisely so this can hand
+  // over to the path above instead of being a second one.
+  async function signInWithGoogle(credential: string) {
+    const { token: issued } = await nuxtApp.$api<TokenResponse>('/auth/google', {
+      method: 'POST',
+      body: { credential },
+    })
+    await signInWithToken(issued)
   }
 
   // Settings → Account renders this; a deep-load straight into /settings/account
@@ -63,7 +75,7 @@ export const useAuthStore = defineStore('auth', () => {
     useSettingsStore().reset()
   }
 
-  return { token, me, signedIn, signIn, loadMe, signOut, clear }
+  return { token, me, signedIn, signInWithToken, signInWithGoogle, loadMe, signOut, clear }
 }, {
   // Only the token: the profile is a cheap read that should never be served
   // stale from a cookie.

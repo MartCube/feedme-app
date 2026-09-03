@@ -19,6 +19,12 @@ export default defineNuxtPlugin((nuxtApp) => {
       if (auth.token) options.headers.set('Authorization', `Bearer ${auth.token}`)
     },
     async onResponseError({ response }) {
+      // A refused sign-in is not a dead session — /auth/google 401s when Google
+      // couldn't verify the credential, and the login page reports that itself.
+      // response.url, not the hook's `request`, which is the path as passed,
+      // before baseURL is applied.
+      if (response.url?.endsWith('/auth/google')) return
+
       // The token was revoked, expired, or never valid. Opaque tokens die
       // server-side at any moment, so this is a normal event, not an error
       // path: drop the session and ask for a new one.

@@ -37,6 +37,10 @@ export type PostPage = Schemas['PostPageSchema']
 export type Settings = Schemas['SettingsSchema']
 export type Me = Schemas['MeSchema']
 
+// What POST /auth/google answers with: our own bearer token, and nothing else.
+// The profile comes from /me afterwards, the same way the dev-token path gets it.
+export type TokenResponse = Schemas['TokenSchema']
+
 // A search result before it is subscribed: a candidate feed with no uid yet.
 // Becomes a Feed (uid minted by the backend) when the user adds it. Stays
 // hand-written until T11's /discover gives it a schema of its own.

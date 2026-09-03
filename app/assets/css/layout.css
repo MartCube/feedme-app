@@ -9,4 +9,10 @@
   --container-postlist: 24rem; /* empty-state measure (the pane itself is 40%) */
   --container-reading: 42rem; /* form measure: settings/add/edit content pages */
   --container-post: 56rem; /* post body measure — only bites on wide monitors */
+  /* sign-in column: the width cap Google enforces on its own button, plus the
+     two page-insets around it. Derived rather than written out, so retuning the
+     inset can't silently break the edge alignment this token exists for. A wider
+     column leaves that button short of the field under it, which no option on
+     renderButton can fix. */
+  --container-signin: calc(400px + 2 * var(--spacing-lg));
 }

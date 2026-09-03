@@ -73,6 +73,10 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       apiBase: 'http://localhost:8000/api/v1',
+      // The Google Cloud web client the sign-in button is configured with, from
+      // NUXT_PUBLIC_GOOGLE_CLIENT_ID. Empty is a supported state: /login renders
+      // no Google button without it and the dev-token field still signs you in.
+      googleClientId: '',
     },
   },
   compatibilityDate: '2025-07-15',
