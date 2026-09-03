@@ -18,11 +18,17 @@ button that opens X") — the *how* still needs alignment.
 - Short proposal first: what, how, why this way, what the alternative was. Then wait.
 - For **foundational tech choices** (stack, search engine, auth scheme…) go deeper than a
   short proposal: the user wants a ground-up educational comparison — how each option works
-  mechanically, honest steelmanning, costs mapped to *this* product — before locking. He'll
+  mechanically, honest steelmanning, costs mapped to *this* product — before locking. They'll
   push back on a bare recommendation with "let's discuss in detail" (backend session,
   2026-07-12: PG-vs-Elasticsearch and JWT-vs-opaque each took a full explainer round).
 - When exploring variants of a component: describe options in chat or apply one to the real
   component and iterate — never scaffold comparison/sandbox sections anywhere.
+- **Critique your own plan before executing it.** Once the plan is written, do an explicit
+  adversarial pass on it and report what you found wrong — assumptions you asserted without
+  checking, complexity you invented, risks you understated. Say plainly when an earlier claim
+  of yours was overstated. They ask for this directly ("I need one more critical view of your
+  own plan") and will ask again rather than let a plan through unchallenged, so do it unasked.
+  Verify the load-bearing claims against the actual code instead of reasoning from memory.
 - Simple concrete fixes (typos, obvious bugs, agreed follow-ups) are exempt — execute directly
   per [[feedback-full-file-access]].
 
