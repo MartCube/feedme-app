@@ -20,6 +20,13 @@ ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(','
 # build (capacitor://localhost) and the production origin get added here via the env var.
 CORS_ALLOWED_ORIGINS = os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:3000').split(',')
 
+# The Google Cloud web client the sign-in button is configured with. Empty is a supported
+# state — the dev-token path still signs you in, and the login screen renders no Google
+# button without it. core/google_auth.py refuses to verify anything while it is unset.
+# One id today; the Capacitor build signs in with its own Android/iOS client id, and this
+# becomes the list of audiences we accept.
+GOOGLE_OAUTH_CLIENT_ID = os.environ.get('GOOGLE_OAUTH_CLIENT_ID', '')
+
 INSTALLED_APPS = [
     'core',
     'corsheaders',

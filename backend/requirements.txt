@@ -6,6 +6,8 @@ django-cors-headers>=4.4
 # with an HTTP client themselves — which is what core/ingest.py already does.
 feedparser>=6.0.11,<7
 requests>=2.32
+# Verifies the Google id_token the sign-in button hands us (core/google_auth.py).
+google-auth>=2.57,<3
 
 # Dev tooling — also installed in the image, since lint and tests run inside `api`.
 ruff>=0.6
