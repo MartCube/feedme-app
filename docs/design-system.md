@@ -7,7 +7,8 @@ theme decides what those roles look like.
 The two rules:
 
 > **9 color roles, 4 text sizes.** If you need something outside them, that's a design
-> discussion, not a new class.
+> discussion, not a new class. (One standing exception: `text-logo`, the wordmark's own
+> size — see § Type scale.)
 
 ## Color roles
 
@@ -43,6 +44,19 @@ Notes:
 same-color 1px edge (the theme's `bg-elevated`) that extends the shape plus a soft drop
 shadow — no visible ring or highlight. Icon buttons use it today; cards and drawers can
 adopt it as they gain elevation.
+
+### Hover state (desktop)
+
+**A second standing exception:** a hovered list row (desktop pointers only) gets a 10% wash
+of `primary`, not a `bg-muted`/`bg-elevated` surface step. Reason: `bg-muted` reads
+*brighter* than `bg-elevated` in both themes, so stepping a hover to `bg-muted` would make a
+hovered row louder than a selected one — the opposite of what hover should signal. The
+`hover-highlight` utility (`app/assets/css/themes.css`) carries this, wrapped in
+`@media (hover: hover)` so touch pointers — where `:hover` sticks after a tap — get nothing.
+It applies to a row only when the row isn't already carrying `bg-elevated` for being
+selected or in cards mode, since a plain `hover:` rule would otherwise outrank and strip
+that surface. Used across the feed list, the sidebar's Add feed/Settings entries, settings'
+section rows, and the edit-folder member rows.
 
 ### Separation
 
@@ -89,6 +103,13 @@ and 600** — only those two Sora weights are loaded.
 
 Tailwind's stock sizes remain available (Nuxt UI needs them internally), but app code uses
 only these four names.
+
+**One standing exception: `text-logo`** (2rem, weight 600, line-height 1.1, defined alongside
+the scale in `app/assets/css/typography.css`) is the FEEDME wordmark's size and nothing
+else's — a logo is a mark, not a size app code picks from, so it sits outside the four-size
+rule rather than becoming a fifth general-purpose one. It appears in exactly one place: the
+top of the shared feed list (`home/FeedList.vue`), currently a stand-in until a designer
+supplies a real mark.
 
 ## Spacing
 
@@ -140,10 +161,10 @@ six-name `--spacing-*` rule above: defined as `--container-*` in `app/assets/css
 
 | Token | Size | Use for |
 |---|---|---|
-| `--container-sidebar` | 18rem | Feed list + settings nav column |
+| `--container-sidebar` | 18rem | Sidebar column: the feed list plus the standing Add feed / Settings rows |
 | `--container-postlist` | 24rem | Posts (master) pane |
-| `--container-reading` | 42rem | Post content measure cap (also the width of the desktop content overlay) |
-| `--container-shell` | 100rem | Whole-shell cap, centered on large monitors |
+| `--container-reading` | 42rem | Post content measure cap; also the width of the desktop content area's single-pane screens (`/add` — the wizard is linear steps with no list beside them). Settings and edit use a 40/60 master–detail split of the area instead, the same ratio as the posts/post panes |
+| `--container-post` | 56rem | Post body measure — only bites on wide monitors |
 | `--container-signin` | `calc(400px + 2 * var(--spacing-lg))` | The sign-in column on `/login` — the only measure here that isn't a shell one. It is Google's 400px button cap plus the two page-insets, because that button's width can't be raised and a wider column would leave it short of the field below it (see [screens-and-flows.md](./screens-and-flows.md) § 0) |
 
 **Breakpoint:** a single tier at `lg` (1024px, Tailwind's `lg:` prefix) splits mobile from

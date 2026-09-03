@@ -39,10 +39,12 @@ Layout follows the **viewport**, not the platform:
 
 - **Mobile** (< 1024px) — one pane at a time. Tap a feed → its posts; tap a post → the post;
   Settings, Add, and Edit open as bottom drawers.
-- **Desktop / wide** (≥ 1024px) — **three columns**: a persistent sidebar (the feed list and
-  settings nav, always visible), a posts pane, and a post pane. Settings, Add, and Edit present
-  as full content pages over the two reading panes instead of drawers; the sidebar stays
-  interactive alongside them.
+- **Desktop / wide** (≥ 1024px) — **three columns**: a persistent sidebar (the feed list, plus
+  standing Add feed / Settings links, always visible), a posts pane, and a post pane. Settings,
+  Add, and Edit present as a content area sliding in over the two reading panes instead of
+  drawers — a master–detail pair where there's a list to sit beside (Settings, folder editing),
+  single-pane where there isn't (Add, loose-feed editing); the sidebar stays interactive
+  alongside them.
 
 This is why content uses **nested routes** (post under feed, subpage under settings): the route
 encodes the navigation context. The routes themselves don't change between viewports — only how
@@ -68,8 +70,9 @@ These are non-negotiable constraints that every screen should honor:
   `app/pages/design.vue` and the theme tokens in `app/assets/css/main.css`.
 - **Overlay secondary actions.** Add feed, Settings, and editing a feed/folder layer over the
   current screen as a bottom drawer (`UDrawer`) on mobile, but they're route-backed (`/add`,
-  `/settings/*`, `/edit/*`), so on desktop they present as full content pages over the reading
-  panes rather than drawers.
+  `/settings/*`, `/edit/*`), so on desktop they present as a content area sliding in over the
+  reading panes rather than drawers — a master–detail pair where there's a list to sit beside
+  (Settings, folder editing), single-pane where there isn't (Add, loose-feed editing).
 
 ## Theme tokens (reference)
 

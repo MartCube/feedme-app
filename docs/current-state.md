@@ -11,7 +11,8 @@ The **design system** and **navigation/drawer UX** are well developed, and the t
 screens** (feeds list, feed page, post page) navigate end to end. **Desktop
 (≥1024px) v1** now renders those same screens as a three-column shell — sidebar, posts pane,
 post pane — composed by the layout from the same routes and store state; Settings/Add/Edit
-present as full content pages over the reading panes instead of drawers. **The app runs on real
+present as a sliding content area over the reading panes instead of drawers — a master–detail
+split where there's a list to sit beside, single-pane where there isn't. **The app runs on real
 data** _(2026-09-01)_: a `/login` screen gates every route, and the account's own feeds,
 folders, fetched posts, saved posts and settings all come from the Django API in `backend/`
 (Django + django-ninja, Docker Compose) — the mock data files are deleted and nothing falls
@@ -30,8 +31,12 @@ own status: **read that file's § Status for what to build next.**
 
 - **Theme tokens** — 9 `--ui-*` color roles themed in `app/assets/css/themes.css` (two dark
   themes: Ink default + Claude; the old teal/ink/silver ramps are removed), plus the 4-size
-  type scale (`text-title/subtitle/body/caption`) and `shadow-elevated`. The font family and
-  type scale live in their own `app/assets/css/typography.css` (imported by `main.css`), and the
+  type scale (`text-title/subtitle/body/caption`, plus a brand-only `text-logo` for the wordmark
+  — see [design-system.md](./design-system.md) § Type scale) and `shadow-elevated`. The same
+  file defines a desktop-only `hover-highlight` utility (10% `primary` wash on `:hover`) used
+  across list rows — see [design-system.md](./design-system.md) § Color roles → Hover state. The
+  font family and type scale live in their own `app/assets/css/typography.css` (imported by
+  `main.css`), and the
   6-step t-shirt spacing scale (`--spacing-2xs…xl` → `p-sm`, `gap-md`, `mt-lg`, …) in
   `app/assets/css/spacing.css`, alongside the `page-inset` utility every page/drawer
   wrapper uses for the screen inset (lg sides/top, xl bottom).
@@ -166,29 +171,40 @@ own status: **read that file's § Status for what to build next.**
   `DesktopShell`. `isDesktopNow()` is the synchronous twin for imperative guards.
 - **Desktop shell v1** (`app/components/desktop/`) — ≥1024px renders three columns composed
   straight from the route and the `feeds` store, not a nested-route tree: `Sidebar.vue` (18rem)
-  — two collapsible sections, expansion persisted in the `settings` store
-  (`sidebarFeedsOpen`/`sidebarSettingsOpen`) — **Feeds** (the shared `HomeFeedList` plus an
-  "Add feed" row → `/add`) and **Settings** (rows from `settingsSections`, active by path); a
+  — the shared `HomeFeedList` (wordmark, Home, Saved, folders, loose feeds — see Feeds list v1,
+  below), then two standing rows, **Add feed** (→ `/add`) and **Settings** (→ `/settings`); a
   posts pane (24rem, `FeedPostList`); and a post pane (flexible, capped at a 42rem reading
   measure, `FeedPostView`, or a dimmed "Select a post" placeholder — **no auto-select**).
   `Shell.vue` reads `useRouter().currentRoute` rather than Nuxt's `useRoute()` (Nuxt's route
   object only resyncs when a `NuxtPage` resolves, and the shell renders none), syncing the
   feeds store's `readerFeedUid`/`readerPostUid`/`readerPath` on reader routes only — they stay
-  frozen while a content route is open. Settings, Add, and Edit present as a full opaque
-  overlay (`ContentOverlay.vue`) over the two reading panes: the sidebar stays interactive, the
-  reading panes stay mounted underneath (feed, selected post, and pane scroll all survive a
-  round-trip), and closing returns to the frozen reader path; it's left-aligned (not centered)
-  so its `page-inset` lines up with the sidebar's. The overlay reuses the exact
-  mobile panel components (`app/utils/settings-panels.ts`'s route map, `AddSteps`,
-  `EditPanels`) and resets the add wizard on any exit from `/add` or `/edit/*`. The three drawer
-  hosts guard their `onMounted` open-on-deep-load with `isDesktopNow()` so a desktop deep-load
-  of `/settings/*`, `/add`, or `/edit/*` never flashes a bottom sheet. Layout tokens live in
-  `app/assets/css/layout.css` (`--container-sidebar/postlist/reading/shell`, a `@theme static`
-  block in its own namespace so it doesn't collide with the six-name `--spacing-*` rule) —
-  `--container-shell` (100rem) centers and caps the whole shell on large monitors. **v1 is
-  deliberately unpolished:** no desktop transitions, keyboard focus rings still suppressed, and
-  `HomeOptionsDrawer` still opens as a bottom sheet on desktop — all queued for a later
-  design/polish pass.
+  frozen while a content route is open.
+  Settings, Add, and Edit present as a **content area** (`ContentOverlay.vue`) that slides in
+  from the right over the two reading panes and slides back out on close (`.content-slide-*`,
+  `assets/css/transitions.css`; the reading panes' wrapper clips it with `overflow-x-clip`); the
+  sidebar stays interactive and the reading panes stay mounted underneath throughout (feed,
+  selected post, and pane scroll all survive a round-trip). Settings and Edit split the area
+  **40/60** — the same ratio as the posts/post panes — into a master pane (the settings section
+  list, or a folder's panel) and a detail pane (the open section, or a folder member's panel /
+  the scoped add steps / a delete confirm), each keeping the open item's row persistently
+  elevated in the master (`activePath` on `SettingsHome`, `activeUid` on `EditFolderPanel` — the
+  same pattern the feed list and post list already use), with a "Select a section" / "Select a
+  feed" placeholder in the detail pane until something is open. Two flows have no master to sit
+  beside and take the area **single-pane**, capped at `--container-reading`: Add (the wizard is
+  four linear steps with no list) and editing a **loose** feed (nothing below it to pick — a
+  second pane there would be dead space beside a squeezed form). Switching what the detail pane
+  shows is a plain swap with no motion, exactly like clicking a different post; only the area's
+  own open/close slides. The area reuses the exact mobile panel components
+  (`app/utils/settings-panels.ts`'s route map, `AddSteps`, `EditPanels` — which gained a
+  `pane: 'all' | 'single' | 'master' | 'detail'` prop — `'all'` is the unchanged mobile-drawer
+  behaviour, `'single'` the same views without the slide) and resets the add wizard on any exit from `/add` or `/edit/*`. The
+  three drawer hosts guard their `onMounted` open-on-deep-load with `isDesktopNow()` so a
+  desktop deep-load of `/settings/*`, `/add`, or `/edit/*` never flashes a bottom sheet.
+  Layout tokens live in `app/assets/css/layout.css` (`--container-sidebar/postlist/reading/post`,
+  a `@theme static` block in its own namespace so it doesn't collide with the six-name
+  `--spacing-*` rule) — there is no whole-shell width cap. **v1 is deliberately unpolished:**
+  keyboard focus rings still suppressed, and `HomeOptionsDrawer` still opens as a bottom sheet
+  on desktop — both queued for a later design/polish pass.
 - **Empty / unreachable state** — `app/components/home/EmptyState.vue` carries two states in one
   layout: the first-run nudge ("Nothing here yet" + an explainer + a primary "Add your first
   feed" action → `/add`), driven by the `feeds` store's `hasFeeds` computed (feeds or folders
@@ -240,7 +256,7 @@ own status: **read that file's § Status for what to build next.**
   sentinel + VueUse `useIntersectionObserver` rooted on the viewport, so the same composable
   serves the mobile page scroll and the desktop pane. `app/composables/usePost.ts` owns one post
   plus its save toggle. The `settings` store loads `GET /settings` and `PUT`s on change (a full
-  replace; `sidebarSettingsOpen` stays device-local and is never synced). Both loads run from
+  replace of all three synced fields). Both loads run from
   `app.vue`'s `onMounted` (and again on sign-in), never from middleware — see Resolved decisions.
   **Writes** _(2026-09-01)_: every `feeds`-store action calls the API. `renameFolder`,
   `setMutedFeeds`, `updateFeed`, `removeFromFolder`, `deleteFeed` and `deleteFolder` are
@@ -252,23 +268,29 @@ own status: **read that file's § Status for what to build next.**
   `feed_uids`.
 - **Feeds list v1** — `app/components/home/FeedList.vue` (`HomeFeedList`) renders the home list
   from the `feeds` store's `/home` load — used by the mobile home page (`app/pages/index.vue`)
-  and, on desktop, the
-  sidebar (an `activeUid` prop drives the desktop persistent-selection highlight): a pinned
-  **Saved** row (links to `/feed/saved`; chevron expands to the three saved groups —
-  Bookmarks / Favorites / Later from `app/utils/saved.ts`, each → `/feed/saved_*`, each showing
-  its count from `/home`'s `saved_counts`, the same muted count a folder row carries), then
-  folder rows (name + feed count, expand/collapse chevron with auto-animate and an accent tap
-  flash, sitting **inside** the row's tap-flash card surface at IconButton size on the navbar
-  buttons' vertical axis; members indented and greyed when muted), then loose feeds; every row
-  links to `/feed/[uid]`. Chevrons point **right** when collapsed and rotate to down when
-  expanded. Above the list, **Home** is itself a list row (same surface, tap flash, and cards
-  treatment as the rest) at title size with an **All feeds** caption, linking to `/feed/all`
-  (the merged all-feeds read); its trailing 3-dot — sitting where folder rows keep their
-  chevron, directly below the navbar **+** — opens a **half-height options sheet**
-  (`app/components/home/OptionsDrawer.vue`, local-state drawer — not route-driven — with
-  placeholder rows: New folder / Edit feeds / Reorder feeds). Names only for now — no type
-  icons. Long-press (mobile) / hover 3-dot (desktop) on a folder or loose-feed row opens the
-  **edit drawer** (see Built, below).
+  and, on desktop, the sidebar (an `activeUid` prop drives the desktop persistent-selection
+  highlight). It leads with a stand-in **FEEDME wordmark** (`text-logo`, FEED in `text-primary`,
+  ME in body ink — a placeholder until a designer supplies a real mark; see
+  [design-system.md](./design-system.md) § Type scale), then **Home** as an ordinary list row —
+  same height and surface as every other row, inline `Home` + an `All feeds` caption — linking
+  to `/feed/all` (the merged all-feeds read), then a pinned **Saved** row (links to
+  `/feed/saved`; chevron expands to the three saved groups — Bookmarks / Favorites / Later from
+  `app/utils/saved.ts`, each → `/feed/saved_*`, each showing its count from `/home`'s
+  `saved_counts`, the same muted count a folder row carries), then folder rows (name + feed
+  count, expand/collapse chevron with auto-animate and an accent tap flash, sitting **inside**
+  the row's tap-flash card surface at IconButton size on the navbar buttons' vertical axis;
+  members indented and greyed when muted), then loose feeds; every row links to `/feed/[uid]`.
+  Chevrons point **right** when collapsed and rotate to down when expanded. Home's trailing
+  3-dot — sitting where folder rows keep their chevron, directly below the navbar **+** — opens
+  a **half-height options sheet** (`app/components/home/OptionsDrawer.vue`, local-state drawer —
+  not route-driven — with placeholder rows: New folder / Edit feeds / Reorder feeds). Names only
+  for now — no type icons. A row's trailing action is hover-revealed on hover-capable pointers
+  (`@media (hover: hover)`); on touch it hides for a folder/loose-feed row, where long-press is
+  the entry (below), but stays visible for Home's 3-dot, which has no long-press fallback. Every
+  row also carries the shared desktop `hover-highlight` wash — see
+  [design-system.md](./design-system.md) § Color roles → Hover state. Long-press (mobile) /
+  hover 3-dot (desktop) on a folder or loose-feed row opens the **edit drawer** (see Built,
+  below).
 - **Feed page v1** — `app/components/feed/PostList.vue` (`FeedPostList`, `uid` + `activePostUid`
   props) lists PostCards with the resolved feed/folder name as title — used by the mobile feed
   page (`app/pages/feed/[uid]/index.vue`) and, on desktop, the shell's posts pane. Posts come
@@ -302,8 +324,12 @@ own status: **read that file's § Status for what to build next.**
   component watch is one navigation late), shared `.page-slide-*` classes live in
   `assets/css/transitions.css`, and the default layout provides the positioning/clip context.
   Non-reader routes (add, settings) swap instantly (`page-none`) so their drawer animations own
-  the motion; the settings drawer's internal slides reuse the same CSS classes via
-  `usePageSlide()`.
+  the motion; the settings drawer's internal slides — and the edit sheet's, and this
+  middleware's own direction check — share one push/pop rule and its CSS variables in
+  `app/utils/panel-slide.ts` (`panelSlideDirection`/`panelSlideVars`, replacing three copies of
+  the same logic). An **equal-depth** move (one settings panel to a sibling, one folder's edit
+  to another's) now slides **not at all**, rather than incorrectly animating as a push — the bug
+  the consolidation fixed.
 - **Swipe navigation** — `app/composables/useSwipeNav.ts` (VueUse `useSwipe`, touch-only).
   `useSwipeBack`: swipe right anywhere on the feed page, post page, a settings subpage, or an
   edit-feed subpage drags the page with the finger and past 72px pops to the parent route

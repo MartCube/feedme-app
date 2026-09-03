@@ -197,8 +197,9 @@ than an input — it's what tells two feeds apart, so it stays on screen. The AP
 `feed_url`, so the `Feed` type itself doesn't change.
 
 **4. `UserSettings` scope.** The model gained `scrollbar_style` in T4 — it's an appearance
-preference that should follow the account across devices. `sidebarSettingsOpen` stays
-device-local: it's a desktop panel affordance, not a preference worth syncing.
+preference that should follow the account across devices. Desktop panel-affordance state (the
+sidebar's now-removed `sidebarSettingsOpen`) was deliberately kept out of this scope: not a
+preference worth syncing to another device.
 
 **5. Top-level home order.** `Feed.order` and `Folder.order` are separate integer columns.
 `PUT /home/order` writes **one shared 0..n-1 sequence** across both tables, where `Feed.order`

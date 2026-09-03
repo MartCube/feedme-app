@@ -44,8 +44,10 @@ navigates. File references point at `app/pages/` and `app/components/`.
 >   `<NuxtPage/>` at all. The shell reads the live route (`useRouter().currentRoute`, since
 >   Nuxt's `useRoute()` only resyncs when a `<NuxtPage/>` resolves and the shell renders none)
 >   and composes three columns directly from it and the `feeds`/`settings` stores: a sidebar
->   (feed list + settings nav), a posts pane, and a post pane. Settings/Add/Edit render as a
->   full-page overlay over the two reading panes instead of a drawer. **The routes and
+>   (feed list, plus standing Add feed / Settings links), a posts pane, and a post pane.
+>   Settings/Add/Edit render as a content area sliding in over the two reading panes instead of
+>   a drawer — as a master–detail pair where there's a list to sit beside (Settings, folder
+>   editing) and single-pane where there isn't (Add, loose-feed editing). **The routes and
 >   `pages:extend` records are identical on both viewports** — layout is purely a presentation
 >   concern, nothing about navigation or the route tree changes. (This settles the layout half
 >   of the routing decision toward layout-composed panes rather than a nested-`<NuxtPage/>`
@@ -135,9 +137,10 @@ other screen loads anything until this one has been passed.
 
 **Purpose:** the home screen. Shows the pinned **Saved** group, the user's **folders**, and any
 **loose** feeds (feeds not in a folder). Folders only exist here — they are created, read, and
-edited from this screen. At the top, **Home** is a list row like the rest (title-sized, with
-an **All feeds** caption) — tapping it opens the merged read of every followed feed
-(`/feed/all`) — with the options 3-dot trailing where folder rows keep their chevron.
+edited from this screen. A **FEEDME** wordmark leads the list, then **Home** is an ordinary list
+row like the rest (same height and surface, an inline **All feeds** caption) — tapping it opens
+the merged read of every followed feed (`/feed/all`) — with the options 3-dot trailing where
+folder rows keep their chevron.
 
 **List order:** pinned **Saved** group → **folders** → **loose feeds**.
 
@@ -276,20 +279,25 @@ shared source, fetches it, and answers with the feed's real name.
 composable. **Not yet built:** real search / RSS discovery, live metadata (sub counts, latest items),
 and form validation via the installed **VeeValidate + Zod** stack.
 
-**Desktop:** `/add` presents as a full content page over the two reading panes (sidebar stays
-usable) instead of a bottom sheet; the wizard itself is unchanged.
+**Desktop:** `/add` presents as a single-pane content area sliding in over the two reading panes
+(sidebar stays usable) instead of a bottom sheet — there is no master beside it, since the wizard
+is linear steps with nothing to list; the wizard itself is unchanged. Settings and folder editing,
+by contrast, split the same content area into a master–detail pair (screens 5 and 7); editing a
+loose feed is single-pane like this one.
 
 ---
 
-## 5. Settings — `/settings/:panel?` (drawer on mobile, content page on desktop)
+## 5. Settings — `/settings/:panel?` (drawer on mobile, master–detail pane on desktop)
 
 **Purpose:** account, appearance, app info, and support. Same master/detail shape as feeds: the
 settings nav (the section list) is the **master**, the chosen subpage is the **detail**. On
 mobile both live as panels inside one bottom sheet (`components/settings/Drawer.vue`) that
 slide between each other; there are no separate settings page files — every `/settings/*` path
 renders the home page's component behind the sheet (see the Routing note) and the sheet swaps
-its panel by path. On desktop the same panels render as a full content page over the two
-reading panes, with the section list also always visible in the sidebar.
+its panel by path. On desktop the section list and the open subpage render side by side, in the
+same 40/60 master–detail split the reader uses for its posts/post panes — `/settings` alone
+shows the list with a "Select a section" placeholder on the right. The sidebar carries a single
+**Settings** link, not a second copy of the section list.
 
 **Subpages:**
 - **Account** — `/settings/account` — how you're signed in, member since, and **Sign out**
@@ -301,9 +309,10 @@ reading panes, with the section list also always visible in the sidebar.
 
 **The user can:**
 - Open any subpage from the settings nav; navigate between them with panel-slide transitions
-  (mobile; desktop has none yet, see [current-state.md](./current-state.md)).
-- Go **back** → closes Settings, returning to wherever it was opened from (mobile) / returns to
-  the frozen reading position (desktop).
+  (mobile) or an instant swap in the detail pane (desktop — only the content area's own
+  open/close slides, see [current-state.md](./current-state.md)).
+- Go **back** → closes Settings, returning to wherever it was opened from (mobile) / slides back
+  out to the frozen reading position (desktop).
 
 ---
 
@@ -344,8 +353,13 @@ per-feed mute toggles, add a feed, delete the folder), and tapping a member feed
 long-pressing a loose feed — opens the **feed panel** (`/edit/:uid/feed/:feedUid`): rename it,
 with its RSS URL shown as read-only context, and remove or delete. The destructive buttons are
 labelled with the three actions below, word for word, and a `Source` is never named on screen
-([backend.md](./backend.md) § Vocabulary). On desktop this presents as a full content page over the reading panes (see the
-Routing note) instead of a bottom sheet. An `/edit/*` route never shows an empty panel: the
+([backend.md](./backend.md) § Vocabulary). On desktop this presents in the content area (see the
+Routing note) instead of a bottom sheet: a folder's panel is the **master** pane and the open
+member's feed panel — or the scoped add steps, or a delete confirm — is the **detail** pane
+beside it, with a "Select a feed" placeholder until one is open (the same master–detail split as
+Settings, screen 5, and the reader). Editing a **loose** feed has no list beside it, so it takes
+the content area single-pane instead — like Add (screen 4) — rather than leaving a dead pane
+beside a squeezed form. An `/edit/*` route never shows an empty panel: the
 drawer waits for the account's data before opening, and a uid it then can't find — a stale link,
 a folder deleted on another device — sends the reader home.
 
