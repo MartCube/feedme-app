@@ -52,9 +52,10 @@ useHead({
   <div class="flex h-dvh">
     <DesktopSidebar class="w-sidebar shrink-0" />
 
-    <!-- Reading panes. The content overlay (settings/add/edit) mounts over
-         these without unmounting them. -->
-    <div class="relative flex min-w-0 flex-1">
+    <!-- Reading panes. The content area (settings/add/edit) mounts over these
+         without unmounting them; overflow-x-clip is what hides it off to the
+         right while it slides in and out. -->
+    <div class="relative flex min-w-0 flex-1 overflow-x-clip">
       <template v-if="hasFeeds">
         <!-- 40/60 split of everything left of the sidebar. -->
         <section class="basis-2/5 shrink-0 scroll-host page-inset">

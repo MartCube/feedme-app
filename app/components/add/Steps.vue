@@ -11,16 +11,11 @@ const emit = defineEmits<{ close: [], done: [] }>()
 const wizard = useAddFeedWizard()
 const { step, direction } = wizard
 
-// Same push/pop mechanism as the settings drawer: a FIXED panel-slide
-// transition whose direction rides on --panel-* variables (see
-// .slide-panels in transitions.css). forward = push (next phase in from the
-// right), back = pop (previous phase back in from the left).
-const slideVars = computed(() => {
-  if (direction.value === 'back') {
-    return { '--panel-enter-from': '-25%', '--panel-leave-to': '100%', '--panel-leave-z': '1' }
-  }
-  return { '--panel-enter-from': '100%', '--panel-leave-to': '-25%', '--panel-enter-z': '1' }
-})
+// Same push/pop mechanism as the settings drawer (utils/panel-slide.ts), but
+// the direction comes from the wizard rather than from path depth: forward =
+// push (next phase in from the right), back = pop (previous phase in from the
+// left).
+const slideVars = computed(() => panelSlideVars(direction.value === 'back' ? 'pop' : 'push'))
 
 // The sheet closes only if the subscribe actually landed — otherwise the step stays up
 // with the server's reason on it.

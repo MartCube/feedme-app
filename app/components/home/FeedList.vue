@@ -1,10 +1,10 @@
 <script setup lang="ts">
-// The home feed list: Home row → pinned Saved group → folders → loose feeds.
-// Rendered by the mobile home page and, on desktop, by the sidebar — so all
-// list state (tap flash, long-press edit, options sheet) lives here, not in
-// the page. `activeUid` is the desktop master–detail selection: the open
+// The home feed list: wordmark → Home row → pinned Saved group → folders →
+// loose feeds. Rendered by the mobile home page and, on desktop, by the sidebar
+// — so all list state (tap flash, long-press edit, options sheet) lives here,
+// not in the page. `activeUid` is the desktop master–detail selection: the open
 // feed's row keeps the elevated treatment persistently.
-// No top margin of its own — the gap above the Home row is page context (the
+// No top margin of its own — the gap above the wordmark is page context (the
 // mobile page clears its navbar; the desktop sidebar starts flush).
 const props = defineProps<{ activeUid?: string | null }>()
 
@@ -25,14 +25,22 @@ function isActive(uid: string) {
   return selectedUid.value === uid || props.activeUid === uid
 }
 
+// A row's trailing 3-dot: revealed by hover — or keyboard focus, or it would be
+// unreachable without a pointer — on hover-capable pointers only. The two
+// flavours differ on touch: folders and loose feeds hide it there, where
+// long-press is the entry, while Home has no long-press and keeps its own.
+// (hover:hover) and (hover:none) never both match, so the two rules can't race.
+const ROW_ACTION = 'hidden [@media(hover:hover)]:group-hover:inline-flex [@media(hover:hover)]:group-focus-within:inline-flex'
+const ROW_ACTION_TOUCH = `${ROW_ACTION} [@media(hover:none)]:inline-flex`
+
 // Long-press a folder or loose-feed row to edit it (mobile); the same edit
-// route is reached on desktop via a hover-revealed 3-dot on the row.
+// route is reached on desktop via the hover-revealed 3-dot on the row.
 const editPress = useLongPress(uid => navigateTo(`/edit/${uid}`))
 
 const optionsOpen = ref(false)
 
-// Tap feedback for the plain icon triggers (chevrons, 3-dot), same primary
-// flash as IconButton.
+// Tap feedback for the plain icon triggers (the chevrons), same primary flash
+// as IconButton — which the 3-dots get from IconButton itself.
 const flashingIcon = ref<string | null>(null)
 let flashTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -49,53 +57,54 @@ onScopeDispose(() => clearTimeout(flashTimer))
 
 <template>
   <div class="flex flex-col">
-    <!-- Home is a list row like the rest (same surface, flash, cards
-         treatment), linking to the merged all-feeds read. Its extras: the
-         "All feeds" caption and the 3-dot options trigger sitting where the
-         folder rows keep their chevron. -->
+    <!-- Stand-in wordmark until a designer supplies a real one: FEED in the
+         theme's accent, ME in body ink. text-logo is a brand-only size that
+         sits outside the four-size scale on purpose (typography.css). -->
+    <h1 class="text-logo tracking-tight">
+      <span class="text-primary">FEED</span>ME
+    </h1>
+
+    <!-- Home is a list row like the rest — same height, same surface, same
+         hover-revealed 3-dot. Its only differences: "All feeds" sits inline
+         where a folder keeps its count, and the 3-dot opens the options sheet
+         instead of linking to /edit. -->
     <div
-      class="-mx-sm flex items-center rounded-2xl transition-colors"
-      :class="(isCards || isActive('all')) && 'bg-elevated shadow-elevated'"
+      class="group -mx-sm mt-md flex items-center rounded-2xl transition-colors"
+      :class="isCards || isActive('all') ? 'bg-elevated shadow-elevated' : 'hover-highlight'"
     >
       <NuxtLink
         to="/feed/all"
-        class="min-w-0 flex-1 py-sm pl-sm"
+        class="flex min-w-0 flex-1 items-baseline gap-xs py-sm pl-sm"
         @pointerdown="select('all')"
       >
-        <h1 class="text-title tracking-tight">
-          Home
-        </h1>
-        <p class="text-caption text-muted">
-          All feeds
-        </p>
+        <span class="truncate text-body">Home</span>
+        <span class="text-caption text-muted">All feeds</span>
       </NuxtLink>
-      <button
-        type="button"
-        class="mr-sm flex size-12 shrink-0 items-center justify-center rounded-full"
+      <IconButton
+        icon="i-ph-dots-three-bold"
+        variant="quiet"
+        size="sm"
         aria-label="Feed options"
-        @pointerdown="flashIcon('options')"
+        class="mr-sm shrink-0"
+        :class="ROW_ACTION_TOUCH"
         @click="optionsOpen = true"
-      >
-        <UIcon
-          name="i-ph-dots-three-bold"
-          class="size-6 transition-colors duration-300 ease-out"
-          :class="flashingIcon === 'options' ? 'text-primary' : 'text-default'"
-        />
-      </button>
+      />
     </div>
 
     <!-- Cards-mode spacing is per-row margins, not a ul gap: md between
-         top-level cards, xs for the plain member rows inside a dropdown. -->
+         top-level cards, xs for the plain member rows inside a dropdown. In
+         list mode the rows run contiguously, Home included. -->
     <ul
       v-auto-animate
-      class="mt-md flex flex-col"
+      class="flex flex-col"
+      :class="isCards && 'mt-md'"
     >
       <!-- Pinned Saved group: same split row as folders (link + chevron), but
            its members are the fixed saved groups, not store feeds. Expansion
            reuses expandedFolderUids under the literal 'saved' uid. -->
       <li
         class="-mx-sm flex items-center rounded-2xl transition-colors"
-        :class="isCards ? 'bg-elevated shadow-elevated mt-md first:mt-0' : isActive('saved') && 'bg-elevated shadow-elevated'"
+        :class="isCards ? 'bg-elevated shadow-elevated mt-md first:mt-0' : isActive('saved') ? 'bg-elevated shadow-elevated' : 'hover-highlight'"
       >
         <NuxtLink
           to="/feed/saved"
@@ -129,7 +138,7 @@ onScopeDispose(() => clearTimeout(flashTimer))
           <NuxtLink
             :to="`/feed/${group.uid}`"
             class="-mr-sm flex items-baseline gap-xs rounded-2xl py-sm pl-md pr-sm text-body transition-colors"
-            :class="isActive(group.uid) && 'bg-elevated shadow-elevated'"
+            :class="isActive(group.uid) ? 'bg-elevated shadow-elevated' : 'hover-highlight'"
             @pointerdown="select(group.uid)"
           >
             <span class="truncate">{{ group.name }}</span>
@@ -150,7 +159,7 @@ onScopeDispose(() => clearTimeout(flashTimer))
              without flashing the row. -->
         <li
           class="group -mx-sm flex items-center rounded-2xl transition-colors"
-          :class="isCards ? 'bg-elevated shadow-elevated mt-md first:mt-0' : isActive(folder.uid) && 'bg-elevated shadow-elevated'"
+          :class="isCards ? 'bg-elevated shadow-elevated mt-md first:mt-0' : isActive(folder.uid) ? 'bg-elevated shadow-elevated' : 'hover-highlight'"
         >
           <NuxtLink
             :to="`/feed/${folder.uid}`"
@@ -164,16 +173,14 @@ onScopeDispose(() => clearTimeout(flashTimer))
             <span class="truncate text-body">{{ folder.name }}</span>
             <span class="text-caption text-muted">{{ folder.feed_uids.length }}</span>
           </NuxtLink>
-          <!-- Desktop only (hover-capable pointers): a quiet 3-dot appears on
-               row hover to open the edit drawer; hidden on touch, where the
-               long-press above is the entry. -->
           <IconButton
             icon="i-ph-dots-three-bold"
             :to="`/edit/${folder.uid}`"
             variant="quiet"
             size="sm"
             :aria-label="`Edit ${folder.name}`"
-            class="hidden shrink-0 [@media(hover:hover)]:group-hover:inline-flex"
+            class="shrink-0"
+            :class="ROW_ACTION"
           />
           <!-- IconButton dimensions (size-12 circle, size-6 icon); mr-sm pulls
                its right edge back to the content edge so its center shares the
@@ -205,7 +212,7 @@ onScopeDispose(() => clearTimeout(flashTimer))
               class="-mr-sm block truncate rounded-2xl py-sm pl-md pr-sm text-body transition-colors"
               :class="[
                 folder.muted_feed_uids.includes(feed.uid) && 'text-muted opacity-60',
-                isActive(feed.uid) && 'bg-elevated shadow-elevated',
+                isActive(feed.uid) ? 'bg-elevated shadow-elevated' : 'hover-highlight',
               ]"
               @pointerdown="select(feed.uid)"
             >
@@ -219,7 +226,7 @@ onScopeDispose(() => clearTimeout(flashTimer))
         v-for="feed in looseFeeds"
         :key="feed.uid"
         class="group -mx-sm flex items-center rounded-2xl transition-colors"
-        :class="isCards ? 'bg-elevated shadow-elevated mt-md first:mt-0' : isActive(feed.uid) && 'bg-elevated shadow-elevated'"
+        :class="isCards ? 'bg-elevated shadow-elevated mt-md first:mt-0' : isActive(feed.uid) ? 'bg-elevated shadow-elevated' : 'hover-highlight'"
       >
         <NuxtLink
           :to="`/feed/${feed.uid}`"
@@ -238,7 +245,8 @@ onScopeDispose(() => clearTimeout(flashTimer))
           variant="quiet"
           size="sm"
           :aria-label="`Edit ${feed.name}`"
-          class="mr-sm hidden shrink-0 [@media(hover:hover)]:group-hover:inline-flex"
+          class="mr-sm shrink-0"
+          :class="ROW_ACTION"
         />
       </li>
     </ul>

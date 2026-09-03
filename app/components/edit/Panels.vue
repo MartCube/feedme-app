@@ -3,7 +3,11 @@ import type { FeedType } from '~/assets/types'
 
 // The route-driven edit panels (folder / feed / scoped add / confirm),
 // switched by /edit/* route — no nested NuxtPage. Hosted by the mobile bottom
-// sheet (edit/Drawer.vue) and the desktop content page.
+// sheet (edit/Drawer.vue) as one sliding stack, and by the desktop content
+// area (desktop/ContentOverlay.vue) as TWO instances side by side: `master`
+// renders what /edit/:uid names and `detail` renders whatever deeper segment
+// is open beside it, the same master–detail split the reader uses for a feed
+// and a post.
 //
 // One route per panel: /edit/:uid is the base (a folder_* uid → folder panel;
 // a loose feed_* uid → feed panel directly), /edit/:uid/feed/:feedUid is a
@@ -12,6 +16,15 @@ import type { FeedType } from '~/assets/types'
 // this feed when the uid is a loose feed_*) and /edit/:uid/feed/:feedUid/delete
 // (remove that feed from the folder).
 //
+// 'all' is the mobile sheet: one panel at a time, deepest wins, sliding.
+// 'master'/'detail' are the two desktop panes, which never slide — the master
+// stays put while the detail swaps, exactly like the post pane.
+// 'single' is the desktop pane for a flow with no master to sit beside: a loose
+// feed, which has nothing below it to pick. Same views as the sheet, no slide.
+const props = withDefaults(defineProps<{ pane?: 'all' | 'single' | 'master' | 'detail' }>(), {
+  pane: 'all',
+})
+
 // vue-router's live route, not Nuxt's useRoute(): on desktop these panels
 // render without a NuxtPage, where Nuxt's route object never re-syncs.
 const router = useRouter()
@@ -29,16 +42,32 @@ const wizard = useAddFeedWizard()
 const uid = computed(() => route.params.uid as string)
 const memberUid = computed(() => route.params.feedUid as string | undefined)
 
-const view = computed(() => {
+// What /edit/:uid alone names: a folder, or a loose feed edited directly.
+const baseView = computed(() => uid.value?.startsWith('folder_') ? 'folder' : 'loose')
+
+// What the segments below it name, if any.
+const deepView = computed(() => {
   switch (route.name) {
     case 'edit-feed': return 'member'
     case 'edit-add': return 'add-type'
     case 'edit-add-input': return 'add-input'
     case 'edit-delete':
     case 'edit-feed-delete': return 'confirm'
-    default: return uid.value?.startsWith('folder_') ? 'folder' : 'loose'
+    default: return undefined
   }
 })
+
+// 'all' and 'single' both show the deepest thing the URL names; the two panes
+// each show only their own half of it.
+const view = computed(() => {
+  if (props.pane === 'master') return baseView.value
+  if (props.pane === 'detail') return deepView.value
+  return deepView.value ?? baseView.value
+})
+
+// The master pane is keyed on the entity, not the path, so drilling into a
+// member doesn't remount the folder panel and wipe an in-progress draft.
+const panelKey = computed(() => props.pane === 'master' ? uid.value : route.path)
 
 const folder = computed(() => folders.value.find(f => f.uid === uid.value))
 const baseFeed = computed(() => feeds.value.find(f => f.uid === uid.value))
@@ -122,10 +151,13 @@ const confirm = computed<Confirm | undefined>(() => {
 // the store has answered one way or the other, so a deep link doesn't bounce mid-load.
 const missing = computed(() => {
   if (!loaded.value && !unreachable.value) return false
-  if (view.value === 'folder') return !folder.value
-  if (view.value === 'member') return !memberFeed.value
-  if (view.value === 'loose') return !baseFeed.value
-  if (view.value === 'confirm') return !confirm.value
+  // Exactly one instance owns the redirect. On desktop both panes are mounted
+  // at once, and two of them would fire navigateTo('/') for the same stale uid.
+  if (props.pane === 'detail') return false
+  if (baseView.value === 'folder' && !folder.value) return true
+  if (baseView.value === 'loose' && !baseFeed.value) return true
+  if (deepView.value === 'member' && !memberFeed.value) return true
+  if (deepView.value === 'confirm' && !confirm.value) return true
   return false
 })
 
@@ -133,28 +165,18 @@ watch(missing, (gone) => {
   if (gone) navigateTo('/')
 }, { immediate: true })
 
-// Same push/pop mechanism as the settings drawer: a FIXED panel-slide
-// transition whose direction rides on --panel-* variables (transitions.css).
-// Deeper path pushes in from the right, shallower pops back.
-const slide = ref<'push' | 'pop' | 'none'>('none')
+// Push/pop between stacked panels (the rule and the vars: utils/panel-slide.ts).
+// Only the mobile sheet stacks them — the desktop panes sit side by side, so
+// they stay on the no-motion default and swap instantly.
+const slide = ref<PanelSlide>('none')
 watch(() => route.path, (to, from) => {
-  if (!to.startsWith('/edit/') || !from.startsWith('/edit/')) {
-    slide.value = 'none'
-    return
-  }
-  const depth = (path: string) => path.split('/').filter(Boolean).length
-  slide.value = depth(to) < depth(from) ? 'pop' : 'push'
+  if (props.pane !== 'all') return
+  slide.value = to.startsWith('/edit/') && from.startsWith('/edit/')
+    ? panelSlideDirection(to, from)
+    : 'none'
 })
 
-const slideVars = computed(() => {
-  if (slide.value === 'pop') {
-    return { '--panel-enter-from': '-25%', '--panel-leave-to': '100%', '--panel-leave-z': '1' }
-  }
-  if (slide.value === 'push') {
-    return { '--panel-enter-from': '100%', '--panel-leave-to': '-25%', '--panel-enter-z': '1' }
-  }
-  return {}
-})
+const slideVars = computed(() => panelSlideVars(slide.value))
 
 // Scoped add flow: the add step components are reused as extra panels, but
 // destination is already known (this folder) so DestinationStep is skipped.
@@ -179,23 +201,24 @@ async function onAddCommit() {
     <Transition name="panel-slide">
       <EditFolderPanel
         v-if="view === 'folder' && folder"
-        :key="route.path"
+        :key="panelKey"
         :folder="folder"
+        :active-uid="memberUid"
       />
       <EditFeedPanel
         v-else-if="view === 'member' && memberFeed"
-        :key="route.path"
+        :key="panelKey"
         :feed="memberFeed"
         :folder-uid="uid"
       />
       <EditFeedPanel
         v-else-if="view === 'loose' && baseFeed"
-        :key="route.path"
+        :key="panelKey"
         :feed="baseFeed"
       />
       <EditConfirmPanel
         v-else-if="view === 'confirm' && confirm"
-        :key="route.path"
+        :key="panelKey"
         :action="confirm.action"
         :verb="confirm.verb"
         :subject="confirm.subject"
@@ -206,13 +229,13 @@ async function onAddCommit() {
       />
       <AddTypeStep
         v-else-if="view === 'add-type'"
-        :key="route.path"
+        :key="panelKey"
         @select="onAddSelect"
         @close="navigateTo(`/edit/${uid}`)"
       />
       <AddSearchStep
         v-else-if="view === 'add-input'"
-        :key="route.path"
+        :key="panelKey"
         @back="navigateTo(`/edit/${uid}/add`)"
         @forward="onAddCommit"
       />

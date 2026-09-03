@@ -67,3 +67,17 @@ html[data-theme='claude'] {
 @utility bg-sunken {
   background-color: var(--ui-bg-sunken);
 }
+
+/* Row hover, desktop only. Touch pointers get nothing — the tap flash is the
+   feedback there, and :hover sticks after a tap. A 10% primary wash rather
+   than a surface step: bg-muted is *brighter* than bg-elevated, so using it
+   here would make a hovered row louder than the selected one. Rows that
+   already carry a surface (selected, or cards mode) don't get this — hover:
+   outranks a plain bg-elevated and would strip it. */
+@utility hover-highlight {
+  @media (hover: hover) {
+    &:hover {
+      background-color: color-mix(in oklab, var(--ui-primary) 10%, transparent);
+    }
+  }
+}

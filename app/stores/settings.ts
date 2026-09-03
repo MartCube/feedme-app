@@ -39,11 +39,6 @@ export const useSettingsStore = defineStore('settings', () => {
   const feedListStyle = ref<FeedListStyle>('list')
   const scrollbarStyle = ref<ScrollbarStyle>('thin')
 
-  // Desktop sidebar's Settings dropdown, persisted like the rest so the
-  // sidebar reopens the way it was left. Deliberately NOT synced: it's a panel
-  // affordance, not a preference worth carrying to another device.
-  const sidebarSettingsOpen = ref(true)
-
   const payload = computed<Settings>(() => ({
     theme: theme.value,
     feed_list_style: feedListStyle.value,
@@ -101,10 +96,10 @@ export const useSettingsStore = defineStore('settings', () => {
     return Boolean(b) && (Object.keys(a) as (keyof Settings)[]).every(key => a[key] === b![key])
   }
 
-  return { theme, feedListStyle, scrollbarStyle, sidebarSettingsOpen, loaded, load, reset }
+  return { theme, feedListStyle, scrollbarStyle, loaded, load, reset }
 }, {
   // The values only — never `loaded`. Restoring that from the cookie would skip
   // the GET on the next load and let the sync watcher fire against an empty
   // snapshot, turning every page load into a PUT.
-  persist: { pick: ['theme', 'feedListStyle', 'scrollbarStyle', 'sidebarSettingsOpen'] },
+  persist: { pick: ['theme', 'feedListStyle', 'scrollbarStyle'] },
 })

@@ -4,7 +4,10 @@ import type { Folder } from '~/assets/types'
 // The edit-folder base panel: rename the folder, toggle its member feeds
 // on/off (per-folder mute), add a feed straight into it, drill into a member,
 // or delete the folder.
-const props = defineProps<{ folder: Folder }>()
+// `activeUid` is the desktop master–detail selection: the member whose panel
+// is open in the detail pane keeps the elevated row persistently. The mobile
+// sheet passes none and relies on the tap flash alone.
+const props = defineProps<{ folder: Folder, activeUid?: string }>()
 
 const feedsStore = useFeedsStore()
 const { memberFeeds, renameFolder, setMutedFeeds } = feedsStore
@@ -110,7 +113,7 @@ const deletePath = computed(() => `/edit/${props.folder.uid}/delete`)
           v-for="feed in members"
           :key="feed.uid"
           class="flex items-center rounded-2xl pr-sm transition-colors"
-          :class="selectedUid === feed.uid && 'bg-elevated shadow-elevated'"
+          :class="selectedUid === feed.uid || activeUid === feed.uid ? 'bg-elevated shadow-elevated' : 'hover-highlight'"
         >
           <NuxtLink
             :to="`/edit/${folder.uid}/feed/${feed.uid}`"

@@ -56,11 +56,17 @@
   --panel-enter-z: 0;
   --panel-leave-to: 0%;
   --panel-leave-z: 0;
+  /* 0s is what makes a directionless swap instant, and it is load-bearing: a
+     leaving panel goes position:absolute over the entering one, so holding it
+     for 350ms while neither moves just freezes stale content on screen. Push
+     and pop raise this to 0.35s (utils/panel-slide.ts). Switching the
+     transition NAME instead does not work — see the note below. */
+  --panel-duration: 0s;
 }
 
 .panel-slide-enter-active,
 .panel-slide-leave-active {
-  transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+  transition: transform var(--panel-duration) cubic-bezier(0.32, 0.72, 0, 1);
   background-color: var(--ui-bg);
 }
 
@@ -82,4 +88,17 @@
 
 .panel-slide-leave-to {
   transform: translateX(var(--panel-leave-to));
+}
+
+/* The desktop content area (settings / add / edit) sliding in over the reading
+   panes — the desktop counterpart of a page push. Same easing and duration as
+   .page-slide-*; the panes container clips it (desktop/Shell.vue). */
+.content-slide-enter-active,
+.content-slide-leave-active {
+  transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.content-slide-enter-from,
+.content-slide-leave-to {
+  transform: translateX(100%);
 }

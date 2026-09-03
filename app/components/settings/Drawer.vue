@@ -11,33 +11,17 @@ const open = ref(false)
 const activePanel = computed(() => settingsPanels[route.path])
 const onSettings = computed(() => Boolean(activePanel.value))
 
-// Slide direction between panels: deeper pushes in from the right, shallower
-// pops back out. 'none' at the drawer's open/close boundary — those moments
-// are covered by the drawer's own animation.
-const slide = ref<'push' | 'pop' | 'none'>('none')
+// Slide direction between panels (the rule and the vars: utils/panel-slide.ts).
+// 'none' at the drawer's open/close boundary — those moments are covered by the
+// drawer's own animation.
+const slide = ref<PanelSlide>('none')
 watch(() => route.path, (to, from) => {
-  if (!settingsPanels[to] || !settingsPanels[from]) {
-    slide.value = 'none'
-    return
-  }
-  const depth = (path: string) => path.split('/').filter(Boolean).length
-  slide.value = depth(to) < depth(from) ? 'pop' : 'push'
+  slide.value = settingsPanels[to] && settingsPanels[from]
+    ? panelSlideDirection(to, from)
+    : 'none'
 })
 
-// Direction rides on live CSS variables under a FIXED transition name
-// (.panel-slide-* and the .slide-panels defaults live in transitions.css).
-// Switching the name doesn't work: Vue binds leave hooks to the name a panel
-// *entered* under, so the leaving panel would animate with a stale direction
-// (or not at all). Variables are read when the leave actually runs.
-const slideVars = computed(() => {
-  if (slide.value === 'pop') {
-    return { '--panel-enter-from': '-25%', '--panel-leave-to': '100%', '--panel-leave-z': '1' }
-  }
-  if (slide.value === 'push') {
-    return { '--panel-enter-from': '100%', '--panel-leave-to': '-25%', '--panel-enter-z': '1' }
-  }
-  return {}
-})
+const slideVars = computed(() => panelSlideVars(slide.value))
 
 // vaul emits animationEnd(false) for its initial closed state — only a close
 // that follows a completed open animation should navigate home.
