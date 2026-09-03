@@ -5,7 +5,10 @@ from core.auth import issue_token
 
 
 class Command(BaseCommand):
-    help = 'Print a new bearer token for a user. Dev only — T8 replaces this with Google sign-in.'
+    help = (
+        'Print a new bearer token for a user. Dev only — Google sign-in mints these on its '
+        'own, but this is how you get one for tests, curl, and the docs UI Authorize box.'
+    )
 
     def add_arguments(self, parser):
         parser.add_argument('email')
