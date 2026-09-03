@@ -99,21 +99,29 @@ mode, no anonymous browsing ([backend.md](./backend.md#auth)) — so this is the
 every other screen.
 
 **The user can:**
-- **Sign in.** In the finished app that's a single **Google** action; today it's a **dev-token**
-  field, swapped for Google's button in T8 ([backend-roadmap.md](./backend-roadmap.md)).
+- **Sign in with Google** — the primary action, and in the finished app the only one.
+- **Sign in with a dev token** — a second, temporary control below it, for accounts with no
+  Google identity ([backend.md](./backend.md#auth)). Both ways in ship today; retiring this one is
+  an owned follow-up ([backend-roadmap.md](./backend-roadmap.md) T8).
 - Nothing else. There is no sign-up (the account is created by the first sign-in), no password
   recovery, and no way past this screen.
 
-**Layout:** brand, one line of what the app is for, one action — and the action sits in its own
-block with nothing above depending on its size, because Google owns the chrome of the button
-that replaces it. It renders **without the app layout**, so the desktop shell never appears
-around it.
+**Layout:** brand, one line of what the app is for, then the sign-in block — and nothing above it
+depends on its size, because **Google owns the chrome inside its button** (theme, size, text and a
+400px width cap are the whole surface; its frame paints its own background, which is why the app's
+themes stop at the button's edge). The column is sized to that cap so both controls sit on the
+same edges, and the two are separated by **spacing alone** — no divider, per
+[design-system.md](./design-system.md). The screen renders **without the app layout**, so the
+desktop shell never appears around it.
 
-**Feedback:** a rejected sign-in says so on this screen (the credential is proved against the
-API before it's kept), rather than letting the user through into a redirect loop.
+**Feedback:** a rejected sign-in says so on this screen (the credential is proved before it's
+kept), rather than letting the user through into a redirect loop — **one message per control**, so
+a failure is never reported under the control that didn't fail. A refused sign-in never counts as
+a dead session: an existing one survives it untouched.
 
-**Data:** `GET /me` — the profile that proves the session. Nothing else on this screen calls
-the API, and no other screen loads anything until this one has been passed.
+**Data:** `POST /auth/google` — trades Google's credential for our bearer token — and `GET /me`,
+the profile that proves whichever token was set. Nothing else on this screen calls the API, and no
+other screen loads anything until this one has been passed.
 
 **Flow:**
 - Signed out, any route → `/login`. After signing in → the feeds list (`/`).

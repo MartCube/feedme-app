@@ -168,7 +168,7 @@ the per-group descriptions come from `TAGS` in `feedme/api.py`.
 
 | Method & path | Purpose |
 | --- | --- |
-| `POST /auth/google` | Body: Google `id_token`. Verify signature → find-or-create User → issue opaque bearer token. Returns token + profile |
+| `POST /auth/google` | Body: the Google `credential` (id_token). Verify signature / issuer / audience / expiry → find, link or create the User → issue an opaque bearer token. **Returns the token alone**; the profile comes from `GET /me` |
 | `POST /auth/logout` | Revoke the presented token (delete its row) |
 | `GET /me` | Profile: email, member-since, sign-in provider (Settings → Account) |
 | `DELETE /me` | Delete account + all user data (tokens, feeds, folders, saved, settings) |
@@ -191,20 +191,37 @@ the per-group descriptions come from `TAGS` in `feedme/api.py`.
 
 ## Auth
 
-**Google OAuth only in v1** (allauth makes adding providers trivial; Apple becomes relevant
-when the iOS app ships). The app is **login-only** — no guest mode.
+**Google OAuth only in v1** — verified directly with `google-auth`, since one provider doesn't
+need an auth framework; allauth stays the answer if a second one ever justifies it, and Apple
+becomes relevant when the iOS app ships. The app is **login-only** — no guest mode.
 
-Flow:
+Flow (**built on web** as of 2026-09-03; the Capacitor half of step 1 is not):
 
 1. Frontend obtains a Google **id_token** — Google Identity Services on web, the native
-   Google Sign-In plugin under Capacitor. Google's UI does the heavy lifting.
+   Google Sign-In plugin under Capacitor. Google's UI does the heavy lifting: on web that means
+   **its own rendered button**, whose chrome we don't control. A fully custom control would be
+   the OAuth *code* flow, a different exchange needing a server-side secret.
 2. `POST /auth/google` with the id_token. Backend verifies the signature against Google's
-   published keys (`google-auth`), checks audience/expiry, then finds-or-creates the User by
-   Google `sub`.
+   published keys (`google-auth`), checks issuer/audience/expiry, requires a **verified** email,
+   then resolves the account: by Google `sub`; else onto an existing row with the same email
+   **only if no Google account has claimed it** (attach the `sub` — a collision answers 401);
+   else create.
 3. Backend issues an **opaque bearer token**: 32+ random bytes, stored **SHA-256-hashed**
    (a DB leak leaks no live sessions), **sliding 30-day expiry** (touched on use). The
    frontend stores it (cookie/localStorage on web, secure storage on native) and sends
    `Authorization: Bearer …` on every call.
+
+Only a **client id** is involved — an id_token is verified against public keys, so no client
+secret exists in this flow and none is stored. The id is optional on both sides: without it the
+sign-in screen renders no Google button and the backend refuses to verify anything, which is a
+degraded app rather than a broken one.
+
+**A dev-token path still exists beside it, temporarily.** `manage.py issue_token <email>` mints a
+working bearer token (T2), and `/login` keeps a field for pasting one below Google's button, so an
+account with no Google identity can still be signed into. It is scheduled for removal — see
+[backend-roadmap.md](./backend-roadmap.md) § Decision log (T8). `GET /me`'s `provider` describes
+the **account**, not the session: a linked account reports `google` even in a session started with
+a pasted token.
 
 Why opaque and not JWT sessions: a JWT can't be revoked before expiry, so real logout forces
 short expiries + refresh tokens + rotation + interceptor logic on both platforms — and the
@@ -303,8 +320,11 @@ never runs from it (`db` publishes no host port). Recreate it with
 
 The Nuxt dev server keeps running via `pnpm dev` as today, talking to `api` on localhost.
 Production topology (reverse proxy, frontend build/hosting) is **deferred** — nothing in
-this spec constrains it. Secrets (Google client id/secret, YouTube API key, Reddit app
-credentials) live in an env file, never in git.
+this spec constrains it. Credentials (the Google **client id** — there is no client secret in
+this flow — the YouTube API key, Reddit app credentials) live in an env file, never in git. The
+Google client id appears there **twice**: compose passes `GOOGLE_OAUTH_CLIENT_ID` to `api`, and
+Nuxt reads the same value as `NUXT_PUBLIC_GOOGLE_CLIENT_ID` — public by design, since it ships in
+the page that renders the button.
 
 ## Decision log
 
@@ -364,3 +384,14 @@ Added 2026-08-23 (T2):
 - **Expired tokens are rejected, not deleted**, and `last_used_at` is touched at most once an
   hour — an unauthenticated caller can never force a database write, and an authenticated
   request stays a single indexed read.
+
+Added 2026-09-03 (T8) — both are `google-auth` traps, not product choices:
+
+- **An unset client id must never reach the verifier.** `verify_oauth2_token(token, request,
+  None)` skips the audience check *entirely* rather than failing, so an unconfigured server would
+  accept an id_token minted for somebody else's app. `core/google_auth.py` raises while
+  `GOOGLE_OAUTH_CLIENT_ID` is empty, and a test pins that.
+- **Catch `GoogleAuthError` as well as `ValueError`.** A bad signature, a malformed or expired
+  token and a wrong audience all raise `ValueError`, but a wrong *issuer* raises
+  `GoogleAuthError`, which is **not** a `ValueError` subclass — catching only `ValueError` would
+  turn a rejected token into a 500.

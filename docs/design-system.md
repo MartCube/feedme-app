@@ -144,6 +144,7 @@ six-name `--spacing-*` rule above: defined as `--container-*` in `app/assets/css
 | `--container-postlist` | 24rem | Posts (master) pane |
 | `--container-reading` | 42rem | Post content measure cap (also the width of the desktop content overlay) |
 | `--container-shell` | 100rem | Whole-shell cap, centered on large monitors |
+| `--container-signin` | `calc(400px + 2 * var(--spacing-lg))` | The sign-in column on `/login` — the only measure here that isn't a shell one. It is Google's 400px button cap plus the two page-insets, because that button's width can't be raised and a wider column would leave it short of the field below it (see [screens-and-flows.md](./screens-and-flows.md) § 0) |
 
 **Breakpoint:** a single tier at `lg` (1024px, Tailwind's `lg:` prefix) splits mobile from
 desktop — below it the app is the mobile single-pane stack, at or above it the three-column

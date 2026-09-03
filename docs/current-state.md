@@ -3,7 +3,7 @@
 A snapshot of what's actually built vs. what the spec (these docs) describes. The goal is to
 make the gap visible so implementation has a clear backlog. Update this as work lands.
 
-_Last reviewed: 2026-09-01._
+_Last reviewed: 2026-09-03._
 
 ## Summary
 
@@ -12,12 +12,15 @@ screens** (feeds list, feed page, post page) navigate end to end. **Desktop
 (≥1024px) v1** now renders those same screens as a three-column shell — sidebar, posts pane,
 post pane — composed by the layout from the same routes and store state; Settings/Add/Edit
 present as full content pages over the reading panes instead of drawers. **The app runs on real
-data** _(2026-09-01)_: a `/login` screen takes a dev token, and the account's own feeds,
+data** _(2026-09-01)_: a `/login` screen gates every route, and the account's own feeds,
 folders, fetched posts, saved posts and settings all come from the Django API in `backend/`
 (Django + django-ninja, Docker Compose) — the mock data files are deleted and nothing falls
 back to them. **Writes are real too** _(2026-09-01)_: subscribing, renaming, folder membership,
 mute and both deletes all go through the API, and the edit drawer's copy moved onto the spec's
-nouns (folder / feed — no "source" on screen). What has no endpoint behind it yet says so: the
+nouns (folder / feed — no "source" on screen). **Sign-in is real** _(2026-09-03)_: `/login`
+renders Google's own button and `POST /auth/google` trades its credential for our bearer token —
+with the dev-token field deliberately kept beside it for now, so there are two ways in until the
+dev path is retired. What has no endpoint behind it yet says so: the
 add wizard resolves a **pasted feed URL** and finds nothing for a keyword or a handle, and the
 home reorder has no UI. See Resolved decisions → Backend stack & API.
 Backend work is sequenced in [backend-roadmap.md](./backend-roadmap.md), which tracks its
@@ -207,15 +210,26 @@ own status: **read that file's § Status for what to build next.**
   `Settings`/`Me`/`SavedGroupName` — so component imports are unchanged and a renamed backend
   field breaks typecheck instead of silently rendering blank. `FeedCandidate` stays hand-written
   until T11's `/discover` gives it a schema.
-- **Auth & login** — `app/pages/login.vue` (brand, one line, one field: a **dev token** until
-  T8's Google button; `definePageMeta({ layout: false })` is load-bearing, since the default
-  layout renders `DesktopShell` instead of the page above 1024px). `app/stores/auth.ts` holds
-  the token (cookie-persisted, `pick: ['token']` only) and the `/me` profile; `signIn()` proves
-  a token against `/me` before keeping it, so a bad token fails on the login screen instead of
-  as a redirect loop. `app/middleware/auth.global.ts` is a **pure guard** — everything except
+- **Auth & login** — `app/pages/login.vue` (brand, one line, then **two controls**: Google's
+  rendered sign-in button and, below it, the dev-token field — both ship, see Not started →
+  Sign-in (rest); `definePageMeta({ layout: false })` is load-bearing, since the default
+  layout renders `DesktopShell` instead of the page above 1024px). The Google button is loaded
+  with VueUse `useScriptTag` and rendered by Google Identity Services into a wrapper that
+  **clips its iframe's 10px bleed**; its chrome is Google's (hence `theme: 'outline'` — a clipped
+  dark button inverts the app's elevation direction), and the column is capped by a new
+  `--container-signin` (29rem) because Google caps its button at 400px. A missing
+  `runtimeConfig.public.googleClientId` renders no button at all and leaves the dev field as the
+  way in. `app/stores/auth.ts` holds the token (cookie-persisted, `pick: ['token']` only) and the
+  `/me` profile; `signInWithToken()` proves a token against `/me` before keeping it, so a bad
+  token fails on the login screen instead of as a redirect loop, and `signInWithGoogle()` only
+  adds the step before it — `POST /auth/google`, then hand the returned token to the same path.
+  Errors are **one message per control**, and `app/plugins/api.ts`'s global 401 handler skips
+  `/auth/google`, so a refused credential leaves a live session untouched.
+  `app/middleware/auth.global.ts` is a **pure guard** — everything except
   `/login` needs a token, and it does no fetching (see Resolved decisions → Backend stack & API
   → T6). Sign out (Settings → Account) revokes the token server-side via `POST /auth/logout`,
-  clears both stores, and returns to `/login`.
+  clears both stores, and returns to `/login`; Account's "Signed in with" row reads `google` for
+  a linked account even in a dev-token session, because `provider` describes the account.
 - **Data layer** — the `feeds` store loads `GET /home` once (in-flight-guarded; a failure is
   swallowed rather than raised, so it can never surface as Nuxt's error page, and retries from
   the home screen's **Try again** or the next app boot) into feeds, folders and `savedCounts`,
@@ -332,6 +346,13 @@ own status: **read that file's § Status for what to build next.**
   placeholder rows) and a standalone folder-creation entry point with member picking. See
   [data-model.md](./data-model.md#folder) and
   [screens-and-flows.md](./screens-and-flows.md).
+- **Sign-in (rest)** — Google sign-in works end to end (see Built → Auth & login), but the
+  **dev-token field is still on `/login` for everyone**, deliberately: the natural retirement is
+  gating it on `import.meta.dev`, and gating it at build time today would make it vanish silently
+  the day a production deploy exists. No native Google sign-in either — the Capacitor plugin is
+  the other half of [backend.md](./backend.md#auth) § Auth's step 1, and no Capacitor build
+  exists yet. Noted for a deploy: `ux_mode: 'popup'` needs a
+  `Cross-Origin-Opener-Policy: same-origin-allow-popups` header if one is ever set.
 - **Home reorder** — `PUT /home/order` exists and is strict, but **nothing drives it**: the home
   list has no drag-and-drop, and the options sheet's Reorder feeds row is a placeholder. The
   `order` from `/home` is applied as a sort at load and not retained, so the UI, when it lands,
@@ -525,8 +546,24 @@ _None currently._
   `pnpm typecheck` clean, and the flow driven in a real browser at both viewports — subscribe by
   URL with the real title backfilled, the not-a-feed 422 leaving no source behind, rename,
   rename + mute in one save, all three cascade rules with their counts, re-subscribing
-  reactivating a deactivated source, and an offline write rolling back. Next is T8 — Google
-  OAuth.
+  reactivating a deactivated source, and an offline write rolling back.
+  **T8 landed _(2026-09-03)_:** sign-in is real. `POST /auth/google` verifies the id_token Google's
+  button returns (`backend/core/google_auth.py`, `google-auth` — signature, issuer, audience,
+  expiry, and a verified email) and answers with **our bearer token alone**; the profile still
+  comes from `/me`. An account is found by `google_sub`, else linked onto a row with the same
+  verified email **that no Google account has claimed** (a claimed one is a 401 — an email can be
+  reassigned, a `sub` can't), else created. On the frontend `/login` renders Google's button above
+  the dev-token field and `signInWithGoogle()` hands its token to `signInWithToken()`, so there is
+  one path after "set the token". **The dev path stays** — a deliberate reversal of T8's own plan
+  and of the T6-era decision that promised its deletion; see
+  [backend-roadmap.md](./backend-roadmap.md) § Decision log (2026-09-03, T8) for that and ten
+  more, including why `provider` describes the account rather than the session, why a changed
+  Google email never rewrites the stored one, and the two layout decisions Google's button chrome
+  forced.
+  Verified: 172 backend tests green (was 159, 13 of them new for sign-in), `ruff` clean, and the
+  screen driven in a real browser — a rejected credential reported on the button's own line while
+  a live session and its route stay untouched, and the button's chrome measured there rather than
+  guessed. Next is T9 — Dramatiq, `worker`, `scheduler`.
 
 - **Routing scheme** _(2026-06-29)_ — **nested routes**: posts nest under feeds
   (`/feed/[uid]/post/[postUid]`), settings subpages nest under settings (`/settings/*`). The

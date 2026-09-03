@@ -14,8 +14,8 @@ deliberate checkpoint that wires the real frontend before the backlog grows furt
 
 ## Status
 
-**Last completed:** T7 — Subscribe and folder writes _(2026-09-01)_
-**Next up:** **T8 — Google OAuth**
+**Last completed:** T8 — Google OAuth _(2026-09-03)_
+**Next up:** **T9 — Dramatiq, `worker`, `scheduler`**
 **Roadmap written:** 2026-08-19
 
 | # | Task | State |
@@ -28,8 +28,8 @@ deliberate checkpoint that wires the real frontend before the backlog grows furt
 | T5 | Posts — list, detail, save | ✅ done _(2026-08-26)_ |
 | T6 | Vertical slice — wire the Nuxt app | ✅ done _(2026-09-01)_ |
 | T7 | Subscribe and folder writes | ✅ done _(2026-09-01)_ |
-| T8 | **Google OAuth** | ⬜ next (unblocked from T2) |
-| T9 | Dramatiq, `worker`, `scheduler` | ⬜ |
+| T8 | Google OAuth | ✅ done _(2026-09-03)_ |
+| T9 | **Dramatiq, `worker`, `scheduler`** | ⬜ next |
 | T10 | Article extraction | ⬜ |
 | T11 | Discovery | ⬜ |
 | T12 | Search | ⬜ |
@@ -114,9 +114,28 @@ optimistic with rollback, except the two creates, which await the server-minted 
 wizard resolves a pasted feed URL into a candidate, and the edit drawer's copy and routes moved
 onto [backend.md](./backend.md)'s vocabulary (folder / feed, no "source" on screen).
 
+T8 made sign-in real. `POST /auth/google` (`auth=None`, like `/health`) trades the id_token
+Google's button returns for one of our own bearer tokens, minted by T2's `issue_token` and
+labelled with the caller's User-Agent, so the device list [backend.md](./backend.md) § Auth
+promises starts collecting rows from here. `backend/core/google_auth.py` is the one module that
+touches a third party's crypto: it verifies signature, issuer, audience and expiry with
+`google-auth`, requires a verified email, collapses every unusable case into one
+`InvalidGoogleCredential`, and refuses outright while `GOOGLE_OAUTH_CLIENT_ID` is unset (see
+[backend.md](./backend.md) § Decision log — an unset audience isn't a skipped check, it's no
+check at all). Identity resolves in `_user_for_google`: by
+`google_sub`, else onto a row with the same verified email **that no Google account has claimed**,
+else a new user. The response is the **token alone** — the profile still comes from `/me`. On the
+frontend `app/stores/auth.ts` gained `signInWithGoogle(credential)`, which hands its token to the
+renamed `signInWithToken`, so there is one path after "set the token"; `/login` renders Google's
+button above the dev-token field, and **both ways in ship** — a deliberate reversal of this task's
+own plan to delete the dev path (§ Decision log). `GOOGLE_OAUTH_CLIENT_ID` (backend) and
+`NUXT_PUBLIC_GOOGLE_CLIENT_ID` (Nuxt) are both optional: without them there is no Google button
+and the dev token still signs you in. No client secret exists anywhere — this flow doesn't have
+one.
+
 **Not built.** Everything else: no background queue (T3's poller is a command you run), no
 article extraction and no search columns, and the endpoints stop at `/health`, `/me`,
-`/auth/logout`, `/home`, `/home/order`, `/settings`, `/feeds`, `/feeds/{uid}`,
+`/auth/google`, `/auth/logout`, `/home`, `/home/order`, `/settings`, `/feeds`, `/feeds/{uid}`,
 `/feeds/{uid}/posts`, `/folders`, `/folders/{uid}`, `/posts/{uid}` and `/posts/{uid}/save`. The
 frontend surfaces that have no endpoint behind them yet say so: the add wizard's search resolves
 a pasted feed URL and nothing else — a YouTube handle, a bare subreddit name or a keyword finds
@@ -181,7 +200,8 @@ rewrite past entries. Stack-level decisions live in [backend.md](./backend.md) �
 - **The login screen ships in T6 with a dev-token field**, not with OAuth. Route middleware
   needs a real redirect target, and putting the dev token behind the login form exercises the
   whole store → header → 401 → redirect loop for real. T8 swaps the field for Google's button
-  and deletes the dev path.
+  and deletes the dev path. — **Half reversed in T8 _(2026-09-03)_:** Google's button was added
+  *above* the field, and the dev path stays for now. See the T8 entry below.
 - **Clean cutover of mock data in T6** — `app/assets/data.ts` and `app/assets/mock-search.ts`
   are deleted once real data renders. No fallback mode, no flag: a second code path that
   silently drifts from the API shape is worse than needing the backend running.
@@ -413,6 +433,66 @@ Decided 2026-09-01 while building T7:
   account data arrives after hydration, so a cold deep link used to slide an empty sheet up, hold
   it for the length of `GET /home`, then slide it back down still empty — and once the store has
   answered, a uid it doesn't know **redirects home**.
+
+Decided 2026-09-03 while building T8. The two `google-auth` traps this task hit are stack-level
+and live in [backend.md](./backend.md) § Decision log instead:
+
+- **Both sign-in paths ship — the dev-token field stays on `/login`.** This **reverses** this
+  task's own "Done when" and the T6-era entry above that promised T8 would delete the dev path.
+  Google's button is the primary control; the dev token stays beside it as the way to sign in as
+  any account without a Google identity for it, which is what `manage.py issue_token` was for from
+  T2. **Retiring it is an owned follow-up**, and the natural shape is gating the field on
+  `import.meta.dev` — which is exactly why it is deliberately *not* gated today: there is no
+  production deploy, and a build-time gate would make the field vanish silently the day there is
+  one, rather than as a decision someone made.
+- **Linking is by verified email, but only onto an unclaimed row.** Resolution order is
+  `google_sub`, then `email__iexact` **if that row's `google_sub` is empty** (attach the sub to
+  it), else create. Both halves carry weight. `iexact` because `EmailField` is case-sensitive and
+  `normalize_email` only lowercases the domain, so a plain match would miss `Martin@` vs `martin@`
+  and create a duplicate account instead of linking the existing one. The unclaimed check because
+  an email address can be reassigned (Workspace domains especially) while a `sub` never changes —
+  linking onto a row another Google account already claimed would hand the new owner of an address
+  the previous owner's feeds and saves. That case answers 401.
+- **The response is the token alone, not token + profile.** A nested profile would need a public
+  field name (`user`) the vocabulary table doesn't have, and with the dev path staying, a bare
+  `{token}` lets both sign-ins converge on one frontend action that sets a token and proves it
+  against `/me`. [backend.md](./backend.md)'s catalog row was updated to match.
+- **`provider` describes the account, not the session.** Once an account is linked, `/me` reports
+  `'google'` even in a session started by pasting a dev token. Telling the two apart would need a
+  column on `AuthToken`, which isn't worth one while the dev path is temporary. The field is a
+  `Literal['google', 'dev']` now, so the generated TypeScript gets the union (T4's rule).
+- **A changed Google email does not rewrite the stored one.** When the `sub` is already known the
+  claims' `email` is ignored: a changed address could collide with another row's unique email and
+  turn a routine sign-in into a 500. The `sub` is the identity; a stale email is the cheaper wrong.
+- **Creating the user catches `IntegrityError` and re-reads**, rather than wrapping the insert in
+  `transaction.atomic()`. Two simultaneous first sign-ins can both miss the lookup and both insert
+  on a unique column; a transaction would not prevent that, only roll one of them back.
+- **The client secret is unused and stored nowhere.** The button returns an id_token verified
+  against Google's public keys — a secret is only needed for the authorization-code exchange,
+  which is a different flow, and the planned Capacitor native plugin doesn't use one either. It is
+  deliberately absent from `.env.example`.
+- **Sign-in is excluded from the global 401 handler.** `app/plugins/api.ts` returns early for
+  `/auth/google` (keyed off `response.url`, since the hook's `request` is the path as passed,
+  before `baseURL`): a rejected credential is not a dead session. Verified in the browser — with a
+  live session, a rejected credential throws to the page and leaves the token and the route
+  untouched; without the guard both were torn down.
+- **Google's button chrome is not ours, and it forced two layout decisions.** Measured in the
+  running app: the button's iframe paints an opaque white background and bleeds 10px past the
+  requested box on every side, so a dark theme arrives inside a white frame and `shape` has no
+  visible effect. The wrapper clips the bleed with `overflow-hidden`, and `theme: 'outline'` is
+  used because `filled_black` clipped is a near-invisible dark bar on the page background and
+  inverts the app's elevation direction (elevated is *lighter*). The login column also narrowed
+  from `max-w-screen-sm` to a new `--container-signin` (29rem), because Google caps the button at
+  400px and a wider column left it short of the field below it. A fully custom button is
+  impossible for this flow — that would be the OAuth *code* flow, needing a server-side secret
+  exchange.
+- **FedCM left at its default** — `use_fedcm_for_button` is not passed. The non-FedCM button flow
+  still works, and opting in on the one step that has to work first-try is an unforced risk; it
+  stays the first debugging lever if the button misbehaves. `use_fedcm_for_prompt` is deprecated
+  and ignored. We render a button, not One Tap, so `prompt()` is never called.
+- **Noted for production, not built:** `ux_mode: 'popup'` breaks under a
+  `Cross-Origin-Opener-Policy: same-origin` header — it needs `same-origin-allow-popups`. No
+  deploy exists yet, so nothing sets that header today.
 
 Recorded 2026-08-26 while reviewing T4 (no code changed):
 
@@ -656,7 +736,7 @@ feed", "Remove from this folder" — closing the divergence
 **Done when.** The add wizard and edit drawer flows work against the API, and each cascade rule
 in [data-model.md](./data-model.md) § Cascade rules has its own test.
 
-### T8 — Google OAuth
+### T8 — Google OAuth ✅
 
 **Goal.** Real sign-in, replacing the dev-token path.
 
@@ -678,8 +758,24 @@ designing the control.
 Sign out already revokes the token server-side, so this task only replaces the provider it
 reports (`dev` → `google`) and the control that mints the token.
 
+**As built _(2026-09-03)_.** Three things came out differently. **Both sign-in paths ship** —
+Google's rendered button sits *above* the dev-token field on `/login` rather than replacing it,
+which reverses this entry's own plan and the T6-era decision-log line that promised the deletion;
+retiring the dev path is an owned follow-up, not something this task did (§ Decision log for why
+it isn't gated on `import.meta.dev` yet). Identity is more than "find-or-create by `sub`": a
+verified email links onto an existing row **only when no Google account has claimed it**, and the
+collision answers 401. And the endpoint returns the **token alone** — the profile still comes from
+`/me`, so both sign-ins share one frontend path. The Console setup produced a web client id only;
+`GOOGLE_OAUTH_CLIENT_ID` (backend) and `NUXT_PUBLIC_GOOGLE_CLIENT_ID` (Nuxt) are both optional,
+and there is no client secret to store in this flow. The **Check first** question was answered as
+suspected: the rendered widget is the only way to an id_token, so `app/pages/login.vue` renders
+Google's button and clips its iframe bleed rather than styling it.
+
 **Done when.** Signing in with a real Google account creates the user and lands on the home
-screen, and no dev-token path remains on `/login`.
+screen, and no dev-token path remains on `/login`. — **Amended _(2026-09-03)_:** the second half
+was reversed while building; the dev-token field stays for now (see As built). The first half
+stands as the acceptance, and `backend/tests/test_google_signin.py` pins the endpoint with 13
+tests (172 backend tests green overall).
 
 ### T9 — Dramatiq, `worker`, `scheduler`
 
