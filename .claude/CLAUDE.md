@@ -1,8 +1,9 @@
 # FeedMe
 
 Reeder-inspired, distraction-free news aggregator — minimal, functional, scalable;
-minimalism is the product. Mobile-first UI, Capacitor planned. Frontend-only phase:
-runs on mock data (app/assets/data.ts); Django backend planned.
+minimalism is the product. Mobile-first UI, Capacitor planned. Runs on the real Django
+API — the mock data files are gone and there is no fallback path, so the backend must be
+up (`docker compose up -d`) for the app to render anything.
 
 Nuxt 4 (Vue 3 + TypeScript), source in `app/`, pnpm. @nuxt/ui v4 bundles Tailwind v4,
 @nuxt/icon, @nuxt/fonts, @nuxt/color-mode — don't install/configure those separately.
@@ -18,6 +19,9 @@ Nuxt 4 (Vue 3 + TypeScript), source in `app/`, pnpm. @nuxt/ui v4 bundles Tailwin
 - When asked to commit after building work, delegate to the `checker` agent first
   (lint + typecheck) — plus the `design-reviewer` agent when the work touched UI — then the
   `docs` agent to sync docs/ with what was built, then hand off to the `git` agent.
+- Frontend work in `app/`: use the `frontend-dev` skill (running it, the mobile/desktop
+  shell, the routing traps, and the vocabulary the UI shares with the API). `new-component`
+  is the narrower companion for scaffolding one component.
 - Backend work in `backend/`: use the `backend-dev` skill (compose workflow, django-ninja
   conventions, and the vocabulary the API shares with the frontend).
 
