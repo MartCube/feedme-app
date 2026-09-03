@@ -402,7 +402,7 @@ _None currently._
   docs at `/api/v1/docs`, an OpenAPI schema at `/api/v1/openapi.json`, and Django admin at
   `/admin/`. `docker-compose.yml` at the repo root runs `api` (port
   8000, code bind-mounted), `db` (Postgres 16, healthchecked, `pgdata` volume), and `redis`;
-  `worker`/`scheduler` are deliberately deferred until Dramatiq lands. `.env.example` is at
+  `worker`/`scheduler` joined the stack in T9 _(2026-09-03)_ — see below. `.env.example` is at
   the repo root.
   **Models are in** _(2026-08-07)_: the Django app `backend/core/` implements
   [backend.md](./backend.md)'s § Data model exactly — all 9 tables (custom `core.User` as
@@ -564,6 +564,39 @@ _None currently._
   screen driven in a real browser — a rejected credential reported on the button's own line while
   a live session and its route stay untouched, and the button's chrome measured there rather than
   guessed. Next is T9 — Dramatiq, `worker`, `scheduler`.
+  **T9 landed _(2026-09-03)_:** polling runs on its own. `backend/feedme/broker.py` is the one
+  module that knows Dramatiq exists — it calls `django.setup()` (load-bearing for the
+  `dramatiq`/`periodiq` CLIs, a no-op under `manage.py`), builds a
+  `RedisBroker(url=settings.REDIS_URL)`, and adds periodiq's `PeriodiqMiddleware` plus a
+  hand-written `DjangoConnections` middleware that closes stale per-thread database connections
+  around every message, since nothing in a worker fires Django's request-started/finished
+  signals. `backend/core/tasks.py`'s `poll_source(source_uid)` wraps T3's `ingest_source`
+  unchanged (`max_retries=3`, a 2-minute time limit) and returns quietly — no exception — on a
+  uid whose source has since been deleted or deactivated, because Dramatiq's retries cover only
+  what can throw; a dead feed already has its own `error_count`/backoff, and the two error
+  models deliberately don't overlap. `poll_due_sources()` is periodiq's cron sweep (every 5
+  minutes, targeting the ~30-minute per-source cadence) — it **claims** its batch with a plain
+  `update()` before sending, since `ingest_source` only pushes `next_fetch_at` out when a poll
+  *finishes*; without the claim, a sweep would re-enqueue everything still queued or in flight.
+  `backend/core/ingest.py`'s write phase (`_upsert_posts` → `_backfill_source_metadata` →
+  `_record_success`) now runs inside one `transaction.atomic()`, so a worker killed mid-poll
+  leaves nothing half-written. `docker-compose.yml` gained `worker`
+  (`dramatiq core.tasks --processes 2 --threads 4`) and `scheduler` (`periodiq -v core.tasks`),
+  sharing `api`'s image through a new `x-backend` YAML anchor so the three can't drift apart;
+  both skip the migrate/bootstrap entrypoint and wait on `api`'s healthcheck instead, since only
+  `api` should touch the schema. `manage.py poll_source`/`poll_due` survive as the manual
+  override, and `POST /feeds`'s inline fetch (T7) was deliberately left alone — validating a
+  brand-new subscribe is still a synchronous request. Eight decisions are recorded in
+  [backend-roadmap.md](./backend-roadmap.md) § Decision log (2026-09-03, T9), including the two
+  error models, the claim-before-send reasoning, and why plain `dramatiq[redis]` was chosen over
+  `django-dramatiq`.
+  Verified: 182 backend tests green (was 172), `ruff check` clean, and against the running
+  stack — the scheduler fired unattended, enqueueing 4 due sources the worker polled across its
+  threads in under 2 seconds (70 → 129 posts, all four rescheduled with jitter); a `SIGKILL` sent
+  mid-poll against a deliberately slow feed left the source with zero posts and `error_count`
+  untouched, and the redelivered message polled cleanly after the broker's heartbeat window; a
+  `SIGTERM` let the in-flight poll finish before shutting down; and `POST /feeds` still validates
+  inline exactly as T7 left it. Next is T10 — article extraction.
 
 - **Routing scheme** _(2026-06-29)_ — **nested routes**: posts nest under feeds
   (`/feed/[uid]/post/[postUid]`), settings subpages nest under settings (`/settings/*`). The

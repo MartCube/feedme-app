@@ -4,7 +4,10 @@ from core.ingest import due_sources, ingest_source
 
 
 class Command(BaseCommand):
-    help = 'Fetch every active source whose next_fetch_at is due. T9 moves this onto a scheduler.'
+    help = (
+        'Fetch every active source whose next_fetch_at is due. The scheduler does this on its '
+        'own every five minutes — this is the manual override, and it needs no broker running.'
+    )
 
     def handle(self, *args, **options):
         sources = list(due_sources())

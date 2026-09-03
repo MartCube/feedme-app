@@ -14,8 +14,8 @@ deliberate checkpoint that wires the real frontend before the backlog grows furt
 
 ## Status
 
-**Last completed:** T8 — Google OAuth _(2026-09-03)_
-**Next up:** **T9 — Dramatiq, `worker`, `scheduler`**
+**Last completed:** T9 — Dramatiq, `worker`, `scheduler` _(2026-09-03)_
+**Next up:** **T10 — Article extraction**
 **Roadmap written:** 2026-08-19
 
 | # | Task | State |
@@ -29,8 +29,8 @@ deliberate checkpoint that wires the real frontend before the backlog grows furt
 | T6 | Vertical slice — wire the Nuxt app | ✅ done _(2026-09-01)_ |
 | T7 | Subscribe and folder writes | ✅ done _(2026-09-01)_ |
 | T8 | Google OAuth | ✅ done _(2026-09-03)_ |
-| T9 | **Dramatiq, `worker`, `scheduler`** | ⬜ next |
-| T10 | Article extraction | ⬜ |
+| T9 | Dramatiq, `worker`, `scheduler` | ✅ done _(2026-09-03)_ |
+| T10 | **Article extraction** | ⬜ next |
 | T11 | Discovery | ⬜ |
 | T12 | Search | ⬜ |
 | T13 | Retention | ⬜ |
@@ -38,7 +38,9 @@ deliberate checkpoint that wires the real frontend before the backlog grows furt
 ## Current state
 
 The stack runs: `docker compose up -d` brings up `api` (:8000), `db` (Postgres 16,
-healthchecked) and `redis`. `worker` and `scheduler` don't exist yet — they arrive with T9.
+healthchecked), `redis`, `worker` and `scheduler` — the last two share `api`'s image (a compose
+`x-backend` anchor) with the migrate/bootstrap entrypoint dropped, since only `api` should touch
+the schema.
 
 **Built.** Django 5.2 + django-ninja project `feedme` with one app, `core`. All nine models
 from [backend.md](./backend.md) § Data model live in `backend/core/models.py` with the spec's
@@ -133,8 +135,31 @@ own plan to delete the dev path (§ Decision log). `GOOGLE_OAUTH_CLIENT_ID` (bac
 and the dev token still signs you in. No client secret exists anywhere — this flow doesn't have
 one.
 
-**Not built.** Everything else: no background queue (T3's poller is a command you run), no
-article extraction and no search columns, and the endpoints stop at `/health`, `/me`,
+T9 put polling on its own. `backend/feedme/broker.py` is the one module that knows Dramatiq
+exists: it calls `django.setup()` (load-bearing for the `dramatiq`/`periodiq` CLIs, a no-op
+under `manage.py`), builds a `RedisBroker(url=settings.REDIS_URL)`, and adds periodiq's
+`PeriodiqMiddleware` plus a hand-written `DjangoConnections` middleware that closes stale
+per-thread database connections around every message — nothing in a worker fires Django's
+request-started/finished signals, which normally do that. `backend/core/tasks.py`'s
+`poll_source(source_uid)` wraps T3's `ingest_source` with no rewrite (`max_retries=3`, a
+2-minute time limit) and returns quietly, no exception, on a uid whose source has since been
+deleted or deactivated — Dramatiq's retries cover only what can throw, and a dead feed already
+has its own `error_count`/backoff, two error models that deliberately don't overlap.
+`poll_due_sources()` is periodiq's cron sweep (`*/5 * * * *`, targeting the ~30-minute
+per-source cadence) — it **claims** its batch with a plain `update()` before sending, since
+`ingest_source` only pushes `next_fetch_at` out when a poll *finishes*, and without the claim a
+five-minute sweep would re-enqueue everything still queued or in flight. `ingest.py`'s write
+phase (`_upsert_posts` → `_backfill_source_metadata` → `_record_success`) now runs inside one
+`transaction.atomic()`, so a worker killed mid-poll leaves nothing half-written.
+`docker-compose.yml` gained `worker` (`dramatiq core.tasks --processes 2 --threads 4`) and
+`scheduler` (`periodiq -v core.tasks`), sharing `api`'s image through a new `x-backend` anchor
+so the three can't drift apart; both skip the migrate/bootstrap entrypoint and wait on `api`'s
+healthcheck instead, since only `api` should touch the schema. `manage.py poll_source`/`poll_due`
+survive as the manual override, and `POST /feeds`'s inline fetch (T7) was deliberately left
+alone — validating a brand-new subscribe is still a synchronous request, not a queued one.
+
+**Not built.** Everything else: no article extraction and no search columns, and the endpoints
+stop at `/health`, `/me`,
 `/auth/google`, `/auth/logout`, `/home`, `/home/order`, `/settings`, `/feeds`, `/feeds/{uid}`,
 `/feeds/{uid}/posts`, `/folders`, `/folders/{uid}`, `/posts/{uid}` and `/posts/{uid}/save`. The
 frontend surfaces that have no endpoint behind them yet say so: the add wizard's search resolves
@@ -517,6 +542,43 @@ Recorded 2026-08-26 while reviewing T4 (no code changed):
   the caller's own feeds, and a feed that leaves a folder into no other folder is rehomed to the
   end of the top-level order.
 
+Decided 2026-09-03 while building T9:
+
+- **Two error models that don't overlap.** `ingest_source` never raises, so a dead feed can
+  never reach Dramatiq's retries — the source's own `error_count` / `next_fetch_at` backoff *is*
+  the retry schedule for feed failures. The actor's `max_retries=3` covers only what can throw: a
+  database blip, a bug, a killed worker. A test pins that a dead feed doesn't raise out of the
+  actor, precisely so it can't burn a retry.
+- **The sweep claims what it enqueues.** `ingest_source` only pushes `next_fetch_at` out when a
+  poll *finishes*, so without a claim a five-minute sweep re-enqueues everything still queued or
+  in flight. The claimed value is where a successful poll would have landed anyway. If the
+  process dies between claim and send, that source waits one interval — the cheap failure.
+- **The write phase is one transaction.** Makes "killing the worker mid-poll leaves no partial
+  state" literally true rather than merely recoverable. Ingest was already idempotent, so the
+  next poll converged either way, but a half-written batch that outlives the process is exactly
+  what the acceptance is about. The network call is already finished by then, so no lock is held
+  across I/O.
+- **Plain `dramatiq[redis]` over `django-dramatiq`.** Two deps and ~25 readable lines of boot,
+  rather than a package whose `Task` model/admin view we explicitly don't want (job visibility is
+  `docker compose logs -f worker`; a source's real state already lives on the `Source` admin
+  page). The price is the ~8-line `DjangoConnections` middleware we write ourselves — load-
+  bearing, not optional: the worker is threaded, Django's connections are thread-local, and
+  nothing in a worker fires the request-started/finished signals that normally close them.
+- **periodiq was checked before it was trusted.** dramatiq released 2.2.1 on 2026-09-02;
+  periodiq's last release is 0.14.0 (2026-04-16), before that major line, and it pins no
+  dramatiq version. So the first build step was booting the periodiq CLI against dramatiq 2.2.1
+  on a throwaway actor — it registers and schedules correctly. Recorded because it is the
+  thinnest link in the stack; the fallback if it ever breaks is a `manage.py` loop command in the
+  same `scheduler` service, and the surface to replace is two symbols.
+- **Worker concurrency is pinned at `--processes 2 --threads 4`.** The default is one process
+  per CPU x 8 threads, which would open more Postgres connections than its default
+  `max_connections` allows — to poll a handful of sources twice an hour.
+- **`worker` and `scheduler` don't run migrations.** `entrypoint: []` drops the shared bootstrap
+  and `depends_on: api: service_healthy` is the signal that `api` has already migrated. Only one
+  service should own schema changes.
+- **periodiq's `skip_delay` proved itself in the live test:** a sweep enqueued while the worker
+  was down was skipped as stale on restart rather than running backdated.
+
 ## Tasks
 
 ### T1 — Foundations: CORS, linting, test harness
@@ -777,7 +839,7 @@ was reversed while building; the dev-token field stays for now (see As built). T
 stands as the acceptance, and `backend/tests/test_google_signin.py` pins the endpoint with 13
 tests (172 backend tests green overall).
 
-### T9 — Dramatiq, `worker`, `scheduler`
+### T9 — Dramatiq, `worker`, `scheduler` ✅
 
 **Goal.** Polling happens on its own.
 
@@ -788,8 +850,31 @@ Add a periodiq cron sweep that enqueues sources whose `next_fetch_at` is due, st
 the ~30-minute per-source cadence. Add the `worker` and `scheduler` compose services — same
 image as `api`, different command.
 
+**As built _(2026-09-03)_.** Installed `dramatiq[redis]` 2.2.1 and `periodiq` 0.14.0 — no
+`django-dramatiq`: its `Task` model/admin view isn't wanted, since job visibility is
+`docker compose logs -f worker` and a source's real state already lives on the `Source` admin
+page. `feedme/broker.py` is the one module that knows Dramatiq exists as infrastructure —
+`django.setup()` first (load-bearing for the CLIs, a no-op under `manage.py`), then the
+`RedisBroker`, `PeriodiqMiddleware` and the hand-written `DjangoConnections` middleware. Two
+actors in `core/tasks.py`: `poll_source(source_uid)` (`max_retries=3`, 15s–300s backoff, a
+2-minute time limit) wraps `ingest_source` unchanged and shrugs off a uid whose source is gone
+or deactivated rather than raising; `poll_due_sources()` (`periodic=cron('*/5 * * * *')`,
+`max_retries=0`) claims its batch with an `update()` before sending. `ingest.py`'s write phase
+is now one `transaction.atomic()`. `docker-compose.yml` restructures `api`/`worker`/`scheduler`
+around a shared `x-backend` anchor and adds `worker` (`--processes 2 --threads 4`, pinned below
+the default process-per-CPU × 8-threads to avoid opening more Postgres connections than
+`max_connections` allows) and `scheduler`, both with `entrypoint: []` and
+`depends_on: api: service_healthy`. `manage.py poll_source`/`poll_due` survive as the manual
+override, and `POST /feeds`'s inline fetch (T7) was deliberately left alone — validating a
+brand-new subscribe is still a synchronous request. Eight decisions are recorded in § Decision log
+(2026-09-03, T9). 182 backend tests green (was 172), `ruff check` clean.
+
 **Done when.** Posts appear without anyone running a command, and killing the worker mid-poll
-leaves no partial state behind.
+leaves no partial state behind. — **Verified live _(2026-09-03)_:** the scheduler fired
+unattended and the worker polled four due sources across its threads in ~1.7s (70 → 129 posts);
+a `SIGKILL` sent mid-poll against a deliberately slow feed left the source with zero posts and
+`error_count` untouched, and the redelivered message polled cleanly once the broker's heartbeat
+window passed; a `SIGTERM` let the in-flight poll finish before shutting down.
 
 ### T10 — Article extraction
 

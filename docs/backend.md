@@ -248,13 +248,14 @@ Per source type — everything is RSS under the hood:
   intervals). Per-user Reddit account connect (the Feedly pattern) stays **deferred** —
   revisit only if app-level limits bite.
 
-**Jobs** (Dramatiq; cron via periodiq). Until T9 stands the queue up, `poll_source` is a plain
-function in `core/ingest.py` driven by `manage.py poll_source <source_uid>` and
-`manage.py poll_due` — the actor wraps it later with no rewrite:
+**Jobs** (Dramatiq; cron via periodiq — actors in `core/tasks.py`, broker wiring in
+`feedme/broker.py`). `poll_source` is a Dramatiq actor wrapping `core/ingest.py`'s
+`ingest_source` with no rewrite; `manage.py poll_source <source_uid>` and `manage.py poll_due`
+still call `ingest_source` directly, as the manual override:
 
 | Job | Trigger | What it does |
 | --- | --- | --- |
-| `poll_source` | Sweep every few minutes enqueues sources with `next_fetch_at` due (targets ~30-min per-source cadence, staggered) | Conditional GET (ETag / Last-Modified — most polls are cheap 304s), parse, upsert posts by (source, guid), reset `error_count` |
+| `poll_source` | periodiq's cron sweep (`poll_due_sources`, every 5 minutes) enqueues sources with `next_fetch_at` due (targets ~30-min per-source cadence, staggered), claiming each one before sending | Conditional GET (ETag / Last-Modified — most polls are cheap 304s), parse, upsert posts by (source, guid), reset `error_count` |
 | `extract_article` | First `GET /posts/{uid}/article` | Fetch the original page, trafilatura-extract, store `article_html` globally |
 | `prune_posts` | Daily | Delete unsaved posts past retention (see data model) |
 | failure handling | on poll error | Increment `error_count`, back off (grow `next_fetch_at`), deactivate after N consecutive failures — all visible/reversible in admin |
@@ -300,10 +301,15 @@ anyway), and swap the one search module behind the unchanged endpoint. Frontend:
 | Service | Image / role |
 | --- | --- |
 | `api` | Django + ninja (dev: runserver; prod: gunicorn) |
-| `worker` | Dramatiq worker (same image, different command) |
-| `scheduler` | periodiq (same image) |
+| `worker` | `dramatiq core.tasks --processes 2 --threads 4` — runs the actors in `core/tasks.py` |
+| `scheduler` | `periodiq -v core.tasks` — the cron sweep; enqueues, never executes |
 | `db` | Postgres 16 |
 | `redis` | Redis (Dramatiq broker) |
+
+`api`, `worker` and `scheduler` are one image behind three different commands —
+`docker-compose.yml`'s `x-backend` YAML anchor shares the build, the bind mount and the
+environment so the three can't drift apart; `worker` and `scheduler` skip the migrate/bootstrap
+entrypoint and wait on `api`'s healthcheck instead, since only `api` should touch the schema.
 
 Everything Python runs in the `api` container — tests and linting included:
 

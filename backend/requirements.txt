@@ -9,6 +9,11 @@ requests>=2.32
 # Verifies the Google id_token the sign-in button hands us (core/google_auth.py).
 google-auth>=2.57,<3
 
+# Background jobs: the worker runs the actors in core/tasks.py, periodiq is the cron
+# scheduler dramatiq itself doesn't ship. Broker wiring lives in feedme/broker.py.
+dramatiq[redis]>=2.2,<3
+periodiq>=0.14
+
 # Dev tooling — also installed in the image, since lint and tests run inside `api`.
 ruff>=0.6
 pytest>=8.0

@@ -1,12 +1,53 @@
 from itertools import count
 
+import dramatiq
 import pytest
 from django.contrib.auth import get_user_model
 from django.test import Client
 from django.utils import timezone
+from dramatiq.brokers.stub import StubBroker
+from dramatiq.worker import Worker
 
 from core.auth import issue_token
 from core.models import Feed, Folder, FolderMember, Post, Source
+
+# The whole suite runs against Dramatiq's in-memory broker, and the order of the next three
+# statements is load-bearing — hence the isort fence, which stops a reformat from shuffling
+# them. Importing core.tasks pulls in feedme/broker.py, which installs the *Redis* broker as
+# an import-time side effect, and an actor binds whichever broker is current when its
+# decorator runs. So the swap has to land between those two imports: a fixture would be too
+# late, the actors would hold a broker wired to the queue the dev worker is consuming, and
+# one stray .send() would hand it ids from the throwaway test database.
+# isort: off
+from feedme.broker import broker as _redis_broker  # noqa: E402
+
+# Same middleware stack, different transport — copied rather than re-listed so the two can't
+# drift, and not cosmetic either way: without PeriodiqMiddleware the sweep's `periodic=`
+# option is rejected at import, and without the connections middleware a worker thread gets
+# a database connection nobody ever closes.
+_broker = StubBroker(middleware=list(_redis_broker.middleware))
+_broker.emit_after('process_boot')
+dramatiq.set_broker(_broker)
+
+from core import tasks  # noqa: E402, F401 — its actors must bind the stub above
+
+# isort: on
+
+
+@pytest.fixture
+def stub_broker():
+    """The broker every actor is bound to, flushed so queues don't leak between tests."""
+    _broker.flush_all()
+    return _broker
+
+
+@pytest.fixture
+def stub_worker(stub_broker):
+    """A real worker over the stub broker, for the tests that want a message *executed*."""
+    worker = Worker(stub_broker, worker_timeout=100)
+    worker.start()
+    yield worker
+    worker.stop()
 
 
 @pytest.fixture

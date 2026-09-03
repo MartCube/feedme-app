@@ -325,6 +325,27 @@ def test_a_source_is_deactivated_after_repeated_failures(source, monkeypatch):
     assert source.error_count == MAX_FAILURES
 
 
+def test_a_crash_after_the_upsert_leaves_nothing_behind(source, monkeypatch):
+    """The write phase is one transaction, so a worker killed mid-poll leaves no half-batch.
+
+    Ingest is idempotent either way — the next poll would converge — but a partial write
+    that outlives the process is exactly what T9's "no partial state" is about.
+    """
+    serve(monkeypatch, ok(feeds.RSS_BLOG))
+
+    def killed(*args):
+        raise RuntimeError('killed mid-poll')
+
+    monkeypatch.setattr(ingest, '_backfill_source_metadata', killed)
+
+    with pytest.raises(RuntimeError):
+        ingest_source(source)
+
+    assert not Post.objects.exists()
+    source.refresh_from_db()
+    assert source.last_fetched_at is None
+
+
 def test_a_failure_leaves_last_fetched_at_alone(source, monkeypatch):
     """It means "when data last arrived" — a stale value beside a rising error count."""
     serve(monkeypatch, ok(feeds.RSS_BLOG), FetchResult(status_code=500))

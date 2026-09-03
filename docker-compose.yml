@@ -1,7 +1,20 @@
+# api, worker and scheduler are one image with three different commands — the shared bits
+# live here so they can't drift apart.
+x-backend: &backend
+  build: ./backend
+  image: feedme-backend
+  restart: unless-stopped
+  volumes:
+    - ./backend:/app
+  environment:
+    POSTGRES_HOST: db
+  env_file:
+    - path: .env
+      required: false
+
 services:
   api:
-    build: ./backend
-    restart: unless-stopped
+    <<: *backend
     healthcheck:
       # /health is the one endpoint opted out of the bearer guard, precisely so this
       # works. urllib rather than curl: python:3.13-slim ships no curl.
@@ -16,17 +29,38 @@ services:
       timeout: 3s
       retries: 5
       start_period: 20s
-    volumes:
-      - ./backend:/app
     ports:
       - '8000:8000'
-    environment:
-      POSTGRES_HOST: db
-    env_file:
-      - path: .env
-        required: false
     depends_on:
       db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  # Runs the actors in core/tasks.py. `entrypoint: []` drops entrypoint.sh's migrate +
+  # ensure_superuser bootstrap — only api should run migrations, and waiting on its
+  # healthcheck is what guarantees they already have.
+  worker:
+    <<: *backend
+    entrypoint: []
+    # Both numbers pinned deliberately. The default is one process per CPU x 8 threads,
+    # which would open more Postgres connections than its default max_connections allows —
+    # to poll three sources twice an hour.
+    command: ['dramatiq', 'core.tasks', '--processes', '2', '--threads', '4']
+    depends_on:
+      api:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  # periodiq only enqueues the sweep; the worker executes it. -v to make each wake-up
+  # visible in `docker compose logs scheduler`.
+  scheduler:
+    <<: *backend
+    entrypoint: []
+    command: ['periodiq', '-v', 'core.tasks']
+    depends_on:
+      api:
         condition: service_healthy
       redis:
         condition: service_started

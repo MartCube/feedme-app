@@ -27,6 +27,10 @@ CORS_ALLOWED_ORIGINS = os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:
 # becomes the list of audiences we accept.
 GOOGLE_OAUTH_CLIENT_ID = os.environ.get('GOOGLE_OAUTH_CLIENT_ID', '')
 
+# The Dramatiq broker the worker and scheduler share with the api. Compose's own service
+# name is the default, so a dev machine needs nothing in .env; feedme/broker.py reads it.
+REDIS_URL = os.environ.get('REDIS_URL', 'redis://redis:6379/0')
+
 INSTALLED_APPS = [
     'core',
     'corsheaders',

@@ -1,8 +1,9 @@
 """Fetch one source's feed and upsert its posts.
 
-A plain synchronous function on purpose: T9 wraps `ingest_source` in a Dramatiq actor
-with no rewrite, and until then it stays callable from a test, a shell and a management
-command without a broker running (docs/backend-roadmap.md § T3).
+A plain synchronous function on purpose, and still one now that T9's actor wraps it
+(core/tasks.py): it stays callable from a test, a shell and a management command with no
+broker running, and `POST /feeds` calls it inline because that fetch is what proves a
+pasted URL is a feed at all.
 
 `requests` does the HTTP, feedparser only parses. feedparser can fetch a URL itself, but
 that path passes no timeout to urllib — a hung server would block forever, and the only
@@ -16,6 +17,7 @@ from datetime import UTC, datetime, timedelta
 
 import feedparser
 import requests
+from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -119,9 +121,13 @@ def ingest_source(source):
     if not parsed.entries:
         return _record_failure(source, now, _describe_empty(parsed))
 
-    created, updated = _upsert_posts(source, parsed.entries)
-    _backfill_source_metadata(source, parsed.feed)
-    _record_success(source, now, fetched)
+    # One transaction, so a worker killed mid-poll leaves nothing half-written: either the
+    # whole batch and the new timestamps land, or none of it does and the next poll redoes
+    # the work. The network call is already finished, so no lock is held across I/O.
+    with transaction.atomic():
+        created, updated = _upsert_posts(source, parsed.entries)
+        _backfill_source_metadata(source, parsed.feed)
+        _record_success(source, now, fetched)
     return IngestResult(OK, created=created, updated=updated)
 
 
