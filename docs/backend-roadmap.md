@@ -14,9 +14,20 @@ deliberate checkpoint that wires the real frontend before the backlog grows furt
 
 ## Status
 
-**Last completed:** T9 — Dramatiq, `worker`, `scheduler` _(2026-09-03)_
-**Next up:** **T10 — Article extraction**
+**Last completed:** T11b — Discovery: YouTube keyword search _(2026-09-11)_, after T13 —
+Retention _(2026-09-07)_
+**Next up:** **T14 — Feed preview** _(planned 2026-09-15)_, ungated. T11c (Reddit app
+credentials) and T11d (a catalog worth searching) stay open beside it, each waiting on something
+outside the code.
 **Roadmap written:** 2026-08-19
+
+**T11 was split into four _(2026-09-06)_.** As written it was one task carrying website
+autodiscovery, the YouTube Data API, Reddit and keyword search — four integrations, two of them
+needing accounts nobody had yet. T11a is the part that needs **no external credentials at all**,
+and it turned out to be exactly the part § Done when was written around. Sub-lettered rather than
+renumbered so the T12/T13 references already scattered through `docs/` don't churn. **T12 was
+built ahead of T11a**, which is why it is dated the same day and appears above it in this table's
+reading order.
 
 | # | Task | State |
 | --- | --- | --- |
@@ -30,10 +41,14 @@ deliberate checkpoint that wires the real frontend before the backlog grows furt
 | T7 | Subscribe and folder writes | ✅ done _(2026-09-01)_ |
 | T8 | Google OAuth | ✅ done _(2026-09-03)_ |
 | T9 | Dramatiq, `worker`, `scheduler` | ✅ done _(2026-09-03)_ |
-| T10 | **Article extraction** | ⬜ next |
-| T11 | Discovery | ⬜ |
-| T12 | Search | ⬜ |
-| T13 | Retention | ⬜ |
+| T10 | Article extraction | ✅ done _(2026-09-05)_ |
+| T11a | Discovery — paste a URL | ✅ done _(2026-09-06)_ |
+| T11b | Discovery — YouTube keyword search | ✅ done _(2026-09-11)_ |
+| T11c | Discovery — Reddit keyword search | ⬜ needs Reddit app credentials |
+| T11d | Discovery — keyword search over our own catalog | ⬜ needs a catalog worth searching |
+| T12 | Search | ✅ done _(2026-09-06)_ |
+| T13 | Retention | ✅ done _(2026-09-07)_ |
+| T14 | Feed preview — a candidate's latest posts | ⬜ next |
 
 ## Current state
 
@@ -158,13 +173,119 @@ healthcheck instead, since only `api` should touch the schema. `manage.py poll_s
 survive as the manual override, and `POST /feeds`'s inline fetch (T7) was deliberately left
 alone — validating a brand-new subscribe is still a synchronous request, not a queued one.
 
-**Not built.** Everything else: no article extraction and no search columns, and the endpoints
-stop at `/health`, `/me`,
-`/auth/google`, `/auth/logout`, `/home`, `/home/order`, `/settings`, `/feeds`, `/feeds/{uid}`,
-`/feeds/{uid}/posts`, `/folders`, `/folders/{uid}`, `/posts/{uid}` and `/posts/{uid}/save`. The
-frontend surfaces that have no endpoint behind them yet say so: the add wizard's search resolves
-a pasted feed URL and nothing else — a YouTube handle, a bare subreddit name or a keyword finds
-nothing until T11's `/discover` — and `PUT /home/order` has no drag-and-drop UI driving it yet.
+T10 put the article behind an endpoint. `GET /posts/{uid}/article` (operation_id
+`get_post_article`, on
+the existing `feeds`-tagged router) reuses T5's visibility rule, so a post the caller neither
+follows nor saved 404s exactly as detail does, and a cache hit is that one query and no network.
+`backend/core/extract.py` is shaped after `core/ingest.py` on purpose — constants on top, one
+network function (`fetch_page`) a test replaces wholesale, one entry point (`extract_article`)
+that never raises. It runs **synchronously with a hard timeout** rather than as a queued job,
+reversing [backend.md](./backend.md) § Fetching pipeline's `extract_article` row (§ Decision log).
+`extract_html` is the library seam: trafilatura 2.2.0 with `output_format='html'`, links and
+images kept and `favor_precision` deliberately off, then `nh3.clean` against our own
+tag/attribute allowlist — which makes sanitising a rule we own rather than a property of a third
+party's internals, drops a `javascript:` href while keeping the `<a>`, and unwraps trafilatura's
+`<html><body>` shell for free. The column carries **three states** where the wire carries two:
+`null` (nobody tried), `''` (a page was read and had no article in it), or the article; the API
+answers `ok` / `unavailable`, because the reader falls back the same way for both a page we
+couldn't reach and one with nothing in it. A failed fetch is **not** cached — it leaves `null`, so
+the next open retries — while a page we actually received and couldn't extract from stores `''`
+for admin's sake **and is retried too** (amended after T10 — see § Decision log, 2026-09-05, and
+its amendment): one empty read is not evidence about the article.
+The fetch refuses to be aimed inside our own network: scheme allowlist, `ipaddress.is_global` on
+every redirect hop (redirects are followed by hand precisely so each one is checked), a 2MB cap
+read with `iter_content`, non-HTML content types refused, and the DNS-rebinding gap recorded
+rather than papered over. A YouTube source short-circuits to `unavailable` with no fetch at all.
+**The Nuxt reader is not wired to it** — `app/components/feed/PostView.vue` still renders
+`stripHtml(post.summary)`, so nothing on screen changed; that half of T10's acceptance is an owned
+follow-up (see the task entry). 208 backend tests green (was 182), `ruff check` clean.
+
+T12 made the lists searchable. `Post.search` is a **persisted generated column** — a tsvector of
+`title` (weight A) over `summary` (weight B), both built with the `'english'` dictionary
+`core/models.py` declares once as `SEARCH_CONFIG` — so Postgres recomputes it in the same
+statement that writes the row and search can never be stale. Migration
+`core/migrations/0004_post_search.py` runs `TrigramExtension()` **first**, hand-added because
+`makemigrations` never emits an extension operation and `gin_trgm_ops` doesn't exist until it
+runs; then the field; then two GIN indexes, `post_search_gin` on the vector and `post_title_trgm`
+on `OpClass(Upper('title'), name='gin_trgm_ops')`. Adding a persisted generated column rewrites
+the table and computes the vector for every existing row, so there was no backfill migration to
+write — all 440 dev posts were populated by the migration itself. **Nothing was installed**:
+`pg_trgm` is a Postgres extension and `django.contrib.postgres` (now in `INSTALLED_APPS`, which
+is what registers the trigram lookups and `OpClass`) ships with Django, so § Housekeeping's
+"after any `requirements.txt` change" chore does not apply to this task. `backend/core/search.py`
+is the only module that queries the column — one entry point, `search_stream(user, q, scope)`,
+returning a `postlist.Stream` — and a **containment test** enforces that rather than a
+convention: it scans `backend/core/**/*.py` and fails if anything but `core/search.py`,
+`core/models.py` (which declares the column) or `core/migrations/` references
+`django.contrib.postgres.search`, because [backend.md](./backend.md) § Search's one-module-swap
+promise is only true while that holds. `backend/core/api/search.py` serves
+`GET /search?q=&scope=all&cursor=&limit=` (operation_id `search_posts`, on a `feeds`-tagged
+router), reusing `PostPageSchema` / `DEFAULT_LIMIT` / `MAX_LIMIT` from `api/posts.py` so the
+response is byte-for-byte a post page. Scope is `postlist.resolve_stream` **reused verbatim**, so
+the five-way uid order, the 404 on another user's uid and the folder mute rule are one
+implementation, not two. One refactor of existing code and no new behaviour with it: the page
+window (order, decode cursor, fetch `limit + 1`, encode the next cursor) moved out of
+`api/posts.py`'s `feed_posts` into `postlist.page(stream, cursor, limit)`, now shared by the post
+list and search. 255 backend tests green at the time (231 before this task, 24 of them new in
+`backend/tests/test_search.py`; the step up from T10's 208 was T11a's, built first but documented
+after — see § Status). 263 after T11a's own follow-up tests landed. `ruff check .` clean. **The
+frontend calls `/search`** — `usePostList(uid, q)` swaps endpoints when a query is set, driven
+from a search box on the post list's title row; see the T12 entry's § Done when.
+
+T13 put a ceiling on the posts table. `backend/core/retention.py` is the one place a deletion
+rule lives: `RETENTION` (90 days), `PER_SOURCE_CAP` (500) and `BATCH_SIZE` (1000) are module
+constants beside `ingest.py`'s `POLL_INTERVAL`, not settings — nothing here differs per
+deployment. `prune_posts(days=, cap=, dry_run=)` runs two passes and a post dies if **either**
+catches it: unsaved posts published before `age_cutoff()`, then, per source, unsaved posts
+outside the newest `cap` — an `exclude(pk__in=…)` against a subquery sliced on
+`('-published_at', '-pk')`, which keeps exactly `cap` rows however the source's timestamps tie,
+where comparing against a boundary row's timestamp has to choose between over- and
+under-pruning. **A saved post is never deleted**, at any age by either rule, and the exemption
+is "saved by anyone" — posts are global rows, so an owner-scoped rule would delete one out from
+under another account's saved pile; `_unsaved()` is a correlated `~Exists(…)`, per T5's
+subqueries-not-joins rule. Deletes run `BATCH_SIZE` pks at a time, and `--dry-run` is the real
+run inside a rolled-back transaction rather than a simulation, because the cap pass ranks
+whatever the age pass left behind. `prune_expired_tokens()` sweeps `AuthToken` rows past
+`core/auth.py`'s `TOKEN_TTL` (imported, not restated), paying off the forward reference T2 left.
+Both are daily actors in `core/tasks.py` (`30 3 * * *` and `45 3 * * *`, `max_retries=3`, since a
+daily job that loses its run waits a day rather than five minutes), with
+`manage.py prune_posts --days --cap --dry-run` as the manual override, the twin of `poll_due`.
+**The one change outside the new module is in `ingest.py`:** `_upsert_posts` no longer *creates*
+an entry already past `age_cutoff()` — polling an archive feed put straight back everything the
+prune had just deleted, so the two jobs would have fought over the same rows every night — while
+an entry already in the table is still updated. No endpoint changed. 285 backend tests green
+(was 263, 22 of them new in `backend/tests/test_retention.py`), `ruff check .` clean.
+
+T11b made the YouTube card search. A bare name under it is a Data API `search.list`
+(`backend/core/youtube.py` — the one module that spends quota, `fetch_search` its one network
+call), each hit mapped to the same `videos.xml` candidate a pasted channel resolves to, with the
+channel avatar as `icon_url`. The quota shaped it: answers are cached for a day under a hashed,
+normalised key, failures are not cached, and the list is capped at five even when YouTube
+overshoots `maxResults`. Django's cache is the broker's Redis (`CACHES` in `settings.py`; tests
+swap in locmem, and `cache.clear()` is never called against the real one — it is `FLUSHDB`). No
+key is a supported state, like `GOOGLE_OAUTH_CLIENT_ID`: a name finds nothing, a URL or
+`@handle` still resolves for free. YouTube not answering is a 503, which the wizard shows as an
+error rather than "Nothing found". See the task entry.
+
+Hardened alongside, with a test each: `clean_name` is shared by the feed and folder writes and
+422s a NUL byte (Postgres refuses it, so it was a 500); a `feed_url` past the column's 500
+characters is a 422 rather than a truncated fetch of a different URL; a Subscribe double-tapped
+past the exists-check is caught at the unique constraint and answered as the same 422; an ingest
+that raises mid-subscribe deletes the new source row; a brand-new source is created already
+claimed for one poll interval so the sweep can't enqueue it while the inline fetch runs;
+`PATCH /folders/{uid}` is one transaction from the rename down; `DELETE /me` deactivates every
+source the account was the last subscriber of; and a cursor with a naive timestamp is a 422.
+`postlist.page()` is shared by the post list and search. **316 backend tests green in the tree
+as committed**, `ruff check .` clean.
+
+**Not built.** Everything else: keyword discovery outside YouTube (T11c, T11d — gated on
+credentials and on a catalog worth searching), T14's preview, and the endpoints stop at
+`/health`, `/me`, `/auth/google`, `/auth/logout`, `/home`, `/home/order`, `/settings`, `/feeds`,
+`/feeds/{uid}`, `/feeds/{uid}/posts`, `/folders`, `/folders/{uid}`, `/posts/{uid}`,
+`/posts/{uid}/article`, `/posts/{uid}/save`, `/search` and `/discover`.
+`PUT /home/order` still has no drag-and-drop UI driving it. The reverse gap — served with no
+frontend caller — is **one**: `/posts/{uid}/article`. `/search` and `/discover` are not; the post
+list and the add wizard call them.
 
 ## Contract resolutions
 
@@ -187,7 +308,9 @@ dropped from the list.
 backend deliberately splits what RSS gave us (`summary`) from on-demand extracted article text
 (`article_html`). Lists and detail return `summary`; the reader calls `/posts/{uid}/article`
 separately. **Applied in T6:** the reader renders `summary`, and — since a summary is arbitrary
-third-party HTML — renders it as plain text until T10 (§ Decision log, 2026-09-01).
+third-party HTML — renders it as plain text (§ Decision log, 2026-09-01). **Still true after T10
+_(2026-09-05)_:** the endpoint and its global cache exist, but nothing on the frontend calls them
+yet, so the reader still shows the stripped `summary`. Wiring it is an owned follow-up.
 
 **3. `feed_url` is not user-editable.** `updateFeed()` in `app/stores/feeds.ts` currently
 patched `feed_url`, but that field lives on the shared global `Source` — editing it would
@@ -248,7 +371,12 @@ Decided 2026-08-23 while building T2:
 
 - **Expired tokens are rejected, not deleted** — deleting a dead token on sight turns a
   replayed token into a database write, which is a free way to make the server do work for an
-  unauthenticated caller. The rows are inert; T13's retention job can prune them.
+  unauthenticated caller. The rows are inert; T13's retention job can prune them. — **Closed in
+  T13 _(2026-09-07)_:** `retention.prune_expired_tokens()` sweeps them on a daily schedule,
+  importing `TOKEN_TTL` from `core/auth.py` rather than restating 30 days, so the sweep and
+  `BearerAuth`'s expiry test cannot drift apart. Every row it deletes already answers 401, so it
+  can end no live session — verified against the running API: a backdated token 401'd both before
+  and after the sweep while a live one stayed 200 throughout.
 - **`last_used_at` is touched at most once an hour** — the sliding window is 30 days, so an
   hour of staleness can never expire a live token, and every other authenticated request stays
   a single indexed read. A test pins the query count at 1 so a future change can't quietly
@@ -580,6 +708,205 @@ Decided 2026-09-03 while building T9:
 - **periodiq's `skip_delay` proved itself in the live test:** a sweep enqueued while the worker
   was down was skipped as stale on restart rather than running backdated.
 
+Decided 2026-09-05 while building T10:
+
+- **Synchronous with a hard timeout, not a Dramatiq job.** This **reverses**
+  [backend.md](./backend.md) § Fetching pipeline's job table, which listed `extract_article` as an
+  actor triggered by the first `GET`. The reader is blocked on this request either way; queueing
+  it buys a free web thread at the cost of a polling loop, a third state on screen, and no clean
+  way to report failure. Extraction happens once per post for every reader, so the slow path is
+  rare. Measured live: first call 0.99s, second 0.012s.
+- **Three storage states, two wire states.** `article_html` is `null` (nobody tried) / `''` (a
+  page was read and had no article in it) / the article. The API answers only `ok` /
+  `unavailable`, because the reader falls back the same way — summary plus Open source — for
+  "couldn't reach it" and "nothing in it". A distinction nothing acts on isn't worth putting on
+  the wire.
+- **A failed fetch is not cached; a successful fetch that extracted nothing is.** A timeout or a
+  403 leaves `null`, so the next open retries — one timeout is not evidence about the article, and
+  a paywall can lift. Only a page we actually received and couldn't extract from stores `''`. The
+  cost is that a truly dead URL is refetched on each open of that post: one bounded call on a rare
+  path. The alternative was new columns and a migration for a case that resolves itself. —
+  **Amended in the tree committed 2026-09-15:** the empty read is retried as well. A 200 with
+  nothing in it is what a bot-challenge page or a half-deployed site serves, and the post is one
+  row shared by every subscriber, so caching that reading writes the article off for everyone on
+  one bad fetch. The `''` is still stored — admin can tell "tried, empty" from "never tried" —
+  but `GET /posts/{uid}/article` extracts again whenever the column holds anything short of an
+  article. Same cost as above, now on the truly empty page too: one bounded call per open of a
+  rare post. Pinned by `test_a_page_with_no_article_is_retried_on_the_next_open`.
+- **Sanitised on write with nh3, not trusted on read.** trafilatura's HTML output is already
+  reduced — a fixed tag map, no class/id/style/script — but that is a property of a third party's
+  internals, not a contract, and the frontend will render this field as markup. `nh3.clean` with
+  our own allowlist makes it a rule we own: it drops a `javascript:` href while keeping the `<a>`,
+  keeps nh3's default `rel="noopener noreferrer"` on links, and unwraps trafilatura's
+  `<html><body>` document shell for free, so no separate lxml pass is needed. nh3 ships cp38-abi3
+  manylinux wheels, so `python:3.13-slim` needs no Rust toolchain. A test pins the sanitiser as
+  the load-bearing half by monkeypatching trafilatura to emit hostile markup.
+- **`favor_precision` is deliberately left off**, as a named constant. It drops borderline blocks,
+  and a truncated article reads worse than one carrying a stray heading. Observed cost on the live
+  kk.org post: one category link leaks in above the headline. One edit if that gets worse.
+- **SSRF: scheme allowlist, per-hop private-address check, and a size cap.** `post_url` comes from
+  a feed a user chose, and unlike ingest — which only stores what it parses — this endpoint hands
+  the body back to the caller, so a feed pointing at `http://169.254.169.254/` would read a
+  metadata service out through our own API. Redirects are followed **by hand**
+  (`allow_redirects=False`, max 3) precisely so the check runs on every hop; `ipaddress.is_global`
+  is the single test covering private, loopback, link-local, reserved, multicast and CGNAT ranges
+  on both v4 and v6; the body is read with `iter_content` and abandoned past 2MB rather than
+  trusting `content-length`; non-HTML content types are refused. **Known limit, stated rather than
+  papered over:** the check resolves DNS itself and `requests` resolves again, so a rebinding
+  attack that answers differently the second time slips through. Closing it needs the connection
+  pinned to the vetted address through a custom transport adapter — disproportionate here, and a
+  partial fix that reads as complete is worse than a recorded one (the same rule the T4 review
+  applied to `PUT /home/order`).
+- **YouTube sources short-circuit to `unavailable` with no fetch.** A watch page is a JS shell
+  with no article in it; a megabyte per video open to extract nothing is waste, and summary plus
+  Open source is the right treatment for a video anyway. Verified live: 0.010s, no outbound
+  request.
+- **Observed, worth recording: Reddit extracts to nothing today.** r/OnePiece's comments page
+  returns an 8.4KB "JS required" interstitial to a datacenter IP — a real 200 with no article — so
+  it correctly stores `''` and the reader falls back. Reddit's RSS summary is what carries the
+  content for those posts anyway.
+
+Decided 2026-09-06 while building T11a:
+
+- **T11 split into four, sub-lettered.** One task carrying website autodiscovery, the YouTube Data
+  API, Reddit and keyword search is four integrations, two gated on accounts nobody had. Splitting
+  surfaced the useful fact that **T11a needs no credentials at all** — and that it is exactly what
+  the original § Done when was written around, since the YouTube/Reddit *keyword* branches only
+  ever appeared in the § Build prose. Sub-lettered rather than renumbered so the T12/T13
+  cross-references already in `docs/` don't churn.
+- **The guarded fetch moved to `core/fetch.py` rather than being imported from `extract.py`.**
+  Discovery reads a feed *or* a page, so it needs a different accept header, content-type
+  allowlist and byte cap; once those are arguments the function is no longer "the article page
+  fetcher". The move was forced by the parameterisation, not by taste, and it puts the SSRF rule
+  in one module named for it instead of leaving the article extractor acting as an HTTP library
+  for the rest of `core/`. Verbatim move — the guard is T10's, unchanged.
+- **Declared feeds are returned unprobed; guessed and Reddit ones are probed.** Subscribing
+  fetches for real and takes the true title from the feed, so the name a candidate carries is
+  provisional and confirming each declared link would multiply the wait to improve a label. A
+  guessed `/atom.xml` and a `/r/<name>/.rss` get probed because there the probe *is* the
+  validation — nothing else separates a real feed from a 404.
+- **Walk up the path when a page declares nothing.** A post URL is what is actually in the address
+  bar when somebody decides to subscribe, and post pages routinely declare no feed while their
+  section index does. Capped at three fetches, nearest first, **always including the site root** —
+  the first cut dropped the root and kept date archives, which is backwards. The first fetch is
+  tolerant too: a pasted URL that 404s should cost the walk, not the result.
+- **The link parser reads the whole document, not just `<head>`.** Correct-by-spec is not
+  correct-by-web: YouTube closes `<head>` after ~700 KB of inline script and puts its `<title>`
+  and feed link in the body, which made a pasted channel URL find nothing. Scanning everything
+  costs 8 ms on a 1.6 MB page, since `HTMLParser` treats script bodies as CDATA.
+- **A lone feed is named after the page's `<title>`, several feeds after their link tags.** The
+  `title=` attribute is written for machines — css-tricks says "RSS 2.0", YouTube says "RSS" — so
+  it loses to the page title when it is only decorating. With several links it wins instead, being
+  the only thing separating a site's posts feed from its comments feed. For the same reason the
+  wizard captions a row with its **feed URL** rather than its site URL.
+- **A query that resolves to nothing is `200 []`, not an error.** "Nothing found" is the honest
+  answer to a keyword the catalog doesn't have yet as much as to a URL hosting no feed, and
+  neither is a failure the wizard should paint red. Only a request that actually failed sets the
+  error line.
+- **`type` is read as the wizard's card, not as truth.** It decides how a *bare name* is
+  interpreted — `OnePiece` is a subreddit under the Reddit card and nothing under the others — but
+  every result is typed by `infer_type(feed_url)`, so a YouTube channel pasted under the Website
+  card comes back `youtube`. Same rule `POST /feeds` already applied to a pasted URL.
+- **Verification against live sites is part of the task, not a follow-up.** The suite was green at
+  231 while a pasted post URL and a pasted YouTube channel URL both resolved to nothing — neither
+  shape was in the fixtures, so nothing failed. Both bugs were found by pasting real URLs, and
+  both now have tests.
+
+Decided 2026-09-06 while building T12:
+
+- **Recency, not relevance.** Results order by the stream's own column, newest first, which reuses
+  T5's cursor unchanged instead of growing a second, rank-keyed encoding beside it. The vector
+  still carries the title-over-summary weights, so switching to ranking later is an `order_by`,
+  not a migration.
+- **Scope resolution is `postlist.resolve_stream`, reused verbatim — there is no second
+  implementation.** That one call is where the five-way uid order, the 404 on another user's uid,
+  the folder mute rule and the three per-caller annotations all come from. T12's acceptance
+  "muting a feed drops it from that folder's results immediately" is therefore satisfied by *not
+  writing code*, which is the part worth recording.
+- **The stream's own `order_field` is kept**, so searching inside `saved` reads newest-*saved*
+  first — like the list it was opened from, consistent with T5's saved-ordering decision.
+- **Two match branches, deliberately different jobs.** Full-text (`websearch`) over title and
+  summary, stemmed, plus `title__icontains` for the partial words FTS structurally cannot reach —
+  `rout` is not a lexeme in `router`. A test pins that the FTS branch *alone* fails that case, so
+  the trigram index can't quietly become dead weight.
+- **`websearch` over `plain` / `raw`** — it is the one search_type that treats its input as
+  something a person typed. An unbalanced quote or a stray `&` comes back empty instead of raising
+  out of the request as a 500.
+- **`summary` is searched whole-word but never by substring.** It is arbitrary third-party HTML
+  (Reddit wraps a whole `<table>` around every post), so `icontains` on it would match markup.
+- **Postgres's default parser discards `tag` tokens, so HTML never reaches the vector** — which is
+  *why* no HTML-stripping pass exists anywhere in the ingest or search path. Non-obvious,
+  load-bearing, and pinned by a test.
+- **A blank or whitespace-only `q` is an empty page, not a 422** — "you typed nothing" isn't a
+  client error. The scope is still validated, so a bad scope 404s regardless of what was typed.
+- **The functional trigram index, and the risk that was actually settled.** Django compiles
+  `__icontains` on Postgres to `UPPER("title"::text) LIKE UPPER(%s)`, so a plain
+  `GinIndex(fields=['title'], opclasses=['gin_trgm_ops'])` would never be matched by the planner.
+  The open question going in was whether `OpClass(Upper('title'), …)` produces the *same*
+  expression. It does, for a better reason than expected: `upper()` only accepts `text`, so
+  Postgres applies the same implicit varchar→text cast when it parses the index expression, and
+  the index is stored as `gin (upper(title::text) gin_trgm_ops)` — identical to the lookup.
+  **Verified rather than assumed:** at 200,000 seeded rows (inside a transaction that was rolled
+  back, so the dev data was untouched) the default planner chose
+  `Bitmap Index Scan on post_title_trgm`; at the dev database's real 440 rows it correctly picks a
+  seq scan instead — which is why the check needed seeded rows, and why "it worked on the dev
+  data" would have been no evidence at all. The `Cast()` fallback planned for the other outcome
+  was not needed.
+
+Decided 2026-09-07 while building T13:
+
+- **Both rules delete; a post dies if either catches it.** The age window handles a slow source
+  accumulating over years, the per-source cap handles a firehose publishing a year's worth in a
+  week. Neither one alone bounds the table.
+- **A saved post is never deleted, and the exemption is "saved by anyone".** Posts are global
+  rows, so an owner-scoped rule would delete a post out from under another account's saved pile.
+  A test covers exactly that: `other_user`'s save protects a post its own reader never saved.
+- **The cap excludes the newest `cap` pks rather than comparing against a boundary row's
+  timestamp.** Comparing timestamps forces a choice between over-pruning (`__lte` deletes posts
+  tied at the boundary that sit *inside* the cap) and under-pruning (`__lt` keeps the whole tied
+  group, so a source always keeps `cap + 1`). An `IN` against a subquery sliced on
+  `('-published_at', '-pk')` keeps exactly `cap`, whatever the ties, and the keep set stays in
+  Postgres instead of coming back as a list of pks to send straight out again — LIMIT inside IN
+  is a MySQL restriction, and this project is Postgres-only, as migration 0004 already assumes.
+  Ranking counts saved posts too: a saved post holds its slot, so the cap bounds what polling
+  accumulates, not what a reader kept.
+- **A dry run is the real thing, rolled back** — `transaction.atomic()` plus
+  `transaction.set_rollback(True)`, not a simulation. The cap pass ranks what the *age* pass
+  leaves behind, so a simulated preview would have to re-derive that in a second code path that
+  can disagree with the first; against the real dev database a naive simulation would have
+  claimed more deletions than there were posts. Verified instead: the dry run predicted 51 and
+  the real run deleted exactly 51. The cost is one transaction held for the length of a
+  deliberate manual command.
+- **Batched deletes.** `BATCH_SIZE` pks per `DELETE` — an unbatched `.delete()` collects every pk
+  into memory and holds one transaction for the whole run, and the first prune against a table
+  nothing has ever pruned is the big one.
+- **`max_retries=3`, not `poll_due_sources`' `0`.** That sweep can afford to wait five minutes
+  for the next one; a daily job would wait a full day, and the work is idempotent and batched, so
+  a retry resumes where the last attempt stopped. `time_limit` is 15 minutes, above Dramatiq's
+  10-minute default, for the same first-run reason.
+- **Expired tokens are pruned here, closing T2's forward reference** (see the T2 entry above).
+  `TOKEN_TTL` is imported from `core/auth.py` so the sweep and `BearerAuth`'s expiry test can't
+  drift, and every row it removes already answers 401 — the sweep can end no live session.
+- **The loop between polling and pruning, found on real data.** `prune_posts` deleted 49 posts
+  from `nuxt.com/blog/rss.xml` — an archive feed serving all 51 of its entries back to 2019 — and
+  the scheduler's very next five-minute sweep put all 49 straight back (`ok — 49 new`), with
+  fresh uids and empty `article_html` caches. The two jobs would have fought over the same rows
+  every night and the table would never have got lean, which is T13's whole goal. So ingest now
+  respects retention's line: `_upsert_posts` reads `retention.age_cutoff()` and won't *create* a
+  post the prune would delete that night, while still updating an entry already in the table, so
+  a saved post that has aged out keeps tracking its source. **Consequence worth stating:**
+  subscribing to a dormant feed whose entries are all past the window now yields a valid feed
+  with zero posts. `POST /feeds` still succeeds — it only 422s when feedparser finds no entries
+  at all, which is checked before the upsert — so there is no false "That URL isn't a feed."
+  Confirmed after the fix: a full 200 re-poll of all 51 archive entries created **0 new** posts
+  and updated only the 2 inside the window.
+- **Not touched, deliberately.** Sources are never deleted — T7's "a source outlives its last
+  subscriber, deactivated" still holds, and a test pins that pruning a source's posts leaves the
+  source standing. There is no separate `article_html`-only retention rule, and no admin surface:
+  job visibility is still `docker compose logs -f worker`, the story T9 settled. In-flight cursors
+  survive a prune, since `postlist.decode_cursor` turns a cursor into a keyset predicate over
+  values rather than a row lookup.
+
 ## Tasks
 
 ### T1 — Foundations: CORS, linting, test harness
@@ -786,7 +1113,7 @@ The home list's `order` is applied as a sort at load and not kept, so the drag-a
 task unblocks re-reads `/home` after `PUT /home/order` rather than reconciling locally.
 
 **As built _(2026-09-01)_.** Three things came out differently. `POST /feeds` takes a **pasted
-`feed_url`**, not a discovery result or a `source_uid` — discovery doesn't exist until T11 — and
+`feed_url`**, not a discovery result or a `source_uid` — discovery didn't exist until T11a — and
 a brand-new Source is fetched **inline**, because that fetch is what validates the URL (§
 Decision log). Folder writes are tagged **`home`**, not `feeds`. And the frontend's writes are
 optimistic with rollback except the two creates, which await the server-minted uid. Alongside
@@ -877,7 +1204,7 @@ a `SIGKILL` sent mid-poll against a deliberately slow feed left the source with 
 `error_count` untouched, and the redelivered message polled cleanly once the broker's heartbeat
 window passed; a `SIGTERM` let the in-flight poll finish before shutting down.
 
-### T10 — Article extraction
+### T10 — Article extraction ✅
 
 **Goal.** Reading stays in-app.
 
@@ -889,41 +1216,228 @@ after. Returns a typed "couldn't extract" signal the reader falls back from — 
 Open source. Decide sync-with-timeout vs. queued when you build it; the user is waiting on this
 request, which argues for synchronous with a hard timeout.
 
+**As built _(2026-09-05)_.** The question the entry left open was answered as it suspected:
+**synchronous with a hard timeout**, not a queued job — which reverses
+[backend.md](./backend.md) § Fetching pipeline's `extract_article` job row (§ Decision log, with
+seven more). `GET /posts/{uid}/article` (operation_id `get_post_article`) joins the existing
+`feeds` router and reuses T5's `_visible_post`, so a post the caller neither follows nor saved
+404s exactly as detail does, and a cache hit costs that one query and no network.
+`backend/core/extract.py` is shaped after `core/ingest.py` deliberately — constants on top, one
+network function (`fetch_page`) tests replace wholesale, one entry point (`extract_article`) that
+never raises — with `extract_html(body, url)` as the library seam: trafilatura 2.2.0
+(`output_format='html'`, links and images kept, `favor_precision` off as a named constant) then
+`nh3.clean` against our own tag/attribute allowlist, because the frontend will render this field
+as markup and that guarantee has to be ours. Three things went beyond the plan. The cache is
+**asymmetric**: a page we read and couldn't extract from is remembered as `''`, a page that never
+arrived stays `null` and is retried on the next open — **later amended so that `''` is retried
+too** (§ Decision log, 2026-09-05, amendment); the stored `''` now only tells admin the page was
+tried. The fetch is **hardened against SSRF** —
+scheme allowlist, `ipaddress.is_global` on every redirect hop (redirects followed by hand for
+exactly that), a 2MB cap and an HTML-only content type — since unlike ingest this endpoint hands
+the fetched body back to the caller; the DNS-rebinding gap that remains is recorded, not papered
+over. And a **YouTube** source answers `unavailable` without fetching anything. 208 backend tests
+green (was 182, 26 of them new in `backend/tests/test_article.py`), `ruff check` clean.
+
 **Done when.** Opening a post renders extracted article text, a second open is instant
 (served from `article_html`), and a page that can't be extracted falls back to summary + Open
-source rather than showing an error.
+source rather than showing an error. — **Half closed _(2026-09-05)_:** the endpoint and the
+global cache are built and measured (first call 0.99s, second 0.012s; an unextractable page
+answers `unavailable` rather than erroring), but **nothing on the frontend calls them** —
+`app/components/feed/PostView.vue` still renders `stripHtml(post.summary)`, so no reader screen
+shows an extracted article and the fallback path has never run in the UI. **Wiring the reader is
+an owned follow-up**, the way T8's dev-token field is: the endpoint's shape is settled, what's
+left is a frontend session — render `article_html` as markup, keep the stripped summary as the
+`unavailable` fallback, and add the Open source action that fallback names
+([current-state.md](./current-state.md) → Not started → Post page (rest)).
 
 **From T6.** This is what the reader is waiting on. A `summary` is arbitrary third-party HTML
 and nothing sanitises it, so the detail view strips it to plain text — Reddit posts arrive
 wrapped in a whole `<table>`. Extracted article text is the field the reader is meant to render,
 and it is the one that can be rendered as markup.
 
-### T11 — Discovery
+### T11a — Discovery: paste a URL ✅
 
-**Goal.** The add wizard's search step returns real candidates.
+**Goal.** The add wizard's search step turns a URL somebody pasted into feeds they can subscribe
+to. No external accounts.
 
 **Depends on:** T7.
 
-**Build.** `GET /discover?type=&q=`. **Website:** a pasted URL → fetch the page → autodiscover
-`<link rel="alternate" type="application/rss+xml">`; a keyword searches **our own source
-catalog only** (no web-crawl index — that's a Feedly-scale product we're not building).
-**YouTube:** a URL or handle resolves cheaply; a keyword hits the Data API — mind the ~10k
-units/day quota (≈100 searches), so cache results and prefer the paste path. **Reddit:** a
-subreddit URL or name → its `.rss`. Every result carries `already_subscribed`.
+**Build.** `GET /discover?type=&q=`. A pasted URL is fetched once and resolved: it either *is* a
+feed, or it is a page that declares one. Every result carries `already_subscribed`. A keyword
+finds nothing — that is T11d.
 
-Needs `YOUTUBE_API_KEY` and Reddit app credentials in `.env`.
+**As built _(2026-09-06)_.** Three modules, in the shape T3 and T10 already established: one
+function per module touches the network, so a test replaces exactly one symbol.
 
-**From T6.** The wizard's search step keeps its real shape — a query in, a loading flag, a
-candidate list out. **Since T7** it resolves one case on its own: a pasted **feed** URL becomes a
-single candidate, because that is all `POST /feeds` needs. Everything else — a YouTube handle, a
-bare subreddit name, a keyword, a site URL that isn't the feed URL — finds nothing until this
-endpoint lands. Wiring it is a swap inside `useAddFeedWizard().search()`.
+`core/fetch.py` is **moved code, not new** — the SSRF-guarded, size-capped, redirect-following
+fetch that T10 wrote inside `core/extract.py`, lifted out and parameterised (`accept`, `timeout`,
+`max_bytes`, `allowed_types`, `truncate`). The move was forced rather than chosen: discovery reads
+a feed *or* a page, so it needs a different accept header, a different content-type allowlist and
+a different cap, and once those are arguments the function has stopped being "the article page
+fetcher". The guard itself is unchanged and now covers both callers by construction, which is the
+point — both hand a fetched body back to whoever asked, and discovery's URL is the more directly
+attacker-chosen of the two, since a user types it. `extract.fetch_page` survives as a thin wrapper,
+so T10's tests kept patching the same symbol; the 15 that reached past it into the plumbing
+(`extract.CHUNK`, `extract.socket`, `MAX_REDIRECTS`) moved to `tests/test_fetch.py` with the code.
+`USER_AGENT` moved here too, out of `ingest.py` — an HTTP module has no business importing its
+user-agent from the RSS poller.
+
+`core/discover.py` resolves, in the cheapest order that can answer: a **Reddit URL or bare name**
+→ `/r/<name>/.rss` directly (`SUBREDDIT` matches Reddit's own naming rule, so `OnePiece`,
+`r/OnePiece` and the full URL are one case); a **YouTube `/channel/UC…` URL** → `videos.xml?
+channel_id=…` directly, no page fetch; **anything else** → fetch it once, and if `feedparser`
+recognises it (`parsed.version`, not entry count — a new blog with an empty feed is still a feed)
+answer with the feed's own title/site/icon. Only then is it treated as a page. `feed_links()`
+reads every `<link rel="alternate">` a document declares using stdlib `html.parser` — ~20 lines
+rather than a dependency, and deliberately not `lxml`, which is only present as a transitive
+trafilatura dep and is not a promise to us. Declared feeds are returned **unprobed**: subscribing
+fetches for real and overwrites the name from the feed itself, so confirming each one here would
+multiply the wait to improve a label. The `/r/…/.rss` and the guessed paths *are* probed, because
+there a probe is the only thing separating a real feed from a 404.
+
+Two shapes broke the naive version and both are fixed with tests pinning them:
+
+- **A post URL is what people actually paste**, and a post page routinely declares nothing while
+  the section index above it does — `nuxt.com/blog` resolved, `nuxt.com/blog/meet-nuxi` did not.
+  `_pages_upward` now walks up the path, nearest first, ending at the site root, capped at
+  `MAX_ANCESTORS = 3` fetches; when a level is dropped it is a middle one, never the root, since
+  `/blog/2026/01/some-post` has date archives between it and the page that declares the feed. The
+  *first* fetch is tolerant too, so a pasted URL that 404s costs the walk rather than the result.
+  Only reached when the pasted page came up empty, so the tidy case is still one request.
+- **YouTube closes `<head>` after ~700 KB of inline script** and declares its `<title>` and its
+  `videos.xml?channel_id=…` link *below* it, in the body — so a parser that stopped at `</head>`
+  made a pasted channel URL resolve to nothing. It now reads the whole document, which costs 8 ms
+  even on a 1.6 MB page because `HTMLParser` skips script bodies as CDATA. `MAX_BYTES` is 2 MB and
+  truncates rather than refusing, since giving up on a big page would lose a feed we can see.
+
+When a page declares nothing anywhere up the walk, `COMMON_PATHS` (`/feed`, `/rss`, `/rss.xml`,
+`/atom.xml`, `/index.xml`) are probed against the site root and the first that parses wins — the
+static-site-generator case, which is where most "that blog has no feed" complaints come from.
+`infer_type` **moved here** from `core/api/feeds.py` (a `core/` module importing from `core/api/`
+is backwards) and is re-exported there; every candidate is typed by its own URL, so a YouTube
+channel pasted under the Website card still comes back `youtube` rather than being mislabelled.
+
+`core/api/discover.py` is the HTTP shape plus the one thing discovery cannot know, having no user:
+`already_subscribed`, resolved in a single query. `DiscoverResultSchema` is field-for-field
+`HomeFeedSchema` minus the uid it hasn't earned, plus that flag — which is why
+[backend.md](./backend.md) § Endpoint catalog's old `title`/`icon` wording was corrected rather
+than implemented; the § Vocabulary table wins. Frontend: `FeedCandidate` stopped being
+hand-written and became `Schemas['DiscoverResultSchema']`, `useAddFeedWizard().search()` is async
+and calls `/discover` behind a shared `add-search-seq` guard so a slow earlier search cannot
+overwrite a newer one's results, and `SearchStep.vue` renders already-subscribed rows dimmed with
+a **"Following"** caption that cannot be picked. Its caption is the **feed URL**, not the site
+URL: one page can declare several feeds and that is the only thing telling them apart — the same
+reasoning that keeps the RSS URL on screen in the edit panel (§ Contract resolutions, 3).
+
+263 backend tests green; T11a contributes `tests/test_discover.py` (28) and `tests/test_fetch.py`
+(17 — 15 moved out of `test_article.py` with the code, 2 new). `ruff check` and `pnpm lint` /
+`pnpm typecheck` clean.
 
 **Done when.** Pasting a blog URL, a YouTube channel URL and a subreddit name each return a
-correct candidate in the add wizard, already-subscribed sources are flagged as such, and a
-keyword search returns matches from our own catalog.
+correct candidate in the add wizard, and already-subscribed sources are flagged as such. — **Met
+_(2026-09-06)_**, verified against live sites rather than only the suite, which is what surfaced
+both bugs above: `nuxt.com/blog/meet-nuxi` → `Nuxt Blog` at `/blog/rss.xml` (601 ms);
+`overreacted.io/a-complete-guide-to-useeffect/` → its atom and rss feeds, both listed;
+`github.blog/changelog/` → three feeds kept apart by their link tags; `news.ycombinator.com` →
+`Hacker News`; `youtube.com/@SolentoLounge` and `@Fireship` → their `videos.xml` feeds in ~450 ms;
+`reddit.com/r/vuejs/` and a bare `webdev` → their `.rss`. `vuejs.org/blog/` correctly returns
+nothing — that path 404s and the site declares no feed. The keyword half of the original T11
+§ Done when moved to T11d.
 
-### T12 — Search
+**Known limitation, carried into T11c.** Reddit answers **HTTP 429** to repeated unauthenticated
+`/r/<name>/.rss` fetches, so the same subreddit resolves on one search and returns nothing on the
+next. `probe_feed` cannot tell a throttle from a subreddit that doesn't exist, so the wizard says
+"Nothing found" either way. Reddit app credentials are the fix and are already T11c's stated
+prerequisite.
+
+### T11b — Discovery: YouTube ✅
+
+**Goal.** Typing a channel name into the YouTube card searches YouTube, the way YouTube does.
+
+**Depends on:** T11a. **Needs `YOUTUBE_API_KEY` in `.env`.**
+
+**Build.** The Data API for the keyword case. Mind the quota: 10k units/day, and `search.list`
+costs **100 units a call** (≈100 searches/day), while `channels.list` costs 1 — so cache results
+and keep T11a's paste path as the cheap one. Caching needs a real store: Django has **no `CACHES`
+setting yet**, so it currently falls back to per-process memory, which won't survive a second
+worker. Point it at the `REDIS_URL` compose already runs for Dramatiq (Django 5 ships a Redis
+backend, so nothing is installed).
+
+This is the task the user actually wants for YouTube — **people would rather search than paste**.
+URL and `@handle` resolution already work in T11a, so this adds keyword search only, and can also
+replace T11a's ~800 KB channel-page download with a 1-unit `channels.list?forHandle=` lookup.
+
+**As built _(2026-09-11)_.** Keyword search only, as planned; the `@handle` path was left on the
+free channel-page route (a test pins that it never asks the API). `backend/core/youtube.py` is
+the one module that spends quota, in the shape T3/T10/T11a set — constants on top
+(`MAX_RESULTS` 5, `CACHE_TTL` a day, the quota's own renewal window), `fetch_search` as the one
+network call a test replaces, `search_channels` as the entry point. It raises one exception,
+`YouTubeUnavailable`, for quota spent / key refused / network down alike, and
+`core/api/discover.py` turns that into **503 "YouTube search is unavailable right now."** — the
+one thing `/discover` does *not* answer `200 []` for, because "nothing found" for a blown quota
+would be a lie that is hard to debug a day later. The log line carries only the exception's
+class name, since `requests`' message carries the URL and the URL carries the key. Caching is
+the plan's, made concrete: the key is a SHA-256 of the whitespace-collapsed, case-folded query
+(Django warns about spaces in keys, and a query is spaces), a failure is not cached, and the
+result is sliced to `MAX_RESULTS` again after parsing because YouTube was **seen live answering
+`maxResults=5` with six**. `CACHES` now points Django at the broker's Redis — the Django 5
+backend over the client `dramatiq[redis]` already installs, nothing new in `requirements.txt` —
+with one rule written beside it: never `cache.clear()` there, it is `FLUSHDB` and the queues
+share the database; `conftest.py` swaps every test onto locmem and clears that instead.
+`core/discover.py`'s `_keyword` is where the card decides: a bare name is a channel search under
+YouTube only when `youtube.is_configured()`, and nothing under Website or Reddit, which wait for
+T11d / T11c unchanged. Each hit becomes the same `videos.xml?channel_id=` candidate a pasted
+channel resolves to, so subscribing is the same `POST /feeds` either way, with the channel's
+default thumbnail as `icon_url`. Frontend: `SearchStep.vue` leads a YouTube row with that
+avatar in a circle (square by nature; a website's `icon_url` is as often a wide banner, so
+websites get no avatar yet), and `useAddFeedWizard().search()` shows a failed request's
+`detail` — the 503 included — as an error rather than "Nothing found". `.env.example` gained
+`YOUTUBE_API_KEY`. 12 tests in `backend/tests/test_youtube.py` against a real `search.list`
+body trimmed to the fields read; 316 backend tests green in the tree as committed.
+
+**Done when.** A channel name typed into the YouTube card returns matching channels with their
+thumbnails, a repeated search spends no quota, and a missing `YOUTUBE_API_KEY` degrades to T11a's
+behaviour rather than erroring — the same rule `GOOGLE_OAUTH_CLIENT_ID` follows. — **Met
+_(2026-09-11)_:** all three are pinned by tests, and the overshoot case above came from the live
+API rather than a fixture.
+
+### T11c — Discovery: Reddit
+
+**Goal.** Typing into the Reddit card searches subreddits, and stops the throttling.
+
+**Depends on:** T11a. **Needs Reddit app credentials in `.env`.**
+
+**Build.** A registered app (reddit.com/prefs/apps → "script") plus the OAuth2 client-credentials
+flow to get a token, then `oauth.reddit.com/subreddits/search`. Authenticating also fixes T11a's
+recorded 429 problem, which is the half of this task that matters even before keyword search does:
+today a subreddit resolves intermittently.
+
+**Done when.** A keyword returns matching subreddits with their subscriber counts, and resolving
+the same subreddit repeatedly stops returning nothing.
+
+### T11d — Discovery: our own catalog
+
+**Goal.** A keyword returns feeds other people here already follow.
+
+**Depends on:** T11a. **Needs a catalog worth searching** — meaningless on a near-empty `Source`
+table, which is why it is last.
+
+**Build.** A keyword (anything T11a's `_as_url` doesn't read as a URL) matches `Source` on title,
+filtered to the requested type, ranked by **how many users actually follow each one** — a count
+of `Feed` rows per `Source`, which is already in the schema. **Our own catalog only, deliberately**
+— no web-crawl index, that being a Feedly-scale product we are not building
+([backend.md](./backend.md) § Fetching pipeline). Merge with the type-specific branches and dedupe
+by `feed_url`; the catalog is free and spends no quota, so it goes first.
+
+Worth reusing rather than reinventing: T12 built real search infrastructure over `Post`. Whether
+`Source.title` deserves the same trigram treatment or a plain `icontains` is enough is a decision
+for this task, not a foregone one — the table is small and the query is one column.
+
+**Done when.** A keyword search returns matches from our own catalog, popular sources first, and
+`SearchStep.vue`'s "Nothing found. Try pasting a link." stops being the answer for a keyword that
+somebody here already follows.
+
+### T12 — Search ✅
 
 **Goal.** Scoped post search, behind an engine-neutral contract.
 
@@ -939,11 +1453,61 @@ column** — that containment is exactly what keeps [backend.md](./backend.md) �
 Elasticsearch upgrade path a one-module swap. Frontend: wire the search button that's currently
 a TODO on the feed page.
 
+**As built _(2026-09-06)_.** The plan held, and installed nothing to do it: `pg_trgm` is a
+Postgres extension and `django.contrib.postgres` ships with Django, so `requirements.txt` is
+untouched and § Housekeeping's rebuild-both-environments chore doesn't apply here.
+`Post.search` is a **persisted generated column** (`SearchVector('title', weight='A')` +
+`SearchVector('summary', weight='B')`, both with the `'english'` `SEARCH_CONFIG` constant
+`core/models.py` now declares), so the vector is recomputed in the same statement that writes the
+row. Migration `0004_post_search.py` runs `TrigramExtension()` by hand first — `makemigrations`
+never emits an extension operation, and `gin_trgm_ops` doesn't exist until it does — then the
+field, then `post_search_gin` on the vector and `post_title_trgm` on
+`OpClass(Upper('title'), name='gin_trgm_ops')`; adding a persisted generated column rewrites the
+table, so all 440 dev posts were populated by the migration itself with no data migration to
+write. `core/search.py` holds one entry point, `search_stream(user, q, scope)` → a
+`postlist.Stream`, and `core/api/search.py` serves `GET /search?q=&scope=all&cursor=&limit=`
+(operation_id `search_posts`, on the `feeds`-tagged router) reusing `PostPageSchema` /
+`DEFAULT_LIMIT` / `MAX_LIMIT` from `api/posts.py`, so the response is byte-for-byte a post page
+and the frontend needs no new type for it. The containment this entry asks for is **enforced by a
+test**, not by convention: it scans `backend/core/**/*.py` and fails if anything but
+`core/search.py`, `core/models.py` and `core/migrations/` references
+`django.contrib.postgres.search`. One refactor of existing code, no behaviour with it: the page
+window — order, decode cursor, fetch `limit + 1`, encode the next cursor — moved out of
+`api/posts.py`'s `feed_posts` into `postlist.page(stream, cursor, limit)`, now shared by the post
+list and search, and `postlist.py`'s docstring states that reuse as fact instead of
+forward-referencing this task. Nine decisions are in § Decision log (2026-09-06, T12), including
+recency
+over relevance and the planner check behind the functional trigram index. 255 backend tests green
+(231 before this task, 24 of them new in `backend/tests/test_search.py`), `ruff check .` clean.
+
 **Done when.** A partial-word search scoped to one feed, to a folder, and to saved each returns
 the right posts; muting a feed drops it from that folder's results immediately; and no module
-outside `search.py` references the tsvector column.
+outside `search.py` references the tsvector column. — **Server closed, frontend outstanding
+_(2026-09-06)_:** driven against the real dev database, not just the suite. Partial words matched
+real content (`ski` → "post time skip", `challeng` → "challenge", `sneak` → "sneaking" via the
+stemmer, `pirat` → a post whose *summary* says "pirates"); every scope branch answered correctly
+(`all`, a feed, the Dev folder, `saved`, `saved_bookmarks`); muting a folder member through
+`PATCH /folders/{uid}` dropped its posts from folder-scoped results **immediately, with no
+re-index**, while the same feed stayed complete on its own page (the mute was reverted after); a
+105-result query paged at `limit=2` across 53 pages with zero duplicates and order preserved; and
+`/api/v1/openapi.json` carries `search_posts` under `feeds` with a `$ref` to the shared
+`PostPageSchema`, still exactly four tags. At the time the search button was still a TODO and
+`pnpm types:api` was deliberately not run, since regenerating `app/types/api.d.ts` would have
+added a `/search` path no code called. — **Frontend closed, in the tree committed 2026-09-15:**
+the button beside the title in `FeedPostList.vue` is real — the component the mobile feed page
+and the desktop posts pane share, which is the point, since the desktop pane has no navbar and
+the mobile-only navbar magnifying glass (now removed) could never have served both. The
+presentation question this entry left open was answered as **neither sheet nor dialog**: the
+search box swaps in for the title on the same row, the query lives on the route as `?q=`
+(300ms debounce, `router.replace` so Back leaves the page rather than walking the term), and
+`usePostList(uid, q)` pages `GET /search` with the uid as `scope` — the byte-identical page
+shape is what let this be a second URL inside the same composable rather than a second
+composable. A result's link carries the query so Back from a post returns to the results; the
+desktop shell mirrors it as `readerQuery` on the feeds store so a search survives opening
+Settings. `app/types/api.d.ts` is regenerated. See
+[current-state.md](./current-state.md) → Built → Feed page v1.
 
-### T13 — Retention
+### T13 — Retention ✅
 
 **Goal.** The posts table and search index stay lean.
 
@@ -952,8 +1516,141 @@ outside `search.py` references the tsvector column.
 **Build.** A daily `prune_posts` job deleting unsaved posts past ~90 days and/or beyond the
 newest ~500 per source, both tunable. **Saved posts are never pruned.**
 
+**As built _(2026-09-07)_.** The plan held; two things went beyond it.
+`backend/core/retention.py` is the one place a deletion rule lives, in the shape T3 and T10
+established — constants on top (`RETENTION` 90 days, `PER_SOURCE_CAP` 500, `BATCH_SIZE` 1000),
+plain synchronous entry points below. They are **module constants, not settings**, exactly like
+`ingest.py`'s `POLL_INTERVAL` / `MAX_FAILURES`: `settings.py` holds what differs per deployment
+and none of this does, while `--days` / `--cap` make a single run tunable without one.
+`prune_posts(days=, cap=, dry_run=)` is two passes over `_unsaved()` — a correlated
+`~Exists(SavedPost…)` rather than a join on `Post.saves`, per T5's rule — and returns a
+`PruneResult(by_age, by_cap)` frozen dataclass shaped after `ingest.IngestResult`, so the actor
+and the command each log one line. `age_cutoff(days=None)` is the single place the age line is
+computed. `core/tasks.py` gains two daily actors, `prune_posts` (`cron('30 3 * * *')`,
+`time_limit=900_000`) and `prune_expired_tokens` (`cron('45 3 * * *')`), wrapping the plain
+functions the way `poll_source` wraps `ingest_source`, and
+`manage.py prune_posts --days N --cap N --dry-run` is the manual override, twin of `poll_due.py`.
+
+The two beyond the plan. `prune_expired_tokens()` pays off **T2's forward reference** — it
+deletes `AuthToken` rows past `core/auth.py`'s `TOKEN_TTL`, imported rather than restated as 30
+days. And **polling had to learn retention's line**: the first live run deleted 49 posts from an
+archive feed and the scheduler's next sweep recreated all 49, so `ingest.py`'s `_upsert_posts`
+now skips *creating* an entry already past `age_cutoff()` while still updating one that is
+already in the table (§ Decision log, where the user-visible consequence is recorded — a dormant
+feed whose entries are all past the window subscribes as a valid feed with zero posts). No
+endpoint changed. Nine decisions are in § Decision log (2026-09-07, T13). 285 backend tests
+green (was 263, 22 of them new in `backend/tests/test_retention.py`, plus an `RSS_ARCHIVE`
+fixture in `backend/tests/feeds.py`), `ruff check .` clean.
+
 **Done when.** On a seeded dataset the job deletes posts past the cutoff, leaves every saved
-post untouched regardless of age, and enforces the per-source cap.
+post untouched regardless of age, and enforces the per-source cap. — **Met _(2026-09-07)_**,
+driven against the real dev database rather than only the suite. Of its 502 posts over 5
+sources, `--dry-run` under the default policy reported 49, while `--days 7 --cap 20 --dry-run`
+reported 113 past the window plus 340 past the cap, so each flag demonstrably moves its own
+pass. Three real posts were then backdated 200 days and one of them saved: the dry run predicted
+51, the real run deleted exactly 51, **the saved 200-day-old post survived** and the two unsaved
+ones went. `GET /feeds/all/posts`, `GET /feeds/saved/posts` (which listed the survivor) and
+`GET /search?q=impedance` (which found it) all answered correctly afterwards, so the prune left
+the search index intact. periodiq registers both new schedules alongside `poll_due_sources`
+(confirmed in `docker compose logs scheduler`), and both actors ran end to end over Redis in the
+real worker.
+
+### T14 — Feed preview: a candidate's latest posts
+
+**Goal.** Judge a discovered feed before subscribing to it. Tapping a candidate in the add
+wizard shows its newest posts — what it publishes and when the last one landed — so "is this
+feed alive, and is it about what I think" is answered inside the wizard rather than by
+subscribing, reading, and unsubscribing. Pays off the `latest items` half of
+[screens-and-flows.md](./screens-and-flows.md) § 4's "not yet built" line.
+
+**Depends on:** T11a. No external credentials — every type is RSS underneath, and YouTube's
+`videos.xml` costs no quota.
+
+**Build.** `GET /discover/posts?feed_url=` → the candidate's newest posts, as a bare list like
+`/discover`. Backend only; the wizard's presentation is a frontend follow-up that consumes
+this contract (regenerate `app/types/api.d.ts` with `pnpm types:api` when it starts).
+
+*Why this shape.* A candidate has no uid, so `feed_url` — the one field the wizard already keeps
+from a `/discover` result — is the key. The path is `/discover/posts`, not `/discover/preview`
+or a new noun: it is the twin of `GET /feeds/{uid}/posts` for a feed you don't have yet, and
+"posts" is already the word. Operation id `discover_posts`, tag `feeds`, beside `discover`.
+
+*Read-only and live, always.* Nothing is written by previewing — the same rule `/discover`
+already states in its docstring. The feed is fetched on every call rather than read from `Post`
+when a `Source` for that URL happens to exist: a source with no subscribers stops being polled,
+so a database branch needs a staleness rule and a live fallback anyway, which is two paths for
+one screen. One bounded network call per tap is the same call `POST /feeds` makes to validate a
+subscribe. **No server-side cache in v1** — the wizard can hold a preview in its own state
+across back-and-forward, and if the live test shows repeated fetches, `core/youtube.py`'s
+`cache.get`/`cache.set` against the Redis `CACHES` is a five-line addition, not a design change.
+
+*Moved and reused, not new.* The whole thing is "discover, one step deeper", so it lives in
+`core/discover.py` as `preview_feed(feed_url)` with its HTTP shape in `core/api/discover.py`:
+
+- **Fetch** through `discover.fetch_page` — the SSRF-guarded, 2 MB *truncating* fetch T11a
+  already uses. Not `ingest.fetch_feed`: that one carries validators and lets `requests` follow
+  redirects unchecked, which is fine for a body that is only ever parsed and stored, and not for
+  one handed back to the caller. `feed_url` here is the most directly attacker-chosen URL on the
+  API — the wizard's own input box, one hop removed — so it goes through the guard by
+  construction. Truncation is the right cap: feeds list newest first, so what a 2 MB archive
+  feed loses off the end is exactly what a preview doesn't want.
+- **Parse** with the same `feedparser.parse(body, response_headers={'content-location': …})`
+  call `_from_feed` makes, and the same test — `parsed.version`, not entry count — for "is this
+  a feed". Version absent is *not a feed*; version present with no entries is a real, empty feed
+  and answers `200 []`.
+- **Map** entries with `ingest.py`'s `_entry_to_post`, made public as `entry_to_post` — a
+  rename, no behaviour change. This is the load-bearing reuse: the preview shows **exactly what
+  subscribing would store** — the same `(untitled)` fallback, NUL stripping, non-http link skip,
+  `media:thumbnail`-then-enclosure image pick and summary cap — so a feed cannot look different
+  in the wizard than it does on the home screen a minute later. The precedent is
+  `feed_metadata`, made public in T3 for the same reason.
+- **One deliberate difference: `published_at` is nullable in the preview.** The list clamps a
+  dateless entry to *now* because it must order and retention must be able to reach it. A
+  preview that says "posted just now" for a feed that gives no dates would mislead on exactly
+  the thing the user opened it to check. How `_entry_to_post` / `_published_at` are split to
+  allow that is the builder's call; the constraint is that there stays one mapping, not a
+  second one for previews.
+- **Order and cut:** newest first by `published_at`, dateless entries last, then the first
+  `PREVIEW_LIMIT = 10` — a module constant beside `MAX_RESULTS`, not a `?limit=` parameter.
+  Feeds aren't reliably ordered, so the sort is ours.
+
+*Response.* `DiscoverPostSchema`, beside `DiscoverResultSchema`: `PostSchema` minus the three
+fields an unstored entry cannot have (`uid`, `feed_uid`, `saved_group`) — `title`, `post_url`,
+`image_url`, `summary`, `published_at: datetime | None`. Same names on purpose, so the frontend
+renders a preview row with the same vocabulary as a post card. `summary` is the raw feed HTML
+`PostSchema.summary` already is, and the frontend already `stripHtml`s it; ten Reddit summaries
+is ~150 KB, acceptable for a tap, and a tighter cap is a one-liner if it isn't.
+
+*Errors — a preview that lies is worse than one that fails.* `/discover` answers `200 []` for
+everything because "nothing found" is honest whether a site is down or has no feed. For a
+preview an empty list *means something* — "this feed is dead" — so unreachable and not-a-feed
+must not be spelled that way. `PageUnavailable`, `requests.RequestException` and a body
+feedparser doesn't recognise all answer **`422 "Couldn't read that feed."`**, one message, the
+split `POST /feeds` already makes with *"That URL isn't a feed."* A missing or malformed
+`feed_url` is ninja's own 422. `200 []` is reserved for a feed that parsed and has nothing in it.
+
+*Recorded, not solved here.* **Reddit** answers 429 to repeated unauthenticated `.rss` fetches
+(T11a's known limitation), and discovery has usually just probed the same URL, so a subreddit
+preview will fail with the 422 above more often than it should until T11c authenticates the
+fetch. **Retention** is not applied: a dormant feed previews its old posts and then subscribes
+with zero (T13's rule) — showing them is the point, since the date on the newest one is the
+answer to "is this alive".
+
+*Tests* replace `discover.fetch_page`, like every discovery test, using the bodies in
+`tests/feeds.py`: the newest 10 of a longer feed, in date order, dateless last; the mapping
+matches what `ingest_source` stores from the same body (the parity test that pins the reuse);
+`RSS_NO_DATE` → `published_at: null`; `RSS_ODD_SCHEMES` → the non-http entries are skipped;
+`NOT_A_FEED`, a `PageUnavailable` and a `RequestException` → 422 with the message; a feed with
+`version` and no entries → `200 []`; no bearer → 401; a private address is refused (the guard
+is `core/fetch.py`'s, already covered — one test that the preview goes through it); and **a row
+count on `Source` and `Post` before and after**, so the read-only promise is a test rather than a
+docstring. `tests/test_openapi.py` picks the new operation up on its own.
+
+**Done when.** For a candidate of each type — a blog's feed, a YouTube channel's `videos.xml`, a
+subreddit's `.rss` — the endpoint returns its newest posts with titles, links and dates, inside
+the fetch timeout, and writes nothing. A dead URL and a page that isn't a feed answer 422 with a
+message the wizard can show; an empty feed answers `[]`. Verified **against live URLs, not only
+the suite** — T11a's rule, since both of its bugs were shapes no fixture had.
 
 ## Housekeeping
 

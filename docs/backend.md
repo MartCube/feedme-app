@@ -92,10 +92,11 @@ living in `backend/` in this repo (monorepo).
 | --- | --- | --- |
 | Django | ORM, migrations, **admin**, management commands | Admin is the free ops UI a feed aggregator needs daily: inspect sources/fetch errors, flip `active`, revoke tokens — zero UI built |
 | django-ninja | The API layer | FastAPI's ergonomics (type-hinted endpoints, Pydantic schemas, auto OpenAPI) inside Django |
-| Dramatiq + Redis | Background jobs (polling, extraction, pruning) | Simple, reliable task queue; `periodiq` adds the cron scheduling Dramatiq lacks |
+| Dramatiq + Redis | Background jobs (polling, pruning); the same Redis is Django's cache | Simple, reliable task queue; `periodiq` adds the cron scheduling Dramatiq lacks. The cache holds YouTube search answers for a day so every worker shares one quota spend — never `cache.clear()` it, which on this backend is `FLUSHDB` against the queues' database |
 | Postgres | Data **and search** (FTS + trigram) | One store, no sync pipeline — see [Search](#search) |
 | feedparser / trafilatura / google-auth | RSS parsing / article extraction / id_token verification | The Python ecosystem is the decisive reason this backend is Python |
-| requests | The HTTP client ingest and discovery fetch with | feedparser's own fetching passes no timeout and is removed in feedparser 7 — see the decision log |
+| nh3 | Sanitises extracted article HTML before it is stored | The reader renders `article_html` as markup, so the allowlist has to be a rule we own rather than a property of trafilatura's internals; ships abi3 wheels, so the image needs no Rust toolchain |
+| requests | The HTTP client ingest, extraction and discovery fetch with | feedparser's own fetching passes no timeout and is removed in feedparser 7 — see the decision log |
 | ruff / pytest + pytest-django | Lint + format / tests | One fast tool for both linting and formatting; pytest-django gives the ORM fixtures and a throwaway test database |
 
 The OpenAPI schema ninja generates is the **frontend contract**: TypeScript types for the
@@ -126,7 +127,8 @@ Source        uid, type (website|youtube|reddit), feed_url (unique), site_url, t
               error_count
 Post          uid (post_*), source FK, guid (unique per source), title, post_url, image_url,
               summary, article_html (nullable — filled by on-demand extraction),
-              published_at, search (generated tsvector, GIN-indexed) + trigram index on title
+              published_at, search (persisted generated tsvector, title weighted over summary,
+              GIN-indexed) + a functional trigram index on upper(title)
 Feed          uid (feed_*), user FK, source FK, name (user's custom title), order
               — unique (user, source)
 Folder        uid (folder_*), user FK, name, order
@@ -141,9 +143,16 @@ server-side: remove-from-folder unlinks one membership; delete feed removes it f
 folder; delete folder also deletes member feeds *except* those that are in another folder
 (the API returns how many were unsubscribed, for the confirmation dialog).
 
-**Retention:** a daily job prunes unsaved posts older than ~90 days (and/or beyond the newest
-~500 per source — both tunable). Saved posts are **always kept**. Keeps the table and the
-search index lean; a reader is about recent content.
+**Retention _(built 2026-09-07, T13)_:** a nightly job prunes unsaved posts older than **90
+days** and, per source, unsaved posts beyond the newest **500** — both rules delete, so a post
+dies if either catches it, and both are tunable for a single run (`manage.py prune_posts
+--days --cap --dry-run`). Saved posts are **always kept**, at any age and under either rule, and
+the exemption is "saved by anyone": a post row is global, so an owner-scoped rule would delete one
+out from under another account's saved pile. **Ingest honours the same window** — polling never
+creates a post the prune would delete that night, so an archive feed can't refill what the job
+just emptied; the visible consequence is that a source whose entries are all past the window
+subscribes as a valid feed with zero posts. Keeps the table and its two GIN indexes lean; a
+reader is about recent content.
 
 ## API
 
@@ -185,8 +194,9 @@ the per-group descriptions come from `TAGS` in `feedme/api.py`.
 | `GET /posts/{uid}/article` | Full article: extract-on-first-request (trafilatura), cached globally in `article_html`, served instantly after. Returns extracted HTML or a "couldn't extract" signal (frontend falls back to summary + Open source) |
 | `PUT /posts/{uid}/save` | Body: `{group}` (bookmarks \| favorites \| later). Upsert — moving groups is the same call |
 | `DELETE /posts/{uid}/save` | Unsave |
-| `GET /discover` | `?type=website|youtube|reddit&q=<url or keyword>` → candidate sources (title, site_url, feed_url, icon, `already_subscribed`). Backs the add wizard |
-| `GET /search` | `?q=&scope=<all|saved|saved_*|folder_*|feed_*>&cursor=` — engine-neutral contract, see [Search](#search) |
+| `GET /discover` | `?type=website|youtube|reddit&q=<url or keyword>` → candidate feeds (`name`, `type`, `site_url`, `feed_url`, `icon_url`, `already_subscribed`) — `HomeFeedSchema` minus the uid one hasn't earned, plus the flag. Field names follow § Vocabulary, not this row's earlier `title`/`icon` wording. A URL resolves under any card; a bare name is a YouTube channel search under `youtube` (503 when YouTube won't answer) and finds nothing under the other two until T11c/T11d. Backs the add wizard |
+| `GET /discover/posts` | _(T14, planned)_ `?feed_url=<a candidate's feed_url>` → its newest 10 posts, fetched live and never stored — `PostSchema` minus `uid` / `feed_uid` / `saved_group`, with `published_at` nullable. The twin of `GET /feeds/{uid}/posts` for a feed you don't have yet. Unreachable or not a feed → 422 with a message; a real feed with no entries → `[]` |
+| `GET /search` | `?q=&scope=<all \| saved \| saved_* \| folder_* \| feed_*>&cursor=&limit=` (scope defaults to `all`) — **the post list narrowed by `q`**: same polymorphic scope uid, same page shape, same cursor, newest-first. A blank `q` is an empty page, not an error. Engine-neutral contract — no tsquery syntax in, no rank out; see [Search](#search) |
 | `GET /settings` · `PUT /settings` | The persisted `UserSettings` (theme, feed-list style, …) — replaces cookie-only persistence so settings follow the account across devices |
 
 ## Auth
@@ -236,34 +246,62 @@ Google id_token we *consume* at login is one.
 Per source type — everything is RSS under the hood:
 
 - **Website / blog** — `feedparser` on the source's `feed_url`. Discovery: paste a URL → we
-  fetch the page and autodiscover `<link rel="alternate" type="application/rss+xml">`;
-  keyword search only matches **our own source catalog** in v1 (no web-crawl index — that's
-  a Feedly-scale product we're not building).
+  fetch it once and either parse it as a feed or read the `<link rel="alternate">` tags off the
+  page, walking up the path if the page itself declares none; keyword search only matches **our
+  own source catalog** in v1 (no web-crawl index — that's a Feedly-scale product we're not
+  building).
 - **YouTube** — channels expose plain RSS: `youtube.com/feeds/videos.xml?channel_id=…`, so
-  **polling needs no API quota**. The Data API is used only for *discovery* (keyword →
-  channel; note the default 10k units/day ≈ ~100 searches — cache results, prefer handle/URL
-  paste which resolves cheaply).
+  **polling needs no API quota**. A pasted channel URL or `@handle` needs none either — the
+  channel page declares that same feed. The Data API is used only for *keyword* discovery
+  _(built 2026-09-11, T11b — `core/youtube.py`)_: `search.list` costs 100 of the day's 10k
+  units (≈ 100 searches), so every answer is cached for a day, a failed one is not, and a
+  missing `YOUTUBE_API_KEY` degrades to the paste path rather than erroring. YouTube not
+  answering is a 503, never an empty list.
 - **Reddit** — subreddits expose RSS/JSON; polling uses a single registered **app token**
   (rate limits are generous at our scale: ~100 QPM ≫ thousands of subreddits at 30-min
-  intervals). Per-user Reddit account connect (the Feedly pattern) stays **deferred** —
-  revisit only if app-level limits bite.
+  intervals). Unauthenticated `.rss` fetches are *not* generous — Reddit answers 429 to repeated
+  ones, which is why discovery needs the same app token. Per-user Reddit account connect (the
+  Feedly pattern) stays **deferred** — revisit only if app-level limits bite.
+
+**Fetching somebody else's URL is one module.** `core/fetch.py` holds the scheme allowlist, the
+per-hop private-address check and the size cap, and both callers that hand a fetched body back to
+the requester go through it: article extraction (`core/extract.py`) and discovery
+(`core/discover.py`). Polling deliberately does not — `core/ingest.py` only ever stores what it
+parses, so it fetches plainly. The knobs differ per caller (extraction wants HTML only and refuses
+past 2 MB; discovery reads a feed *or* a page and truncates instead of losing it), the guard does
+not.
 
 **Jobs** (Dramatiq; cron via periodiq — actors in `core/tasks.py`, broker wiring in
 `feedme/broker.py`). `poll_source` is a Dramatiq actor wrapping `core/ingest.py`'s
-`ingest_source` with no rewrite; `manage.py poll_source <source_uid>` and `manage.py poll_due`
+`ingest_source` with no rewrite, and the two prune actors wrap `core/retention.py`'s plain
+functions the same way; `manage.py poll_source <source_uid>` and `manage.py poll_due`
 still call `ingest_source` directly, as the manual override:
 
 | Job | Trigger | What it does |
 | --- | --- | --- |
-| `poll_source` | periodiq's cron sweep (`poll_due_sources`, every 5 minutes) enqueues sources with `next_fetch_at` due (targets ~30-min per-source cadence, staggered), claiming each one before sending | Conditional GET (ETag / Last-Modified — most polls are cheap 304s), parse, upsert posts by (source, guid), reset `error_count` |
-| `extract_article` | First `GET /posts/{uid}/article` | Fetch the original page, trafilatura-extract, store `article_html` globally |
-| `prune_posts` | Daily | Delete unsaved posts past retention (see data model) |
+| `poll_source` | periodiq's cron sweep (`poll_due_sources`, every 5 minutes) enqueues sources with `next_fetch_at` due (targets ~30-min per-source cadence, staggered), claiming each one before sending | Conditional GET (ETag / Last-Modified — most polls are cheap 304s), parse, upsert posts by (source, guid) — never *creating* one already past the retention window — reset `error_count` |
+| `prune_posts` | Daily, 03:30 | Delete unsaved posts past the 90-day window, plus — per source — those beyond the newest 500; a post goes if either rule catches it, and a saved post never goes at all (see [Data model](#data-model)). Batched deletes; `manage.py prune_posts --days --cap --dry-run` is the manual override |
+| `prune_expired_tokens` | Daily, 03:45 | Delete `AuthToken` rows past the sliding 30-day window — rows the guard already answers 401 for, so the sweep can end no live session |
 | failure handling | on poll error | Increment `error_count`, back off (grow `next_fetch_at`), deactivate after N consecutive failures — all visible/reversible in admin |
+
+**Article extraction is not a job.** `GET /posts/{uid}/article` extracts inside the request that
+asked for it — `core/extract.py`, synchronous with a hard timeout — because the reader is
+blocked on the answer either way; queueing it would buy a free web thread at the cost of a
+polling loop and a third state on screen. A post is extracted once and served to everyone after,
+so the slow path is rare. This fetch also has rules polling doesn't need — a scheme allowlist, a
+per-hop private-address check and a size cap — because unlike ingest, which only stores what it
+parses, this endpoint hands the fetched body back to the caller. **YouTube posts skip it
+entirely** and answer "couldn't extract": a watch page is a JS shell with no article in it, and
+summary plus Open source is the right treatment for a video anyway. See
+[backend-roadmap.md](./backend-roadmap.md) § Decision log (2026-09-05, T10), which records the
+reversal of this table's earlier `extract_article` job row.
 
 ## Search
 
 **Postgres FTS + pg_trgm. No separate search engine in v1** — decided after a detailed
-Elasticsearch comparison (see decision log).
+Elasticsearch comparison (see decision log). **Built _(2026-09-06, T12)_:** `GET /search`
+answers, and the feed page and the desktop posts pane search through it from the list's title
+row ([screens-and-flows.md](./screens-and-flows.md) § 2).
 
 The use case is *scoped* search: part of a title, within one feed / folder / saved list.
 That never hits FTS's real scale cliff (ranking huge unscoped result sets), and every ES
@@ -272,16 +310,24 @@ advantage either doesn't activate on scoped queries or belongs to features FeedM
 
 Design:
 
-- `Post.search` is a **generated `tsvector`** (title weighted over summary/content) with a
-  **GIN index** — updated in the same transaction as the insert, so search is never stale
-  and there is no sync pipeline. A **trigram index** on `title` (pg_trgm) covers
-  partial-word matching ("rout" → "router"), which plain FTS's whole-word tokens miss.
-- Scoping is a `WHERE` clause joining the live Feed/Folder/SavedPost tables — mute a feed
-  and search reflects it instantly.
+- `Post.search` is a **persisted generated `tsvector`** — `title` (weight A) over `summary`
+  (weight B), both with the `english` dictionary — with a **GIN index**. Postgres recomputes
+  it in the same statement that writes the row, so search is never stale and there is no sync
+  pipeline. A **functional trigram index** on `upper(title)` (pg_trgm) covers partial-word
+  matching ("rout" → "router"), which FTS's whole-word lexemes structurally cannot reach; a
+  query is the two branches OR'd. `summary` is matched whole-word only — it is arbitrary
+  third-party HTML, so substring-matching it would match markup.
+- Scoping is not a second implementation: `scope` resolves through the same `core/postlist.py`
+  uid resolver the post list uses, joining the live Feed/Folder/SavedPost tables — mute a feed
+  and search reflects it instantly, with no re-index.
+- Results are ordered by **recency, not relevance**. The weights are in the vector, so ranking
+  later is an `order_by` rather than a migration, and today's results reuse the post list's
+  cursor unchanged.
 - **The engine is hidden behind the contract.** `GET /search` takes `q` + `scope` + cursor
   and returns posts — no tsquery syntax, no raw rank scores. All search SQL lives in **one
-  backend search module**; nothing else touches the tsvector column. The post table stays
-  the source of truth — any future index is derivable from it.
+  backend search module** (`core/search.py`); nothing else touches the tsvector column, and a
+  test enforces that rather than a convention. The post table stays the source of truth — any
+  future index is derivable from it.
 
 **Elasticsearch upgrade path** — not "never", but trigger-based. Move to a dedicated engine
 (Meilisearch or ES) when any of these is true:
@@ -401,3 +447,15 @@ Added 2026-09-03 (T8) — both are `google-auth` traps, not product choices:
   token and a wrong audience all raise `ValueError`, but a wrong *issuer* raises
   `GoogleAuthError`, which is **not** a `ValueError` subclass — catching only `ValueError` would
   turn a rejected token into a 500.
+
+Added 2026-09-07 (T13):
+
+- **Polling and pruning agree on one line.** `core/ingest.py` reads `core/retention.py`'s
+  `age_cutoff()` and never *creates* a post the nightly prune would delete. Without that the two
+  jobs fight over the same rows forever — an archive feed serves far more than a retention window,
+  so the next poll simply recreates what was deleted (observed: 49 posts back within five minutes,
+  with fresh uids and empty article caches) and the table never gets lean. Entries already stored
+  are still updated, so a saved post that has aged out keeps tracking its source. The consequence
+  belongs to the contract, not just the job: subscribing to a feed whose entries are all past the
+  window **succeeds and yields zero posts**, since `POST /feeds` only refuses a URL with no
+  entries at all.

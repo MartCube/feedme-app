@@ -45,9 +45,11 @@ navigates. File references point at `app/pages/` and `app/components/`.
 >   Nuxt's `useRoute()` only resyncs when a `<NuxtPage/>` resolves and the shell renders none)
 >   and composes three columns directly from it and the `feeds`/`settings` stores: a sidebar
 >   (feed list, plus standing Add feed / Settings links), a posts pane, and a post pane.
->   Settings/Add/Edit render as a content area sliding in over the two reading panes instead of
->   a drawer — as a master–detail pair where there's a list to sit beside (Settings, folder
->   editing) and single-pane where there isn't (Add, loose-feed editing). **The routes and
+>   Settings/Add/Edit render as a content area laid over the two reading panes instead of a
+>   drawer (no slide — nothing on desktop animates, see [current-state.md](./current-state.md)
+>   § Resolved decisions → Desktop motion) — as a master–detail pair where there's a list to
+>   sit beside (Settings, folder editing) and single-pane where there isn't (Add, loose-feed
+>   editing). **The routes and
 >   `pages:extend` records are identical on both viewports** — layout is purely a presentation
 >   concern, nothing about navigation or the route tree changes. (This settles the layout half
 >   of the routing decision toward layout-composed panes rather than a nested-`<NuxtPage/>`
@@ -137,10 +139,10 @@ other screen loads anything until this one has been passed.
 
 **Purpose:** the home screen. Shows the pinned **Saved** group, the user's **folders**, and any
 **loose** feeds (feeds not in a folder). Folders only exist here — they are created, read, and
-edited from this screen. A **FEEDME** wordmark leads the list, then **Home** is an ordinary list
-row like the rest (same height and surface, an inline **All feeds** caption) — tapping it opens
-the merged read of every followed feed (`/feed/all`) — with the options 3-dot trailing where
-folder rows keep their chevron.
+edited from this screen. A **FEEDME** wordmark leads the list (the mark itself is a link to
+`/feed/all`), then **Home** is an ordinary list row like the rest (same height and surface, an
+inline **All feeds** caption) — tapping it opens the merged read of every followed feed
+(`/feed/all`) — with the options 3-dot trailing where folder rows keep their chevron.
 
 **List order:** pinned **Saved** group → **folders** → **loose feeds**.
 
@@ -190,6 +192,13 @@ differs.
 **The user can:**
 - See a scrollable list of **PostCards** (`components/PostCard.vue`) for this feed, which
   **keeps loading as they scroll** — there is no "load more" button and no page count.
+- **Search** this list: a magnifying glass on the title row swaps the title for a search box
+  ("Search *{this list's name}*"), and the list narrows **as they type** to the posts in this
+  same `uid` that match — a partial word is enough, newest first. Results page like the list
+  does. The search is part of the URL (`?q=`), so a reload, a shared link and **back from a
+  post** all return to the same results; the X on the row (or leaving for another list) clears
+  it. Same row on both viewports — the desktop posts pane has no navbar, so the entry lives on
+  the list itself.
 - **Tap a post** → open the Post page (`/feed/[uid]/post/[postUid]`).
 - Go **back** → Feeds list.
 
@@ -197,11 +206,13 @@ differs.
 server-side in the order below, so the screen renders the stream it is given rather than
 filtering one. Posts are newest-first by `published_at`, except the saved lists, which are
 newest-**save** first. When `uid` is `saved`, the list is every saved `Post`; when `uid` is a
-**folder**, the list is its member feeds' posts merged (minus muted) — see screen 6.
+**folder**, the list is its member feeds' posts merged (minus muted) — see screen 6. With a
+query, `GET /search?q=&scope={uid}` instead — the same page shape and cursor, so searching is a
+different URL and nothing else ([backend.md](./backend.md#search)).
 
-**When there's nothing to show:** an empty stream says so plainly ("No posts here yet"); a
-failed page says the posts couldn't be loaded and stops asking, rather than retrying into a
-server that just refused.
+**When there's nothing to show:** an empty stream says so plainly ("No posts here yet"), and an
+empty search says which query matched nothing; a failed page says the posts couldn't be loaded
+and stops asking, rather than retrying into a server that just refused.
 
 **PostCard** shows: `image_url`, `title`, and `published_at` (and a type cue from the parent
 feed). Tapping it opens the Post page.
@@ -218,16 +229,21 @@ it renders beside the feed list on desktop and full-screen on mobile.
 
 **The user can:**
 - Read the post: `title`, `image_url`, formatted `published_at`, and its text. The **article
-  text** is the goal; until it can be extracted, the screen shows what RSS gave us (`summary`)
-  as plain text — a summary is untrusted third-party markup and is never rendered as HTML.
+  text** is the goal — extracted and sanitised server-side, so it is the one text field the
+  screen renders as markup. Until the screen is wired to it, it shows what RSS gave us
+  (`summary`) as plain text — a summary is untrusted third-party markup and is never rendered
+  as HTML. When extraction can't produce an article the screen falls back to that same summary,
+  plus **Open source**.
 - **Save** the post (toggle) — it lands in **Bookmarks**; toggling again unsaves it. See
   [data-model.md](./data-model.md#saved-state).
 - **Open source** — opens `post.post_url` (the original article / YouTube watch page) in a
   new tab.
-- Go **back** → the Feed page (the `[uid]` it was opened from — a real feed, or `saved`).
+- Go **back** → the Feed page (the `[uid]` it was opened from — a real feed, or `saved` — and,
+  if it was opened from search results, those same results).
 
-**Data:** `GET /posts/{uid}` for the post named by `postUid`; the route `uid` is the feed
-context it was opened in.
+**Data:** `GET /posts/{uid}` for the post named by `postUid`, and `GET /posts/{uid}/article` for
+the article text (`status: ok | unavailable` — `unavailable` is the fallback above, not an
+error); the route `uid` is the feed context it was opened in.
 
 **Desktop:** until a post is tapped, the post pane shows a placeholder ("Select a post")
 instead of this screen — there is no auto-selected first or last-read post.
@@ -250,8 +266,9 @@ like the others.
 **Phase 2 — paste or search.** Header shows the chosen type + a back button. One input
 ("Paste a link or search…") does double duty: paste a link *or* search a keyword. While empty it
 shows a **Paste** chip (reads the clipboard on tap — browsers block silent reads). Submit → a
-~1s loading skeleton → a short **results list** (title + site, no leading type icon since the type
-is in the header), each with an add `+`.
+loading skeleton while `/discover` answers → a short **results list** (name + its **feed URL**,
+which is what tells two feeds off one page apart; a YouTube channel leads with its avatar, and
+there is no type icon since the type is in the header), each a multi-select card.
 
 **Phase 3 — choose destination.** Tapping a result's `+` advances here. Header is "Add to" + a
 back button. It reuses the home feed list: a **Feeds (top level)** row plus one row per **folder**.
@@ -266,22 +283,30 @@ refusal, from the paste/search step.
 **Scope:** one feed → one destination per pass (multi-select / multi-folder deferred; the data
 model stays many-to-many, so a feed can join more folders later via a folder's *Edit feeds*).
 
-**Data:** candidates come from `GET /discover?type=&q=`, which **isn't built yet** (T11). Until
-it lands the step resolves one case without a server — a pasted **feed** URL becomes a single
-candidate, which is all `POST /feeds` needs — and says it found nothing for anything else (a
-keyword, a YouTube handle, a bare subreddit name). Committing calls `POST /feeds`
+**Data:** candidates come from `GET /discover?type=&q=` _(T11a, 2026-09-06)_. A pasted URL of any
+shape resolves — a blog homepage or a post page, a YouTube channel URL or `@handle`, a subreddit
+URL or a bare name — whether or not it is the feed URL itself; a page that declares no feed sends
+the resolver up its own path and then to the usual `/feed`, `/rss.xml` guesses. Candidates the
+user already follows come back flagged `already_subscribed`, and render dimmed with a
+**"Following"** caption that can't be picked. A **keyword under the YouTube card** searches
+YouTube by channel name _(T11b, 2026-09-11)_ — up to five channels with their avatars; if YouTube
+won't answer (quota spent), the step shows that as an error rather than an empty result. A
+keyword under Website or Reddit still finds nothing (T11c, T11d).
+Committing calls `POST /feeds`
 (`{feed_url, folder_uid?}`) through `useFeedsStore().addFeed()`; the server finds-or-creates the
 shared source, fetches it, and answers with the feed's real name.
 
 **Components:** `add/Drawer.vue` (mobile sheet host: open protocol + commit/close/reset),
 `add/Steps.vue` (the phase switch itself — reused by the desktop presentation below),
 `add/TypeStep.vue`, `add/SearchStep.vue`, `add/DestinationStep.vue`, and the `useAddFeedWizard()`
-composable. **Not yet built:** real search / RSS discovery, live metadata (sub counts, latest items),
+composable. **Not yet built:** keyword search for subreddits and our own catalog (T11c, T11d), a
+candidate's latest posts before subscribing (T14, `GET /discover/posts` — planned), sub counts,
 and form validation via the installed **VeeValidate + Zod** stack.
 
-**Desktop:** `/add` presents as a single-pane content area sliding in over the two reading panes
-(sidebar stays usable) instead of a bottom sheet — there is no master beside it, since the wizard
-is linear steps with nothing to list; the wizard itself is unchanged. Settings and folder editing,
+**Desktop:** `/add` presents as a single-pane content area over the two reading panes (sidebar
+stays usable) instead of a bottom sheet — there is no master beside it, since the wizard is
+linear steps with nothing to list; the wizard itself is unchanged except that its steps cut
+rather than slide there. Settings and folder editing,
 by contrast, split the same content area into a master–detail pair (screens 5 and 7); editing a
 loose feed is single-pane like this one.
 
@@ -294,10 +319,11 @@ settings nav (the section list) is the **master**, the chosen subpage is the **d
 mobile both live as panels inside one bottom sheet (`components/settings/Drawer.vue`) that
 slide between each other; there are no separate settings page files — every `/settings/*` path
 renders the home page's component behind the sheet (see the Routing note) and the sheet swaps
-its panel by path. On desktop the section list and the open subpage render side by side, in the
-same 40/60 master–detail split the reader uses for its posts/post panes — `/settings` alone
-shows the list with a "Select a section" placeholder on the right. The sidebar carries a single
-**Settings** link, not a second copy of the section list.
+its panel by path. On desktop the section list and the open subpage render side by side as
+**two equal panes**, each the width of the reader's posts pane, with the rest of the area left
+empty — a form has a natural width and doesn't improve by widening the way an article does —
+and `/settings` alone shows the list with a "Select a section" placeholder on the right. The
+sidebar carries a single **Settings** link, not a second copy of the section list.
 
 **Subpages:**
 - **Account** — `/settings/account` — how you're signed in, member since, and **Sign out**
@@ -309,10 +335,10 @@ shows the list with a "Select a section" placeholder on the right. The sidebar c
 
 **The user can:**
 - Open any subpage from the settings nav; navigate between them with panel-slide transitions
-  (mobile) or an instant swap in the detail pane (desktop — only the content area's own
-  open/close slides, see [current-state.md](./current-state.md)).
-- Go **back** → closes Settings, returning to wherever it was opened from (mobile) / slides back
-  out to the frozen reading position (desktop).
+  (mobile) or an instant swap in the detail pane (desktop — nothing there slides, see
+  [current-state.md](./current-state.md) § Resolved decisions → Desktop motion).
+- Go **back** → closes Settings, returning to wherever it was opened from (mobile) / to the
+  frozen reading position (desktop).
 
 ---
 

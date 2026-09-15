@@ -47,16 +47,25 @@ adopt it as they gain elevation.
 
 ### Hover state (desktop)
 
-**A second standing exception:** a hovered list row (desktop pointers only) gets a 10% wash
-of `primary`, not a `bg-muted`/`bg-elevated` surface step. Reason: `bg-muted` reads
-*brighter* than `bg-elevated` in both themes, so stepping a hover to `bg-muted` would make a
-hovered row louder than a selected one — the opposite of what hover should signal. The
-`hover-highlight` utility (`app/assets/css/themes.css`) carries this, wrapped in
-`@media (hover: hover)` so touch pointers — where `:hover` sticks after a tap — get nothing.
-It applies to a row only when the row isn't already carrying `bg-elevated` for being
-selected or in cards mode, since a plain `hover:` rule would otherwise outrank and strip
-that surface. Used across the feed list, the sidebar's Add feed/Settings entries, settings'
-section rows, and the edit-folder member rows.
+A hovered list row (desktop pointers only) lights its **label** `primary` — and nothing else
+moves. No surface step, no wash: `bg-muted` reads *brighter* than `bg-elevated` in both themes,
+so stepping a hover to `bg-muted` would make a hovered row louder than a selected one, and a
+10% `primary` wash (the first attempt) barely registered — there is no alpha of the accent
+that is both visible over `bg-default` and quieter than `bg-elevated`, so it landed as haze.
+Colour borrows no surface, which is also why it can **stack** on a row that already has one
+(the selected row, or every top-level row in cards mode) instead of having to be withheld
+from exactly the rows that most needed feedback. Meta that sets its own colour (counts, the
+`text-muted` caption) keeps it, so only the name lights up; a muted feed is dimmed by opacity
+rather than `text-muted` for the same reason; an icon that sets its own colour follows by the
+same gate (`group-hover`), or the label would light beside a muted icon. The `hover-accent`
+utility (`app/assets/css/themes.css`) carries this, wrapped in `@media (hover: hover)` so touch
+pointers — where `:hover` sticks after a tap — get nothing. Used across the feed list, the
+sidebar's Add feed/Settings entries, settings' section rows, and the edit-folder member rows.
+
+**Selected** is the same cue made to stand: the row's label goes `primary` *and* the row takes
+`bg-elevated` + `shadow-elevated` — the tap flash on the way out on mobile, the persistent
+master–detail selection on desktop. The name carries the selection rather than the surface
+alone because in cards mode every top-level row already has a surface.
 
 ### Separation
 
@@ -163,7 +172,7 @@ six-name `--spacing-*` rule above: defined as `--container-*` in `app/assets/css
 |---|---|---|
 | `--container-sidebar` | 18rem | Sidebar column: the feed list plus the standing Add feed / Settings rows |
 | `--container-postlist` | 24rem | Posts (master) pane |
-| `--container-reading` | 42rem | Post content measure cap; also the width of the desktop content area's single-pane screens (`/add` — the wizard is linear steps with no list beside them). Settings and edit use a 40/60 master–detail split of the area instead, the same ratio as the posts/post panes |
+| `--container-reading` | 42rem | Post content measure cap; also the width of the desktop content area's single-pane screens (`/add` — the wizard is linear steps with no list beside them). Settings and edit split the area into two equal panes instead — each the posts pane's 40%, the last fifth left empty, since a form has a natural width and doesn't get better wider the way an article does |
 | `--container-post` | 56rem | Post body measure — only bites on wide monitors |
 | `--container-signin` | `calc(400px + 2 * var(--spacing-lg))` | The sign-in column on `/login` — the only measure here that isn't a shell one. It is Google's 400px button cap plus the two page-insets, because that button's width can't be raised and a wider column would leave it short of the field below it (see [screens-and-flows.md](./screens-and-flows.md) § 0) |
 

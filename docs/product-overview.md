@@ -41,7 +41,7 @@ Layout follows the **viewport**, not the platform:
   Settings, Add, and Edit open as bottom drawers.
 - **Desktop / wide** (≥ 1024px) — **three columns**: a persistent sidebar (the feed list, plus
   standing Add feed / Settings links, always visible), a posts pane, and a post pane. Settings,
-  Add, and Edit present as a content area sliding in over the two reading panes instead of
+  Add, and Edit present as a content area over the two reading panes instead of
   drawers — a master–detail pair where there's a list to sit beside (Settings, folder editing),
   single-pane where there isn't (Add, loose-feed editing); the sidebar stays interactive
   alongside them.
@@ -70,7 +70,7 @@ These are non-negotiable constraints that every screen should honor:
   `app/pages/design.vue` and the theme tokens in `app/assets/css/main.css`.
 - **Overlay secondary actions.** Add feed, Settings, and editing a feed/folder layer over the
   current screen as a bottom drawer (`UDrawer`) on mobile, but they're route-backed (`/add`,
-  `/settings/*`, `/edit/*`), so on desktop they present as a content area sliding in over the
+  `/settings/*`, `/edit/*`), so on desktop they present as a content area over the
   reading panes rather than drawers — a master–detail pair where there's a list to sit beside
   (Settings, folder editing), single-pane where there isn't (Add, loose-feed editing).
 
@@ -92,9 +92,8 @@ and visit the design page, or read `app/pages/design.vue`.
 - Not an engagement machine — no "popular," "trending," or "hot news" surfaces, and no
   algorithmic recommendations. You see your sources, nothing else.
 - Not multi-theme *yet* — dark only for now (see [Planned](#planned-not-now)).
-- Not (yet) a *self-updating* reader — the app reads real fetched posts from its own backend,
-  but polling is still run by hand until the background queue lands. See
-  [current-state.md](./current-state.md).
+- Not a *push* reader — sources are polled on a schedule (about every 30 minutes) by the
+  backend's own worker; nothing notifies you. See [current-state.md](./current-state.md).
 
 ## Planned (not now)
 

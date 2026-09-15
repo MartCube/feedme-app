@@ -3,7 +3,7 @@
 A snapshot of what's actually built vs. what the spec (these docs) describes. The goal is to
 make the gap visible so implementation has a clear backlog. Update this as work lands.
 
-_Last reviewed: 2026-09-03._
+_Last reviewed: 2026-09-15._
 
 ## Summary
 
@@ -21,9 +21,17 @@ mute and both deletes all go through the API, and the edit drawer's copy moved o
 nouns (folder / feed — no "source" on screen). **Sign-in is real** _(2026-09-03)_: `/login`
 renders Google's own button and `POST /auth/google` trades its credential for our bearer token —
 with the dev-token field deliberately kept beside it for now, so there are two ways in until the
-dev path is retired. What has no endpoint behind it yet says so: the
-add wizard resolves a **pasted feed URL** and finds nothing for a keyword or a handle, and the
-home reorder has no UI. See Resolved decisions → Backend stack & API.
+dev path is retired. **Posts now age out** _(2026-09-07)_: a nightly job prunes unsaved posts
+past 90 days and, per source, past the newest 500 — saved posts are exempt at any age — and
+polling respects the same line, so a feed subscribed today arrives with only the posts inside
+that window. **Posts are searchable** — `GET /search` _(2026-09-06)_ narrows any feed / folder /
+saved list, and the feed page and the desktop posts pane search through it from a box on the
+list's own title row. What has no endpoint behind it yet says so: the add wizard resolves any
+**pasted URL** and searches **YouTube** by channel name, but a keyword under Website or Reddit
+still finds nothing, and the home reorder has no UI. The gap runs the other way in **one** place:
+`GET /posts/{uid}/article` extracts and caches article text as of _2026-09-05_, and **no screen
+calls it yet**, so the reader still shows the RSS summary as plain text. See Resolved decisions →
+Backend stack & API.
 Backend work is sequenced in [backend-roadmap.md](./backend-roadmap.md), which tracks its
 own status: **read that file's § Status for what to build next.**
 
@@ -33,8 +41,9 @@ own status: **read that file's § Status for what to build next.**
   themes: Ink default + Claude; the old teal/ink/silver ramps are removed), plus the 4-size
   type scale (`text-title/subtitle/body/caption`, plus a brand-only `text-logo` for the wordmark
   — see [design-system.md](./design-system.md) § Type scale) and `shadow-elevated`. The same
-  file defines a desktop-only `hover-highlight` utility (10% `primary` wash on `:hover`) used
-  across list rows — see [design-system.md](./design-system.md) § Color roles → Hover state. The
+  file defines a desktop-only `hover-accent` utility (the row's label goes `primary` on `:hover`,
+  nothing else moves) used across list rows — see [design-system.md](./design-system.md) § Color
+  roles → Hover state. The
   font family and type scale live in their own `app/assets/css/typography.css` (imported by
   `main.css`), and the
   6-step t-shirt spacing scale (`--spacing-2xs…xl` → `p-sm`, `gap-md`, `mt-lg`, …) in
@@ -106,11 +115,17 @@ own status: **read that file's § Status for what to build next.**
   isn't a feed.", "You already follow that feed."), sitting **above** the destination list (the
   panel is `touch-none`, so anything below a long folder list is out of reach on mobile), with
   the destination cards disabled while the request is in flight; the sheet **only closes on
-  success**. The search step
-  resolves the one case that needs no server: a **pasted feed URL** becomes a single candidate
-  (`candidateFromUrl` — its name/type are placeholders the server overwrites from the fetched
-  feed). A keyword, a `youtube.com/@handle` or a bare subreddit name still says "Nothing found"
-  until T11's `/discover`.
+  success**. The search step calls
+  **`GET /discover`** _(T11a, 2026-09-06)_: a pasted URL resolves whether or not it is the feed
+  URL — a blog homepage or a post page, a YouTube channel URL or `@handle`, a subreddit URL or a
+  bare name. Results a user already follows come back dimmed with a **"Following"** caption and
+  can't be picked, and each row is captioned with its **feed URL**, since one page can declare
+  several feeds and that is what tells them apart. A **keyword under the YouTube card** searches
+  YouTube by channel name _(T11b, 2026-09-11)_: up to five channels, each row leading with the
+  channel's avatar, and the same `videos.xml` feed URL a pasted channel resolves to, so subscribing
+  is the same `POST /feeds` either way. YouTube refusing to answer (quota spent, key rejected) is
+  a **503** the step shows as an error — not "nothing found", which would be a lie. A keyword
+  under Website or Reddit still says "Nothing found. Try pasting a link." (T11c, T11d).
 - **Edit drawer (folder / feed)** — `app/components/edit/Drawer.vue` hosts the sheet (UDrawer
   + open protocol + close-key provide + animation-end navigation), like the settings/add
   drawers; every `/edit/*` URL renders the home component (`pages:extend`) so the list stays
@@ -177,27 +192,32 @@ own status: **read that file's § Status for what to build next.**
   measure, `FeedPostView`, or a dimmed "Select a post" placeholder — **no auto-select**).
   `Shell.vue` reads `useRouter().currentRoute` rather than Nuxt's `useRoute()` (Nuxt's route
   object only resyncs when a `NuxtPage` resolves, and the shell renders none), syncing the
-  feeds store's `readerFeedUid`/`readerPostUid`/`readerPath` on reader routes only — they stay
-  frozen while a content route is open.
-  Settings, Add, and Edit present as a **content area** (`ContentOverlay.vue`) that slides in
-  from the right over the two reading panes and slides back out on close (`.content-slide-*`,
-  `assets/css/transitions.css`; the reading panes' wrapper clips it with `overflow-x-clip`); the
-  sidebar stays interactive and the reading panes stay mounted underneath throughout (feed,
-  selected post, and pane scroll all survive a round-trip). Settings and Edit split the area
-  **40/60** — the same ratio as the posts/post panes — into a master pane (the settings section
-  list, or a folder's panel) and a detail pane (the open section, or a folder member's panel /
-  the scoped add steps / a delete confirm), each keeping the open item's row persistently
-  elevated in the master (`activePath` on `SettingsHome`, `activeUid` on `EditFolderPanel` — the
-  same pattern the feed list and post list already use), with a "Select a section" / "Select a
-  feed" placeholder in the detail pane until something is open. Two flows have no master to sit
-  beside and take the area **single-pane**, capped at `--container-reading`: Add (the wizard is
-  four linear steps with no list) and editing a **loose** feed (nothing below it to pick — a
-  second pane there would be dead space beside a squeezed form). Switching what the detail pane
-  shows is a plain swap with no motion, exactly like clicking a different post; only the area's
-  own open/close slides. The area reuses the exact mobile panel components
-  (`app/utils/settings-panels.ts`'s route map, `AddSteps`, `EditPanels` — which gained a
-  `pane: 'all' | 'single' | 'master' | 'detail'` prop — `'all'` is the unchanged mobile-drawer
-  behaviour, `'single'` the same views without the slide) and resets the add wizard on any exit from `/add` or `/edit/*`. The
+  feeds store's `readerFeedUid`/`readerPostUid`/`readerQuery`/`readerPath` on reader routes only
+  — they stay frozen while a content route is open (which is what keeps a search alive across a
+  trip into Settings).
+  Settings, Add, and Edit present as a **content area** (`ContentOverlay.vue`) laid over the two
+  reading panes; the sidebar stays interactive and the reading panes stay mounted underneath
+  throughout (feed, selected post, search, and pane scroll all survive a round-trip). **Nothing
+  on desktop slides** — the area appears and disappears like a page replacing a page, and the
+  `.content-slide-*` classes are gone from `transitions.css` (see Resolved decisions → Desktop
+  motion). Settings and Edit split the area into **two equal panes**, each `basis-2/5` — the
+  posts pane's width, with the remaining fifth left empty on the right, because a form has a
+  natural width and doesn't get better by getting wider the way an article does — a master pane
+  (the settings section list, or a folder's panel) and a detail pane (the open section, or a
+  folder member's panel / the scoped add steps / a delete confirm), each keeping the open item's
+  row persistently **elevated with its label in `primary`** in the master (`activePath` on
+  `SettingsHome`, `activeUid` on `EditFolderPanel` — the same treatment the feed list and post
+  list use), with a "Select a section" / "Select a feed" placeholder in the detail pane until
+  something is open. Two flows have no master to sit beside and take the area **single-pane**,
+  capped at `--container-reading`: Add (the wizard is four linear steps with no list) and editing
+  a **loose** feed (nothing below it to pick — a second pane there would be dead space beside a
+  squeezed form). Switching what the detail pane shows is a plain swap with no motion, exactly
+  like clicking a different post, and the add wizard's steps cut instead of sliding here
+  (`AddSteps`'s `slide` prop, `false` from this host only). The area reuses the exact mobile
+  panel components (`app/utils/settings-panels.ts`'s route map, `AddSteps`, `EditPanels` — which
+  gained a `pane: 'all' | 'single' | 'master' | 'detail'` prop — `'all'` is the unchanged
+  mobile-drawer behaviour, `'single'` the same views without the slide) and resets the add wizard
+  on any exit from `/add` or `/edit/*`. The
   three drawer hosts guard their `onMounted` open-on-deep-load with `isDesktopNow()` so a
   desktop deep-load of `/settings/*`, `/add`, or `/edit/*` never flashes a bottom sheet.
   Layout tokens live in `app/assets/css/layout.css` (`--container-sidebar/postlist/reading/post`,
@@ -224,8 +244,8 @@ own status: **read that file's § Status for what to build next.**
   Docker; ESLint-ignored). `app/assets/types.ts` survives as a thin alias layer over
   `components['schemas']` — `Feed`, `Folder`, `Post`, `FeedType`, plus `Home`/`PostPage`/
   `Settings`/`Me`/`SavedGroupName` — so component imports are unchanged and a renamed backend
-  field breaks typecheck instead of silently rendering blank. `FeedCandidate` stays hand-written
-  until T11's `/discover` gives it a schema.
+  field breaks typecheck instead of silently rendering blank. `FeedCandidate` is generated too as of
+  T11a — `DiscoverResultSchema`, which is a `Feed` minus its uid plus `already_subscribed`.
 - **Auth & login** — `app/pages/login.vue` (brand, one line, then **two controls**: Google's
   rendered sign-in button and, below it, the dev-token field — both ship, see Not started →
   Sign-in (rest); `definePageMeta({ layout: false })` is load-bearing, since the default
@@ -254,7 +274,10 @@ own status: **read that file's § Status for what to build next.**
   Not started → Home reorder).
   `app/composables/usePostList.ts` cursor-pages `GET /feeds/{uid}/posts` (limit 10) behind a
   sentinel + VueUse `useIntersectionObserver` rooted on the viewport, so the same composable
-  serves the mobile page scroll and the desktop pane. `app/composables/usePost.ts` owns one post
+  serves the mobile page scroll and the desktop pane; given a query it pages `GET /search`
+  instead, with the uid as `scope` — same page shape, same cursor, same failure rules, so
+  searching is a different URL and nothing else, and a changed query resets the list exactly as
+  a changed uid does. `app/composables/usePost.ts` owns one post
   plus its save toggle. The `settings` store loads `GET /settings` and `PUT`s on change (a full
   replace of all three synced fields). Both loads run from
   `app.vue`'s `onMounted` (and again on sign-in), never from middleware — see Resolved decisions.
@@ -271,7 +294,8 @@ own status: **read that file's § Status for what to build next.**
   and, on desktop, the sidebar (an `activeUid` prop drives the desktop persistent-selection
   highlight). It leads with a stand-in **FEEDME wordmark** (`text-logo`, FEED in `text-primary`,
   ME in body ink — a placeholder until a designer supplies a real mark; see
-  [design-system.md](./design-system.md) § Type scale), then **Home** as an ordinary list row —
+  [design-system.md](./design-system.md) § Type scale; the mark itself links to `/feed/all`, the
+  link sized to the text so the row's dead space isn't a target), then **Home** as an ordinary list row —
   same height and surface as every other row, inline `Home` + an `All feeds` caption — linking
   to `/feed/all` (the merged all-feeds read), then a pinned **Saved** row (links to
   `/feed/saved`; chevron expands to the three saved groups — Bookmarks / Favorites / Later from
@@ -287,18 +311,36 @@ own status: **read that file's § Status for what to build next.**
   for now — no type icons. A row's trailing action is hover-revealed on hover-capable pointers
   (`@media (hover: hover)`); on touch it hides for a folder/loose-feed row, where long-press is
   the entry (below), but stays visible for Home's 3-dot, which has no long-press fallback. Every
-  row also carries the shared desktop `hover-highlight` wash — see
-  [design-system.md](./design-system.md) § Color roles → Hover state. Long-press (mobile) /
+  row also carries the shared desktop `hover-accent` (label to `primary` on hover), and a
+  selected row — the tap flash on mobile, the persistent desktop selection — lights its **name**
+  `primary` on top of the elevated surface, since in cards mode every top-level row already has
+  a surface and the name is the only cue left; a muted member is dimmed by opacity alone so it
+  still takes both. In list mode rows sit `2xs` apart so a selected row's rounded surface doesn't
+  fuse with its neighbour. See [design-system.md](./design-system.md) § Color roles → Hover
+  state. Long-press (mobile) /
   hover 3-dot (desktop) on a folder or loose-feed row opens the **edit drawer** (see Built,
   below).
-- **Feed page v1** — `app/components/feed/PostList.vue` (`FeedPostList`, `uid` + `activePostUid`
-  props) lists PostCards with the resolved feed/folder name as title — used by the mobile feed
-  page (`app/pages/feed/[uid]/index.vue`) and, on desktop, the shell's posts pane. Posts come
-  from `usePostList(uid)` — the uid resolves **server-side** in the frontend's own order
-  (`all` → `saved` → `saved_*` → `folder_*` → `feed_*`), so the component filters nothing and
-  just renders what pages in; a uid change resets the list rather than appending. The list says
-  "No posts here yet" when a stream is genuinely empty and "Couldn't load posts." when a page
-  request failed (paging stops rather than retrying into a refusing server).
+- **Feed page v1** — `app/components/feed/PostList.vue` (`FeedPostList`, `uid` + `q` +
+  `activePostUid` props) lists PostCards with the resolved feed/folder name as title — used by
+  the mobile feed page (`app/pages/feed/[uid]/index.vue`) and, on desktop, the shell's posts
+  pane. Posts come from `usePostList(uid, q)` — the uid resolves **server-side** in the
+  frontend's own order (`all` → `saved` → `saved_*` → `folder_*` → `feed_*`), so the component
+  filters nothing and just renders what pages in; a uid change resets the list rather than
+  appending. The list says "No posts here yet" when a stream is genuinely empty and "Couldn't
+  load posts." when a page request failed (paging stops rather than retrying into a refusing
+  server).
+  **Search** lives on the title row: a magnifying-glass `IconButton` swaps the title for a
+  `SearchInput` (placeholder "Search *{title}*", so the list being searched is named without a
+  noun that would be wrong for a folder or Saved; no submit arrow — the field is live) and back
+  to an X that closes it. Typing is debounced 300ms into `?q=` on the route via `router.replace`
+  (never `push` — Back must leave the page, not walk the term backwards), and the list pages
+  `GET /search` scoped to the same uid, ordered by recency; an empty result says *No posts match
+  "…"* with the term. The host owns the query the way it owns the uid: the mobile page reads `route.query.q`
+  (frozen the moment the page starts leaving, so results don't blank mid-slide), the desktop
+  shell the store's `readerQuery` mirror. A result's link carries the query, so Back from a post
+  lands on the results, and a deep link with `?q=` opens the box filled. Closing is immediate; a
+  uid change clears it. The mobile navbar's magnifying glass is gone — this row is the entry on
+  both viewports, since the desktop pane has no navbar.
   `feed/[uid].vue` stays a `<NuxtPage/>` passthrough on
   mobile; on desktop the shell bypasses it (and every route's `<NuxtPage/>`) entirely, composing
   the posts/post panes itself from the feeds store.
@@ -310,13 +352,16 @@ own status: **read that file's § Status for what to build next.**
   toggle, not a group chooser) and reflects the saved state in its icon and `aria-pressed`. The
   **desktop post pane has no action bar**, so saving is mobile-only for now (it never had one —
   queued with Desktop polish). Summaries are RSS HTML and are rendered as **plain text**
-  (`app/utils/strip-html.ts`) — nothing sanitises third-party markup, and T10's extracted
-  article text is the real answer. Open source is still missing on both viewports.
+  (`app/utils/strip-html.ts`) — nothing sanitises third-party markup, and the extracted article
+  text is the real answer; T10 built `/posts/{uid}/article` _(2026-09-05)_ but this component
+  does not call it yet (see Not started → Post page (rest)). Open source is still missing on both
+  viewports.
 - **PostCard v1** — `app/components/feed/PostCard.vue`: date + title only (no image / type cue
   yet), whole card links to the post; rows separated by spacing (no divider lines).
 - **Context-aware navbar** — both slots swap per page: home = menu + add, feed page =
-  sidebar icon (→ home) + search (no-op for now), post page = back (→ its feed) + save
-  (wired — see Post page v1). Navigation is hierarchical, not history-based.
+  sidebar icon (→ home) alone (search sits on the list's title row instead — see Feed page v1),
+  post page = back (→ its feed, carrying the search it was opened from) + save (wired — see Post
+  page v1). Navigation is hierarchical, not history-based.
 - **Reader slide transitions** — **mobile only** (the desktop shell renders no `<NuxtPage/>`,
   so this machinery never runs there — see Desktop shell v1). home → feed → post slide like a
   navigation stack (deeper pushes in from the right, back pops out to the right). Direction is
@@ -340,17 +385,22 @@ own status: **read that file's § Status for what to build next.**
 
 ## Stubs (exist but placeholder content)
 
-- **Add-feed search** — the wizard flow, the real subscribe, and the destination picker are
-  built (see Built). What's still a stub is **finding** a feed: only a pasted feed URL resolves,
-  and everything else (keyword, YouTube handle, subreddit name, a site URL that isn't the feed
-  URL) reports "Nothing found" until T11's `/discover`.
+- **Add-feed search by keyword, outside YouTube** — pasting a URL of any kind resolves for real
+  (T11a), and a channel name under the YouTube card searches YouTube (T11b) — see Built, and
+  [backend-roadmap.md](./backend-roadmap.md). What's still a stub is a **keyword under Website
+  or Reddit**: subreddits by name is T11c, our own catalog T11d. Until then those two cards report
+  "Nothing found. Try pasting a link."
 
 ## Not started
 
-- **Post page (rest)** — Open source, and the **article text** itself: the reader shows the RSS
-  `summary` as plain text until T10's `/posts/{uid}/article`.
+- **Post page (rest)** — Open source, and the **article text** itself. The endpoint behind it now
+  exists — `GET /posts/{uid}/article`, built and cached in T10 _(2026-09-05)_ — but **nothing on
+  the frontend calls it**: `FeedPostView` still renders the stripped RSS `summary`, so no screen
+  has yet shown an extracted article or exercised its `unavailable` fallback. Wiring the reader
+  (render `article_html` as markup, keep the stripped summary as the fallback, add Open source) is
+  the follow-up recorded in [backend-roadmap.md](./backend-roadmap.md) § Tasks → T10.
 - **Desktop polish** — v1 (see Built → Desktop shell v1) ships the structural three columns
-  only: no desktop pane/overlay transitions, keyboard focus rings still globally suppressed,
+  only: keyboard focus rings still globally suppressed,
   and `HomeOptionsDrawer` still opens as a mobile-style bottom sheet on desktop. The post pane
   has **no action bar**, so the save toggle is mobile-only. Auto-selecting
   a detail post (e.g. the last-read one) on entering a feed is also deferred — v1 always starts
@@ -359,9 +409,11 @@ own status: **read that file's § Status for what to build next.**
   Appearance and Account are real (see Built); About's version string is hardcoded and Report
   still needs real content and a way to actually send anything.
 - **PostCard (rest)** — image and source-feed type cue.
-- **Add feed (rest)** — real search / RSS discovery + live metadata (sub counts, latest items)
-  behind the wizard (T11), and input validation via VeeValidate/Zod. The wizard UI and the
-  subscribe itself are built (see Built) — a pasted feed URL works end to end.
+- **Add feed (rest)** — keyword search for subreddits and our own catalog (T11c, T11d), a
+  candidate's latest posts before subscribing (T14, planned — `GET /discover/posts`), sub counts,
+  and input validation via VeeValidate/Zod. The wizard UI, RSS discovery from a pasted URL,
+  YouTube search by name and the subscribe itself are built (see Built) — any URL works end to
+  end.
 - **Saved posts (rest)** — saving, unsaving and reading the saved streams work end to end (see
   Built), but every save lands in **Bookmarks**: there is no group chooser and no way to move a
   post between Bookmarks / Favorites / Later, though the API call for it is the same upsert.
@@ -395,6 +447,18 @@ _None currently._
 
 ## Resolved decisions
 
+- **Post search presentation** _(recorded 2026-09-15)_ — the question T12 left open (mobile
+  sheet vs. centered dialog) is settled as **neither**: the search box swaps in for the list's
+  title on the same row, in `FeedPostList.vue`, so the mobile feed page and the desktop posts
+  pane share one entry point. The query lives on the route as `?q=` (debounced, `replace` not
+  `push`), which is what makes a deep link, a reload, and Back from a post all land on the same
+  results. See Built → Feed page v1.
+- **Desktop motion** _(recorded 2026-09-15)_ — **nothing slides on desktop.** The content area
+  (Settings / Add / Edit) replaces the reading panes the way a new page would, the add wizard's
+  steps cut, and detail-pane swaps were already plain. Sliding is the mobile stack's language:
+  there one pane is the whole screen and the motion says which way you moved; on desktop both
+  ends of a move are on screen at once, so it would only be decoration. This closes the "no
+  desktop pane/overlay transitions" item that Desktop polish carried as a gap.
 - **Desktop layout composition** _(2026-07-27)_ — desktop (≥1024px) is **three columns**
   (sidebar + posts pane + post pane), composed by `app/layouts/default.vue` /
   `DesktopShell` straight from the existing routes and the `feeds`/`settings` stores —
@@ -622,7 +686,143 @@ _None currently._
   mid-poll against a deliberately slow feed left the source with zero posts and `error_count`
   untouched, and the redelivered message polled cleanly after the broker's heartbeat window; a
   `SIGTERM` let the in-flight poll finish before shutting down; and `POST /feeds` still validates
-  inline exactly as T7 left it. Next is T10 — article extraction.
+  inline exactly as T7 left it.
+  **T10 landed _(2026-09-05)_, on the server only:** `GET /posts/{uid}/article` extracts a post's
+  article on the first request for it and serves everyone from `Post.article_html` after — the
+  cache is global because the post row is. It reuses T5's visibility rule, so a post you neither
+  follow nor saved 404s as detail does. Extraction runs **synchronously with a hard timeout**
+  inside the request rather than as a Dramatiq job, which **reverses**
+  [backend.md](./backend.md) § Fetching pipeline's `extract_article` job row: the reader is
+  blocked either way, and queueing would add a polling loop and a third state on screen for a
+  slow path that runs once per post (measured: 0.99s first call, 0.012s second).
+  `backend/core/extract.py` mirrors `ingest.py`'s shape — one network function, one entry point
+  that never raises — and pipes trafilatura's HTML through `nh3.clean` with our own allowlist,
+  because the frontend will render that field as markup and the guarantee has to be ours rather
+  than a property of trafilatura's internals. The column keeps three states (`null` untried, `''`
+  read-but-empty, the article) where the wire carries two (`ok` / `unavailable`), and **anything
+  short of an article is retried on the next open** — `''` as much as `null` _(amended after
+  T10, in the tree committed 2026-09-15; T10 itself cached the empty read)_: a bot-challenge page
+  served as 200 or a site mid-deploy reads as empty once, and one bounded fetch per open is cheap
+  next to a post that is wrong for every subscriber forever. The `''` is still stored so admin
+  can tell "tried, empty" from "never tried". The fetch itself refuses non-public targets on every redirect hop, caps the body at
+  2MB and rejects non-HTML, since unlike ingest this endpoint hands what it downloads back to the
+  caller. Eight decisions — including that SSRF check's stated DNS-rebinding limit, the YouTube
+  short-circuit, and why `favor_precision` is off — are in
+  [backend-roadmap.md](./backend-roadmap.md) § Decision log (2026-09-05, T10).
+  Verified: 208 backend tests green (was 182), `ruff check` clean, and driven against live pages —
+  a blog post extracted in 0.99s and served from the column in 0.012s, a YouTube post answered
+  `unavailable` in 0.010s with no outbound request, and Reddit's JS interstitial correctly stored
+  as "read it, no article". **Nothing on the frontend calls the endpoint yet** — the reader still
+  renders the stripped `summary` (see Not started → Post page (rest)), which is why nothing on
+  screen changed.
+  **T12 landed _(2026-09-06)_, ahead of T11a and on the server only:** `GET /search?q=&scope=`
+  searches inside any list the app can already read — the `scope` is the *same* polymorphic uid
+  the post list takes, resolved by the *same* `core/postlist.py` resolver, so muting a feed drops
+  it from that folder's results immediately with no re-index, another user's uid 404s, and the
+  response is byte-for-byte a post page paged by T5's cursor. `Post.search` is a **persisted
+  generated tsvector** (title weighted over summary, `english`), recomputed by Postgres in the
+  statement that writes the row, so search is never stale and there is no sync pipeline;
+  migration `0004_post_search.py` installs `pg_trgm` by hand first (`makemigrations` never emits
+  an extension operation), then the column, then a GIN index on it and a **functional** trigram
+  index on `upper(title)` — functional because Django compiles `__icontains` to
+  `UPPER("title"::text) LIKE …` and the planner only matches an index built on the same
+  expression. Nothing was installed to do any of it: `pg_trgm` is a Postgres extension and
+  `django.contrib.postgres` ships with Django. Matching is two branches: full-text (`websearch`,
+  so a stray quote comes back empty instead of 500ing) over title and summary, plus a title-only
+  substring for the partial words FTS structurally can't reach — `summary` is never
+  substring-matched, since it is third-party HTML and that would match markup. Results are
+  ordered by **recency, not relevance** (the weights are in the vector, so ranking later is an
+  `order_by`, not a migration), and a blank `q` is an empty page rather than a 422. All of it
+  lives in `backend/core/search.py`, with a **test that scans `core/` and fails** if any other
+  module touches the tsvector column — which is what keeps
+  [backend.md](./backend.md#search)'s "swap in Elasticsearch by rewriting one module" promise
+  checkable. Nine decisions are in [backend-roadmap.md](./backend-roadmap.md) § Decision log
+  (2026-09-06, T12). Verified: 255 backend tests green (231 before, 24 new), `ruff check` clean,
+  and against the real dev database — partial words matching real posts, every scope branch,
+  a mute reflected instantly, 105 results paged two at a time across 53 pages with no duplicates,
+  and `openapi.json` carrying `search_posts` under `feeds` with still exactly four tags.
+  **The frontend is wired to it** — the feed page and the desktop posts pane search from their
+  title row (see Built → Feed page v1), and `app/types/api.d.ts` has been regenerated to carry
+  the `/search` path.
+  **T13 landed _(2026-09-07)_, with no endpoint and no screen behind it:** the posts table now has
+  a ceiling. `backend/core/retention.py` holds every deletion rule — unsaved posts older than **90
+  days**, and per source those beyond the newest **500**, both rules deleting, so a post goes if
+  either catches it — and **a saved post is never deleted**, at any age and no matter who saved it,
+  since a post row is global and an owner-scoped rule would empty another account's pile. The cap
+  keeps its newest rows by excluding their pks rather than comparing against a boundary timestamp,
+  which is what makes it exact when a source stamps a whole batch with the same second. Deletes run
+  in batches of 1000 pks, and `--dry-run` is the real run inside a rolled-back transaction rather
+  than a simulation, because the cap pass ranks whatever the age pass left behind. Two daily actors
+  in `core/tasks.py` (03:30 and 03:45) wrap the plain functions the way `poll_source` wraps ingest,
+  with `manage.py prune_posts --days --cap --dry-run` as the manual override; the second one,
+  `prune_expired_tokens()`, deletes `AuthToken` rows past `core/auth.py`'s imported `TOKEN_TTL` and
+  closes the forward reference T2 left. The one change outside the new module is that **ingest now
+  respects retention's line**: `_upsert_posts` won't create a post the prune would delete that
+  night, because the first live run watched an archive feed put 49 just-deleted posts straight back
+  on the next five-minute sweep — the consequence being that a feed whose entries are all past the
+  window subscribes successfully with zero posts. Nine decisions are in
+  [backend-roadmap.md](./backend-roadmap.md) § Decision log (2026-09-07, T13). Verified: 285
+  backend tests green (was 263, 22 new), `ruff check .` clean, and against the real dev database —
+  a dry run that predicted 51 deletions and a real run that deleted exactly those 51, a saved
+  200-day-old post surviving both, and the post list, the saved list and `/search` all correct
+  afterwards.
+  **Hardened alongside, in the same tree:** the writes now refuse what would have been a 500 or a
+  silent truncation — a name with a NUL byte is a 422 (one `clean_name` shared by feed and folder
+  writes, so the two can't disagree about what a name is), a `feed_url` past the column's 500
+  characters is a 422 rather than a truncated fetch of a different URL, a double-tapped Subscribe
+  that races past the exists-check is caught at the unique constraint and answered as the same
+  "You already follow that feed.", an ingest that raises mid-subscribe deletes the new source
+  row instead of leaving a dead one behind, and a brand-new source is created already claimed
+  for the poll interval so the five-minute sweep can't poll it from the worker while the inline
+  fetch is still running. `PATCH /folders/{uid}` is one transaction from the rename down, so a
+  refused membership takes the rename back with it; `DELETE /me` deactivates every source the
+  account was the last subscriber of, since the cascade is the one way feeds vanish without
+  passing through unsubscribe; and a cursor carrying a naive timestamp is a 422. **316 backend
+  tests green in the tree as committed** (T13's 285 plus T11b's 12 in `test_youtube.py` and the
+  tests behind the hardening above), `ruff check .` clean.
+
+- **Feed discovery** _(T11a, 2026-09-06)_ — the add wizard's search step does real work: paste a
+  URL and `GET /discover` turns it into feeds you can subscribe to. **T11 was split into four**
+  (see [backend-roadmap.md](./backend-roadmap.md) § Status); T11a is the part needing no external
+  accounts, and T12 was built ahead of it. A pasted URL is fetched once and either parsed as a feed
+  or read for the `<link rel="alternate">` tags it declares. Two shapes drove the design and both
+  came from pasting real URLs, not from the suite, which was green throughout: **a post URL**
+  (`nuxt.com/blog/meet-nuxi`) declares no feed while the section index above it does, so the
+  resolver **walks up the path** — nearest first, always reaching the site root, capped at three
+  fetches, and only when the pasted page came up empty; and **YouTube closes `<head>` after
+  ~700 KB of inline script**, declaring its title and `videos.xml?channel_id=…` link in the *body*,
+  so the parser reads the whole document (8 ms on a 1.6 MB page — `HTMLParser` skips script bodies
+  as CDATA). Failing all that, `/feed`, `/rss`, `/rss.xml`, `/atom.xml`, `/index.xml` are probed at
+  the root, which catches static-site generators that ship a feed and forget the tag. T10's
+  SSRF-guarded fetch moved out of `core/extract.py` into **`core/fetch.py`**, shared by both
+  callers that hand a fetched body back to the requester — a forced move, not a tidy-up: discovery
+  needs a different accept header, content-type allowlist and byte cap, and once those are
+  arguments the function is no longer "the article page fetcher". No new dependency: `feedparser`
+  answers "is this a feed", stdlib `html.parser` answers "where is the feed on this page". Nine
+  decisions are in [backend-roadmap.md](./backend-roadmap.md) § Decision log (2026-09-06, T11a).
+  Verified: 263 backend tests green (28 new in `test_discover.py`, 17 in `test_fetch.py` of which
+  15 moved with the code), `ruff check` / `pnpm lint` / `pnpm typecheck` clean, and against live
+  sites — a Nuxt post URL, two feeds off overreacted.io, three off github.blog, Hacker News, two
+  YouTube handles in ~450 ms, and `r/vuejs`. **Known limitation:** Reddit answers **429** to
+  repeated unauthenticated `.rss` fetches, so a subreddit can resolve on one search and not the
+  next; app credentials (T11c) are the fix.
+  **T11b _(2026-09-11)_ — YouTube by name.** A bare name under the YouTube card is a Data API
+  `search.list` (`backend/core/youtube.py`, the one module that spends quota; `fetch_search` is
+  its one network call), mapped to the same `videos.xml` candidate a pasted channel resolves to,
+  with the channel avatar as `icon_url`. Shaped by the quota — 10k units a day, 100 per search:
+  every answer is **cached for a day** under a hashed, whitespace-and-case-normalised key, a
+  failed search is not cached (an error would otherwise be served for a day), and at most five
+  channels come back even when YouTube overshoots `maxResults` (seen live). Django's cache is
+  now the same Redis the broker uses (`CACHES` in `settings.py`), with one standing rule —
+  never `cache.clear()` against it, since on that backend it is `FLUSHDB` and the queues share
+  the database; tests swap in locmem so they can. `YOUTUBE_API_KEY` is optional like the Google
+  client id: without it a name finds nothing and a URL or `@handle` still resolves through the
+  channel page, spending no quota either way. YouTube refusing to answer is a **503** ("YouTube
+  search is unavailable right now."), never an empty list. Frontend: `SearchStep.vue` leads a
+  YouTube row with its avatar (square by nature — a website's `icon_url` is as often a wide
+  banner, so that gets its own pass) and shows the 503 as an error rather than "Nothing found".
+  The card decides what a bare name means — `one piece` is a channel search under YouTube and
+  nothing under Website — and a keyword under the other two cards is unchanged (T11c, T11d).
 
 - **Routing scheme** _(2026-06-29)_ — **nested routes**: posts nest under feeds
   (`/feed/[uid]/post/[postUid]`), settings subpages nest under settings (`/settings/*`). The
