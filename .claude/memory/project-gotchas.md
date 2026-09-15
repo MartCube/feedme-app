@@ -91,3 +91,17 @@ metadata:
 - vaul emits `animationEnd(false)` once for its initial *closed* state after mount.
 - vaul's `should-scale-background` mutates `<body>` inline styles — see
   [[feedback-no-global-visual-side-effects]].
+
+## Backend editing
+
+- The PostToolUse hook runs `ruff check --fix` on every Edit/Write of a `.py` — and F401
+  deletes an import the moment it is unused. Adding an import in one edit and its first use in
+  a later edit loses the import in between (`NameError` at test time). Put the import and its
+  use in the same edit, or add the use first and the import second.
+- `worker` and `scheduler` don't autoreload — `api` (runserver) does. After editing anything
+  they import (`core/ingest.py`, `core/retention.py`, `core/tasks.py`), `docker compose restart
+  worker scheduler` or they keep running the old code.
+- Probing the real API from `manage.py shell`: `django.test.Client` needs
+  `headers={'host': 'localhost'}` (pytest patches ALLOWED_HOSTS; the shell doesn't), and
+  wrap in `transaction.atomic()` + `set_rollback(True)` — with a nested `atomic()` per probe,
+  or the first DataError poisons every probe after it.
