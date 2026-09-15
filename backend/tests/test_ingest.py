@@ -132,19 +132,20 @@ def test_a_304_is_a_no_op_that_keeps_the_validators(source, monkeypatch):
 
 
 def test_the_stored_validators_are_sent_on_the_next_poll(source, monkeypatch):
-    """fetch_feed is the seam every other test replaces — this is the test of the seam."""
+    """fetch_feed is the seam every other test replaces — this is the test of the seam.
+
+    A literal public address, as tests/test_fetch.py uses: fetch_feed vets the URL before
+    the GET, and a hostname would drag a resolver into the test."""
+    from tests.test_fetch import FakeResponse
+
+    source.feed_url = 'http://93.184.216.34/rss'
     source.etag = '"abc"'
     source.last_modified = 'Mon, 24 Aug 2026 20:36:01 GMT'
     sent = {}
 
-    class Response:
-        status_code = 304
-        content = b''
-        headers = {}
-
-    def fake_get(url, headers, timeout):
+    def fake_get(url, headers, timeout, stream):
         sent.update(url=url, headers=headers, timeout=timeout)
-        return Response()
+        return FakeResponse(304)
 
     monkeypatch.setattr(ingest.requests, 'get', fake_get)
     ingest.fetch_feed(source)
@@ -156,18 +157,16 @@ def test_the_stored_validators_are_sent_on_the_next_poll(source, monkeypatch):
 
 
 def test_no_validators_are_sent_when_none_are_stored(source, monkeypatch):
+    from tests.test_fetch import FakeResponse
+
+    source.feed_url = 'http://93.184.216.34/rss'
     sent = {}
 
-    class Response:
-        status_code = 200
-        content = feeds.RSS_BLOG
-        headers = {}
+    def fake_get(url, headers, timeout, stream):
+        sent.update(headers=headers)
+        return FakeResponse(200, chunks=[feeds.RSS_BLOG])
 
-    monkeypatch.setattr(
-        ingest.requests,
-        'get',
-        lambda url, headers, timeout: sent.update(headers=headers) or Response(),
-    )
+    monkeypatch.setattr(ingest.requests, 'get', fake_get)
     ingest.fetch_feed(source)
 
     assert 'if-none-match' not in sent['headers']
@@ -433,3 +432,142 @@ def test_poll_source_ignores_the_schedule(source, monkeypatch):
 def test_poll_source_rejects_an_unknown_uid(db):
     with pytest.raises(CommandError, match='No source with uid'):
         call_command('poll_source', 'source_nope')
+
+
+# --- Content that must never crash the write phase -------------------------------------------
+#
+# The network phase never raises (tested above); the write phase must not either, or a
+# source serving one unstorable entry fails on every poll without ever walking the backoff
+# ladder: error_count never moves, so it is never deactivated, and the sweep re-enqueues it
+# every half hour forever. Each test here is one thing a real feed can serve.
+
+
+def test_nul_bytes_are_stripped_rather_than_crashing_the_write(source, monkeypatch):
+    serve(monkeypatch, ok(feeds.RSS_NUL_BYTES))
+
+    result = ingest_source(source)
+
+    assert result.status == OK
+    post = Post.objects.get()
+    assert post.title == 'Bad title'
+    assert post.summary == 'bad body'
+    source.refresh_from_db()
+    assert source.title == 'Nullish'
+
+
+def test_an_oversized_summary_is_truncated(source, monkeypatch):
+    """The search column is a tsvector, and Postgres caps one at 1 MB — a description the
+    size of a book would fail the INSERT. Long before that it is not a summary."""
+    huge = ' '.join(f'w{i}' for i in range(30_000))
+    body = feeds.RSS_NO_DATE.replace(b'<link>', f'<description>{huge}</description><link>'.encode())
+    serve(monkeypatch, ok(body))
+
+    ingest_source(source)
+
+    assert len(Post.objects.get().summary) == ingest.MAX_SUMMARY
+
+
+def test_an_entry_whose_link_is_not_http_is_skipped(source, monkeypatch):
+    serve(monkeypatch, ok(feeds.RSS_ODD_SCHEMES))
+
+    result = ingest_source(source)
+
+    assert result.created == 1
+    assert Post.objects.get().post_url == 'https://example.com/fine'
+
+
+def test_a_non_http_image_or_site_is_dropped_not_stored(source, monkeypatch):
+    serve(monkeypatch, ok(feeds.RSS_ODD_SCHEMES))
+
+    ingest_source(source)
+
+    assert Post.objects.get().image_url == ''
+    source.refresh_from_db()
+    assert source.site_url == ''
+    assert source.icon_url == ''
+    assert source.title == 'Odd'
+
+
+def test_a_future_published_date_is_clamped_to_now(source, monkeypatch):
+    serve(monkeypatch, ok(feeds.RSS_FUTURE_DATE))
+    before = timezone.now()
+
+    ingest_source(source)
+
+    assert before <= Post.objects.get().published_at <= timezone.now()
+
+
+def test_a_write_the_database_refuses_is_a_recorded_failure_not_a_crash(source, monkeypatch):
+    """Belt and braces under the sanitising above: whatever content-shaped rejection Postgres
+    comes up with next walks the same backoff ladder as a dead feed, rather than looping."""
+    from django.db import DataError
+
+    serve(monkeypatch, ok(feeds.RSS_BLOG))
+
+    def refused(*args):
+        raise DataError('value too long for type character varying(5)')
+
+    monkeypatch.setattr(ingest, '_upsert_posts', refused)
+
+    result = ingest_source(source)
+
+    assert result.status == ERROR
+    assert 'value too long' in result.detail
+    source.refresh_from_db()
+    assert source.error_count == 1
+    assert not Post.objects.exists()
+
+
+# --- fetch_feed itself: the one function every other test here replaces -----------------------
+#
+# Polling shares core/fetch.py's address check and read cap with extraction and discovery,
+# and these are the tests that it does — with requests.get replaced the way tests/test_fetch.py
+# does it, and a literal public address so no resolver is involved.
+
+
+def test_a_private_feed_url_is_a_failure_with_no_request_made(db, monkeypatch):
+    source = Source.objects.create(type=Source.Type.WEBSITE, feed_url='http://127.0.0.1/rss')
+
+    def explode(*args, **kwargs):
+        raise AssertionError('should not have opened a socket')
+
+    monkeypatch.setattr(ingest.requests, 'get', explode)
+
+    result = ingest_source(source)
+
+    assert result.status == ERROR
+    assert 'non-public' in result.detail
+    source.refresh_from_db()
+    assert source.error_count == 1
+
+
+def test_a_feed_past_the_size_cap_is_a_failure_not_a_download(db, monkeypatch):
+    from tests.test_fetch import FakeResponse
+
+    source = Source.objects.create(type=Source.Type.WEBSITE, feed_url='http://93.184.216.34/rss')
+    too_big = FakeResponse(
+        200, {'content-type': 'application/rss+xml'}, [b'x' * (ingest.MAX_FEED_BYTES + 1)]
+    )
+    monkeypatch.setattr(ingest.requests, 'get', lambda *args, **kwargs: too_big)
+
+    result = ingest_source(source)
+
+    assert result.status == ERROR
+    assert 'larger than' in result.detail
+
+
+def test_a_feed_within_the_cap_is_read_whole(db, monkeypatch):
+    from tests.test_fetch import FakeResponse
+
+    source = Source.objects.create(type=Source.Type.WEBSITE, feed_url='http://93.184.216.34/rss')
+    response = FakeResponse(
+        200, {'content-type': 'application/rss+xml', 'etag': '"v1"'}, [feeds.RSS_BLOG]
+    )
+    monkeypatch.setattr(ingest.requests, 'get', lambda *args, **kwargs: response)
+
+    result = ingest_source(source)
+
+    assert result.status == OK
+    assert result.created == 2
+    source.refresh_from_db()
+    assert source.etag == '"v1"'

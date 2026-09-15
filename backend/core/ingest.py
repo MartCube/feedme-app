@@ -14,19 +14,30 @@ arguments from `parse()` for feedparser 7 and points callers here anyway.
 import random
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from urllib.parse import urlsplit
 
 import feedparser
 import requests
-from django.db import transaction
+from django.db import DataError, transaction
 from django.db.models import Q
 from django.utils import timezone
 
+from .fetch import ALLOWED_SCHEMES, USER_AGENT, PageUnavailable, check_public, read_capped
 from .models import Post, Source
+from .retention import age_cutoff
 
-USER_AGENT = 'FeedMe/1.0 (+https://github.com/MartCube/feedme-app)'
 ACCEPT = 'application/atom+xml,application/rss+xml,application/xml;q=0.9,*/*;q=0.8'
 # (connect, read). Split so a dead host fails fast while a slow-but-alive one gets a chance.
 TIMEOUT = (5, 15)
+# The most a feed download may be. hnrss and Reddit serve tens of KB; an archive feed with
+# every post since 2019 is under 1 MB. Past this the worker is holding a download, not a
+# feed, in memory — and it is the worker, so nobody is watching it go.
+MAX_FEED_BYTES = 10 * 1024 * 1024
+# Post.summary is a TextField, but Post.search is a tsvector generated from it, and Postgres
+# caps a tsvector at 1 MB — a description with enough distinct words fails the INSERT. The
+# largest summary a real source has served is 15 KB (Reddit, a whole table of markup); this
+# is four times that, and past it the field is no longer a summary of anything.
+MAX_SUMMARY = 64 * 1024
 
 POLL_INTERVAL = timedelta(minutes=30)
 # ±10% so a batch of sources created together doesn't come due in the same sweep forever
@@ -73,6 +84,12 @@ def fetch_feed(source):
     Conditional GET: the stored etag / last_modified are opaque strings we hand straight
     back, so a server that supports them answers 304 with an empty body. Most polls are
     that cheap — it's what makes polling hundreds of sources affordable.
+
+    Guarded by core/fetch.py's address check and read cap — the same two extraction and
+    discovery use — but not routed through its fetch_url: this call carries validators and
+    has to hand back the response's status and headers, which fetch_url doesn't expose.
+    Only the stored URL is vetted; requests follows redirects on its own, unchecked, since
+    what a feed redirects to is parsed and stored, never handed back to a caller.
     """
     headers = {'user-agent': USER_AGENT, 'accept': ACCEPT}
     if source.etag:
@@ -80,14 +97,16 @@ def fetch_feed(source):
     if source.last_modified:
         headers['if-modified-since'] = source.last_modified
 
-    response = requests.get(source.feed_url, headers=headers, timeout=TIMEOUT)
-    return FetchResult(
-        status_code=response.status_code,
-        body=response.content,
-        content_type=response.headers.get('content-type', ''),
-        etag=response.headers.get('etag', ''),
-        last_modified=response.headers.get('last-modified', ''),
-    )
+    check_public(source.feed_url)
+    response = requests.get(source.feed_url, headers=headers, timeout=TIMEOUT, stream=True)
+    with response:
+        return FetchResult(
+            status_code=response.status_code,
+            body=read_capped(response, MAX_FEED_BYTES),
+            content_type=response.headers.get('content-type', ''),
+            etag=response.headers.get('etag', ''),
+            last_modified=response.headers.get('last-modified', ''),
+        )
 
 
 def ingest_source(source):
@@ -96,7 +115,7 @@ def ingest_source(source):
 
     try:
         fetched = fetch_feed(source)
-    except requests.RequestException as exc:
+    except (requests.RequestException, PageUnavailable) as exc:
         return _record_failure(source, now, f'{type(exc).__name__}: {exc}')
 
     if fetched.status_code == 304:
@@ -124,10 +143,18 @@ def ingest_source(source):
     # One transaction, so a worker killed mid-poll leaves nothing half-written: either the
     # whole batch and the new timestamps land, or none of it does and the next poll redoes
     # the work. The network call is already finished, so no lock is held across I/O.
-    with transaction.atomic():
-        created, updated = _upsert_posts(source, parsed.entries)
-        _backfill_source_metadata(source, parsed.feed)
-        _record_success(source, now, fetched)
+    try:
+        with transaction.atomic():
+            created, updated = _upsert_posts(source, parsed.entries)
+            _backfill_source_metadata(source, parsed.feed)
+            _record_success(source, now, fetched)
+    except DataError as exc:
+        # Content Postgres refuses — a NUL byte, a tsvector past its 1 MB cap. _entry_to_post
+        # sanitises the cases we know, but whatever comes next must still be *this* source's
+        # failure, on its own backoff ladder, rather than an exception the actor retries
+        # three times and the sweep re-enqueues forever with error_count never moving.
+        # Everything else still raises: a database blip is the worker's problem, not the feed's.
+        return _record_failure(source, now, f'unstorable entry: {exc}'.strip())
     return IngestResult(OK, created=created, updated=updated)
 
 
@@ -140,10 +167,25 @@ def due_sources(now=None):
 
 
 def _upsert_posts(source, entries):
+    """Create or update one post per entry — but never create what retention deletes tonight.
+
+    An archive feed serves far more than a retention window: nuxt.com/blog/rss.xml carries
+    every post back to 2019. Without this the two jobs fight over the same rows forever —
+    the nightly prune deletes what is past the window, the next poll recreates it with a
+    fresh uid and an empty article cache, and the table never actually gets lean. Found by
+    running both against the real dev database, not by a test.
+
+    An entry already in the table is still updated, so a saved post that has aged out of
+    the window keeps tracking whatever its source now says about it.
+    """
     created = updated = 0
+    cutoff = age_cutoff()
     for entry in entries:
         guid, fields = _entry_to_post(entry)
         if guid is None:
+            continue
+        if fields['published_at'] < cutoff:
+            updated += Post.objects.filter(source=source, guid=guid).update(**fields)
             continue
         _, was_created = Post.objects.update_or_create(source=source, guid=guid, defaults=fields)
         if was_created:
@@ -160,20 +202,41 @@ def _entry_to_post(entry):
     source types (`yt:video:…`, Reddit's `t3_…` URL, the blog's permalink). Falling back
     to the link keeps feeds that omit it working.
     """
-    link = (entry.get('link') or '').strip()
-    guid = (entry.get('id') or link).strip()
-    if not link or not guid:
+    link = _text(entry.get('link'))
+    guid = _text(entry.get('id')) or link
+    # a link that isn't http(s) is not a place a post can live, whatever the markup says —
+    # and the reader will render post_url as an href, so `javascript:` never gets that far
+    if not link or not guid or not _is_http(link):
         return None, None
 
     return guid[:500], {
-        'title': (entry.get('title') or '(untitled)').strip()[:500],
+        'title': (_text(entry.get('title')) or '(untitled)')[:500],
         'post_url': link[:1000],
-        'image_url': _pick_image(entry)[:1000],
+        'image_url': _http_or_blank(_pick_image(entry))[:1000],
         # raw as given: HTML from a blog or Reddit, plain text from YouTube. The reader's
         # full article text is a separate field, extracted on demand in T10.
-        'summary': entry.get('summary') or '',
+        'summary': _text(entry.get('summary'))[:MAX_SUMMARY],
         'published_at': _published_at(entry),
     }
+
+
+def _text(value):
+    """A string as Postgres will store it: NUL bytes gone, edges trimmed.
+
+    A NUL is legal in the XML a feed serves and illegal in every text column we have — the
+    one character that turns a valid entry into a DataError on the INSERT.
+    """
+    return (value or '').replace('\x00', '').strip()
+
+
+def _is_http(url):
+    return urlsplit(url).scheme in ALLOWED_SCHEMES
+
+
+def _http_or_blank(url):
+    """A URL the frontend may put in a src or href, or '' — the same allowlist core/fetch.py
+    applies before it opens a socket, applied here before the value reaches a template."""
+    return url if _is_http(url) else ''
 
 
 def _pick_image(entry):
@@ -195,12 +258,32 @@ def _published_at(entry):
 
     `published` before `updated`: YouTube bumps `updated` on view-count changes, which
     would otherwise reshuffle the timeline on every poll.
+
+    Clamped to now: lists read newest-first, so a post dated in the future would head every
+    one of them until that date arrives — and retention's age window would never reach it.
     """
+    now = timezone.now()
     for key in ('published_parsed', 'updated_parsed'):
         parsed = entry.get(key)
         if parsed:
-            return datetime(*parsed[:6], tzinfo=UTC)
-    return timezone.now()
+            return min(datetime(*parsed[:6], tzinfo=UTC), now)
+    return now
+
+
+def feed_metadata(feed):
+    """A feed's own title, site and icon, as feedparser exposes them.
+
+    Here rather than in core/discover.py, which reads the same three off the same parse to
+    label a candidate: where a feed keeps its name is one rule, and a feed described
+    differently in the add wizard than on the home screen would be a small, constant lie.
+    """
+    return {
+        'title': feed.get('title') or '',
+        'site_url': feed.get('link') or '',
+        'icon_url': (
+            feed.get('icon') or feed.get('logo') or (feed.get('image') or {}).get('href') or ''
+        ),
+    }
 
 
 def _backfill_source_metadata(source, feed):
@@ -209,16 +292,15 @@ def _backfill_source_metadata(source, feed):
     Sources created by hand in admin (and, from T7, by subscribing to a bare URL) have
     only a feed_url; the feed knows its own title, site and icon.
     """
-    icon = feed.get('icon') or feed.get('logo') or (feed.get('image') or {}).get('href') or ''
-    for field, value in (
-        ('title', feed.get('title') or ''),
-        ('site_url', feed.get('link') or ''),
-        ('icon_url', icon),
-    ):
+    for field, value in feed_metadata(feed).items():
+        value = _text(value)
+        if field != 'title':
+            # site_url and icon_url end up in an href and an <img src> on the home screen
+            value = _http_or_blank(value)
         if not getattr(source, field) and value:
             # each column has its own limit (title is 300, the URLs are 500) and a feed
             # is free to hand us something longer
-            setattr(source, field, value.strip()[: Source._meta.get_field(field).max_length])
+            setattr(source, field, value[: Source._meta.get_field(field).max_length])
 
 
 def _describe_empty(parsed):

@@ -259,6 +259,20 @@ def test_a_malformed_cursor_is_a_422(authed_client, user, make_feed):
     assert response.json() == {'detail': 'invalid cursor'}
 
 
+def test_a_cursor_with_a_naive_timestamp_is_a_422(authed_client, user, make_feed):
+    """Every cursor we mint carries an offset. One without is a hand-built one, and Django
+    would otherwise compare it in the default timezone with a warning in the log."""
+    import base64
+
+    make_feed(user)
+    naive = base64.urlsafe_b64encode(b'2026-01-01T00:00:00|post_x').decode().rstrip('=')
+
+    response = get_posts(authed_client, 'all', cursor=naive)
+
+    assert response.status_code == 422
+    assert response.json() == {'detail': 'invalid cursor'}
+
+
 def test_a_limit_outside_the_allowed_range_is_a_422(authed_client, user, make_feed):
     make_feed(user)
 

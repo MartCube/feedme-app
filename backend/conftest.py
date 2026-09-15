@@ -3,6 +3,7 @@ from itertools import count
 import dramatiq
 import pytest
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.test import Client
 from django.utils import timezone
 from dramatiq.brokers.stub import StubBroker
@@ -32,6 +33,20 @@ dramatiq.set_broker(_broker)
 from core import tasks  # noqa: E402, F401 — its actors must bind the stub above
 
 # isort: on
+
+
+@pytest.fixture(autouse=True)
+def local_cache(settings):
+    """Every test gets an in-process cache in place of settings.py's Redis one.
+
+    Same reason as the stub broker: the dev Redis is live, shared with the worker, and a
+    cached YouTube search leaking from one test into the next — or into the running app —
+    is exactly the kind of bug that passes green. Django resets the cache handler when
+    CACHES changes, so `from django.core.cache import cache` sees the swap. Cleared as
+    well, since locmem is one dict for the whole process — safe here, never against Redis.
+    """
+    settings.CACHES = {'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'}}
+    cache.clear()
 
 
 @pytest.fixture

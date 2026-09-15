@@ -7,14 +7,15 @@ account and how I like it), even though they are two modules in here.
 from datetime import datetime
 from typing import Literal
 
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from ninja import Router, Schema, Status
 from ninja.errors import HttpError
 
 from ..auth import issue_token
 from ..google_auth import InvalidGoogleCredential, verify_google_credential
-from ..models import User
+from ..models import Source, User
 from .errors import ErrorSchema
+from .feeds import deactivate_if_orphaned
 
 router = Router(tags=['user'])
 
@@ -123,7 +124,15 @@ def logout(request):
 
 @router.delete('/me', response={204: None, 401: ErrorSchema}, operation_id='delete_me')
 def delete_me(request):
-    # every user-owned table (tokens, feeds, folders, saved, settings) is on_delete=CASCADE;
-    # Feed.source is PROTECT, which guards the shared Source, not the Feed row
-    request.auth.delete()
+    user = request.auth
+    # read before the delete, while the feeds still point at them — the cascade below is the
+    # one way feeds vanish without passing through unsubscribe, so it owes the same
+    # deactivation: a source nobody follows must not go on being polled forever
+    sources = list(Source.objects.filter(feeds__user=user).distinct())
+    with transaction.atomic():
+        # every user-owned table (tokens, feeds, folders, saved, settings) is on_delete=CASCADE;
+        # Feed.source is PROTECT, which guards the shared Source, not the Feed row
+        user.delete()
+        for source in sources:
+            deactivate_if_orphaned(source)
     return Status(204, None)

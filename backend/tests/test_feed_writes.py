@@ -171,6 +171,16 @@ def test_renaming_to_blank_422s(authed_client, user, make_feed):
     assert feed.name == 'Keep me'
 
 
+def test_renaming_with_a_nul_byte_422s(authed_client, user, make_feed):
+    """Postgres refuses a NUL in any text column — without this it is a 500 on the save."""
+    feed = make_feed(user, name='Keep me')
+
+    assert rename(authed_client, feed.uid, 'a\x00b').status_code == 422
+
+    feed.refresh_from_db()
+    assert feed.name == 'Keep me'
+
+
 def test_unsubscribing_removes_the_feed_and_its_memberships(
     authed_client, user, make_feed, make_folder
 ):
@@ -229,3 +239,74 @@ def test_another_users_feed_is_invisible_to_both_writes(authed_client, other_use
 )
 def test_the_source_type_is_inferred_from_the_host(url, expected):
     assert infer_type(url) == expected
+
+
+# --- What a subscribe must not leave behind ---------------------------------------------------
+
+
+def test_a_new_source_is_not_due_for_the_sweep_while_its_first_fetch_runs(
+    authed_client, monkeypatch
+):
+    """The row exists before the inline fetch does, and a Source with next_fetch_at=None is
+    due *now* — so without a claim, a sweep that fires mid-fetch polls the same source a
+    second time from the worker. The claim is the sweep's own, and ingest overwrites it."""
+    from core.ingest import due_sources
+
+    def fetch(source):
+        assert not due_sources().filter(pk=source.pk).exists()
+        return FetchResult(
+            status_code=200, body=bodies.RSS_BLOG, content_type='application/rss+xml'
+        )
+
+    monkeypatch.setattr(ingest, 'fetch_feed', fetch)
+
+    assert subscribe(authed_client).status_code == 201
+
+
+def test_an_ingest_that_raises_leaves_no_source_behind(authed_client, monkeypatch):
+    """Not just an ERROR result: anything that escapes ingest_source. Otherwise the next
+    attempt finds the row, skips the fetch, and subscribes to something with no posts."""
+
+    def fetch(source):
+        raise RuntimeError('killed mid-fetch')
+
+    monkeypatch.setattr(ingest, 'fetch_feed', fetch)
+
+    with pytest.raises(RuntimeError):
+        subscribe(authed_client)
+
+    assert not Source.objects.exists()
+
+
+def test_a_feed_created_between_the_check_and_the_insert_is_a_422_not_a_500(
+    authed_client, monkeypatch
+):
+    """Two taps on Subscribe: the second passes the exists-check before the first's INSERT
+    lands, and unique_feed_per_user_source fires."""
+    serve(monkeypatch)
+    Source.objects.create(type=Source.Type.WEBSITE, feed_url=MEDIUM, title='Vuejs')
+    original = Feed.objects.create
+
+    def race(**fields):
+        original(**fields)  # the other tap's insert
+        return original(**fields)
+
+    monkeypatch.setattr(Feed.objects, 'create', race)
+
+    response = subscribe(authed_client)
+
+    assert response.status_code == 422
+    assert response.json()['detail'] == 'You already follow that feed.'
+
+
+def test_a_url_past_the_column_limit_is_a_422_not_a_truncated_fetch(authed_client, monkeypatch):
+    def explode(source):
+        raise AssertionError('should not have fetched')
+
+    monkeypatch.setattr(ingest, 'fetch_feed', explode)
+
+    response = subscribe(authed_client, feed_url='https://example.com/' + 'a' * 500)
+
+    assert response.status_code == 422
+    assert 'feed_url' in response.json()['detail']
+    assert not Source.objects.exists()

@@ -129,6 +129,21 @@ def set_home_order(request, payload: HomeOrderSchema):
     return Status(204, None)
 
 
+def clean_name(name):
+    """A user's own name for a feed or a folder, as the column will take it — or a 422.
+
+    Shared by the feed and folder writes so the two can't disagree about what a name is.
+    The NUL check is not pedantry: Postgres refuses the byte in any text column, and
+    without this the save is a 500 rather than a validation error.
+    """
+    cleaned = name.strip()
+    if not cleaned:
+        raise HttpError(422, 'name cannot be empty')
+    if '\x00' in cleaned:
+        raise HttpError(422, 'name cannot contain control characters')
+    return cleaned
+
+
 def next_top_level_order(user):
     """One past the end of the shared top-level sequence, for a row joining it.
 

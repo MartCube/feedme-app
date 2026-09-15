@@ -1,9 +1,9 @@
 """The post list every reader screen is built on, post detail, and the save toggle.
 
 `core/postlist.py` owns which posts a uid means; this module is the HTTP shape around it —
-the page window, the cursor, and the three writes. `summary` is what RSS gave us; the
-extracted article text is a separate field behind `/posts/{uid}/article` in T10
-(docs/backend-roadmap.md § Contract resolutions, item 2).
+the page window, the cursor, the three writes, and the article. `summary` is what RSS gave
+us, kept deliberately apart from the article text `/posts/{uid}/article` extracts on demand
+(docs/backend-roadmap.md § Contract resolutions, item 2); `core/extract.py` does that work.
 """
 
 from datetime import datetime
@@ -12,8 +12,9 @@ from typing import Literal
 from ninja import Query, Router, Schema, Status
 from ninja.errors import HttpError
 
+from ..extract import extract_article
 from ..models import SavedPost
-from ..postlist import decode_cursor, encode_cursor, resolve_stream, visible_posts
+from ..postlist import page, resolve_stream, visible_posts
 from .errors import ErrorSchema
 
 # tagged `feeds`, not `posts`: from the app's side this whole module is reading a feed —
@@ -54,6 +55,15 @@ class PostPageSchema(Schema):
     next_cursor: str | None
 
 
+class ArticleSchema(Schema):
+    # two states on the wire where the column has three: `article_html` is null until
+    # something tries, '' once a page was read and had no article in it. The reader falls
+    # back the same way for both that and a page we couldn't reach — summary plus Open
+    # source — so telling them apart would be a distinction nothing acts on.
+    status: Literal['ok', 'unavailable']
+    article_html: str | None
+
+
 class SaveSchema(Schema):
     group: SavedGroup
 
@@ -74,20 +84,7 @@ def feed_posts(
     cursor: str | None = None,
     limit: int = Query(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT),
 ):
-    stream = resolve_stream(request.auth, uid)
-    posts = stream.queryset.order_by(f'-{stream.order_field}', '-uid')
-    if cursor:
-        posts = posts.filter(decode_cursor(cursor, stream.order_field))
-
-    # one row more than asked for: whether it came back is what says there's a next page,
-    # and it's free next to the COUNT query the alternative would cost
-    window = list(posts[: limit + 1])
-    items = window[:limit]
-    has_more = len(window) > limit
-    return {
-        'items': items,
-        'next_cursor': encode_cursor(items[-1], stream.order_field) if has_more else None,
-    }
+    return page(resolve_stream(request.auth, uid), cursor, limit)
 
 
 @router.get(
@@ -97,6 +94,34 @@ def feed_posts(
 )
 def post_detail(request, uid: str):
     return _visible_post(request.auth, uid)
+
+
+@router.get(
+    '/posts/{uid}/article',
+    response={200: ArticleSchema, 401: ErrorSchema, 404: ErrorSchema},
+    operation_id='get_post_article',
+)
+def post_article(request, uid: str):
+    """The full article, extracted on the first request for a post and cached after it.
+
+    Synchronous with a hard timeout rather than a queued job — docs/backend.md's job table
+    said the other thing, and docs/backend-roadmap.md § Decision log records the reversal.
+    The reader is blocked on this either way, so queueing it would buy a free web thread at
+    the cost of a polling loop and a third state on screen.
+
+    The cache is global: `article_html` lives on the post, which is one row shared by every
+    subscriber, so only the first person to open a post pays for the extraction.
+
+    Anything short of an article is retried — `''` as much as `None`. A page that read as
+    empty once (a bot-challenge page served as 200, a site mid-deploy) is not evidence about
+    the article, and one bounded fetch per open is cheap next to a post that is wrong for
+    everyone forever.
+    """
+    post = _visible_post(request.auth, uid)
+    if not post.article_html:
+        extract_article(post)
+    html = post.article_html or ''
+    return {'status': 'ok' if html else 'unavailable', 'article_html': html or None}
 
 
 @router.put(

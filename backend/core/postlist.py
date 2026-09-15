@@ -11,7 +11,8 @@ depend on who is asking: `feed_uid` (the caller's own handle on the post's sourc
 
 HttpError is raised from here rather than translated in the API layer: an unknown uid has
 exactly one meaning (404) and a private exception type to carry it across one module
-boundary would be machinery for nothing. T12's search.py resolves scopes the same way.
+boundary would be machinery for nothing. core/search.py resolves scopes by calling
+`resolve_stream` directly, so there is one uid order on the server, not two.
 """
 
 import base64
@@ -115,9 +116,35 @@ def decode_cursor(cursor, order_field):
     except ValueError:
         # binascii.Error and UnicodeDecodeError are both ValueError subclasses
         raise HttpError(422, 'invalid cursor') from None
+    if moment.tzinfo is None:
+        # every cursor we mint carries an offset; one without is hand-built, and Django
+        # would otherwise compare it in the default timezone with a warning in the log
+        raise HttpError(422, 'invalid cursor')
 
     # the list is ordered (order_field desc, uid desc), so "after" is a strict tuple compare
     return Q(**{f'{order_field}__lt': moment}) | Q(**{order_field: moment, 'uid__lt': uid})
+
+
+def page(stream, cursor, limit):
+    """One window of a stream, and the cursor that continues it.
+
+    Lives here rather than in the API layer because it *is* the cursor protocol, and there
+    are two callers now — the post list and search — that must page identically or a fix to
+    the off-by-one below would land in one of them and not the other.
+    """
+    posts = stream.queryset.order_by(f'-{stream.order_field}', '-uid')
+    if cursor:
+        posts = posts.filter(decode_cursor(cursor, stream.order_field))
+
+    # one row more than asked for: whether it came back is what says there's a next page,
+    # and it's free next to the COUNT query the alternative would cost
+    window = list(posts[: limit + 1])
+    items = window[:limit]
+    has_more = len(window) > limit
+    return {
+        'items': items,
+        'next_cursor': encode_cursor(items[-1], stream.order_field) if has_more else None,
+    }
 
 
 def _stream(user, predicate, order_field):
@@ -135,7 +162,9 @@ def _annotate(user, posts):
     saved = SavedPost.objects.filter(user=user, post=OuterRef('pk'))
     return posts.annotate(
         feed_uid=Subquery(
-            Feed.objects.filter(user=user, source=OuterRef('source')).values('uid')[:1]
+            # order_by() clears Feed.Meta.ordering, which would otherwise sort the one row
+            # this can match, per post
+            Feed.objects.filter(user=user, source=OuterRef('source')).order_by().values('uid')[:1]
         ),
         saved_group=Subquery(saved.values('group')[:1]),
         saved_at=Subquery(saved.values('saved_at')[:1]),

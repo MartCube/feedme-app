@@ -9,6 +9,13 @@ requests>=2.32
 # Verifies the Google id_token the sign-in button hands us (core/google_auth.py).
 google-auth>=2.57,<3
 
+# Article extraction (core/extract.py). trafilatura finds the article body in a page we
+# already downloaded — it never fetches here, `requests` does, same as ingest. nh3 (the
+# Rust ammonia binding, wheels for cp313 so the image needs no toolchain) reduces its
+# output to an allowlist we own, because the reader renders that field as markup.
+trafilatura>=2.2,<3
+nh3>=0.3,<1
+
 # Background jobs: the worker runs the actors in core/tasks.py, periodiq is the cron
 # scheduler dramatiq itself doesn't ship. Broker wiring lives in feedme/broker.py.
 dramatiq[redis]>=2.2,<3

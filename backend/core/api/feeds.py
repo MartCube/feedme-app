@@ -11,17 +11,23 @@ deactivated, so polling stops, but not deleted, so re-subscribing costs nothing.
 
 from urllib.parse import urlparse
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
+from django.utils import timezone
 from ninja import Field, Router, Schema, Status
 from ninja.errors import HttpError
-from pydantic import HttpUrl
+from pydantic import HttpUrl, field_validator
 
-from ..ingest import ERROR, ingest_source
+# infer_type lives with discovery, which knows every other way to name a source; this
+# module only ever sees a URL, and re-exporting keeps it importable from where it is used.
+from ..discover import infer_type
+from ..ingest import ERROR, POLL_INTERVAL, ingest_source
 from ..models import Feed, Folder, FolderMember, Source
 from .errors import ErrorSchema
-from .home import HomeFeedSchema, next_top_level_order
+from .home import HomeFeedSchema, clean_name, next_top_level_order
 
 router = Router(tags=['feeds'])
+
+FEED_URL_MAX_LENGTH = Source._meta.get_field('feed_url').max_length
 
 
 class SubscribeSchema(Schema):
@@ -30,6 +36,15 @@ class SubscribeSchema(Schema):
     feed_url: HttpUrl
     # omitted → the feed lands at the top level
     folder_uid: str | None = None
+
+    @field_validator('feed_url')
+    @classmethod
+    def fits_the_column(cls, url):
+        # pydantic's own ceiling is 2083; the column's is 500. Refusing beats slicing —
+        # a truncated URL is a *different* URL, fetched and then reported as "not a feed".
+        if len(str(url)) > FEED_URL_MAX_LENGTH:
+            raise ValueError(f'must be at most {FEED_URL_MAX_LENGTH} characters')
+        return url
 
 
 class RenameFeedSchema(Schema):
@@ -44,7 +59,7 @@ class RenameFeedSchema(Schema):
 )
 def subscribe(request, payload: SubscribeSchema):
     user = request.auth
-    feed_url = str(payload.feed_url)[: Source._meta.get_field('feed_url').max_length]
+    feed_url = str(payload.feed_url)
 
     folder = None
     if payload.folder_uid:
@@ -53,7 +68,12 @@ def subscribe(request, payload: SubscribeSchema):
             raise HttpError(404, f'no such folder: {payload.folder_uid}')
 
     source, created = Source.objects.get_or_create(
-        feed_url=feed_url, defaults={'type': infer_type(feed_url)}
+        feed_url=feed_url,
+        # next_fetch_at is the same claim the sweep makes before it enqueues (core/tasks.py):
+        # the row exists before the inline fetch below does, and a source with no
+        # next_fetch_at is due *now* — a sweep firing mid-fetch would poll it again from the
+        # worker. Ingest overwrites the claim with the real schedule either way.
+        defaults={'type': infer_type(feed_url), 'next_fetch_at': timezone.now() + POLL_INTERVAL},
     )
     if not created and Feed.objects.filter(user=user, source=source).exists():
         raise HttpError(422, 'You already follow that feed.')
@@ -63,7 +83,14 @@ def subscribe(request, payload: SubscribeSchema):
         # they pasted is a feed at all, and fetching it *is* the answer — there's nothing
         # cheaper to validate against. Deliberately outside the transaction below: a network
         # call has no business holding a database lock open.
-        if ingest_source(source).status == ERROR:
+        try:
+            failed = ingest_source(source).status == ERROR
+        except Exception:
+            # ingest_source records what it can; whatever still escapes must not leave a
+            # global row that the next attempt would find, skip fetching, and follow
+            source.delete()
+            raise
+        if failed:
             # a typo shouldn't leave a dead global row behind for everyone
             source.delete()
             raise HttpError(422, "That URL isn't a feed.")
@@ -76,16 +103,23 @@ def subscribe(request, payload: SubscribeSchema):
         source.error_count = 0
         source.save(update_fields=['active', 'next_fetch_at', 'error_count'])
 
-    with transaction.atomic():
-        feed = Feed.objects.create(
-            user=user,
-            source=source,
-            # the user's own name for it, seeded from the feed's title — renameable after
-            name=source.title or urlparse(feed_url).hostname or feed_url,
-            order=next_top_level_order(user),
-        )
-        if folder:
-            FolderMember.objects.create(folder=folder, feed=feed, order=next_member_order(folder))
+    try:
+        with transaction.atomic():
+            feed = Feed.objects.create(
+                user=user,
+                source=source,
+                # the user's own name for it, seeded from the feed's title — renameable after
+                name=source.title or urlparse(feed_url).hostname or feed_url,
+                order=next_top_level_order(user),
+            )
+            if folder:
+                FolderMember.objects.create(
+                    folder=folder, feed=feed, order=next_member_order(folder)
+                )
+    except IntegrityError:
+        # a double-tapped Subscribe: the second passed the exists-check above before the
+        # first's row landed, and unique_feed_per_user_source caught it
+        raise HttpError(422, 'You already follow that feed.') from None
 
     return Status(201, feed)
 
@@ -99,10 +133,7 @@ def rename_feed(request, uid: str, payload: RenameFeedSchema):
     # Name only. feed_url lives on the shared Source — editing it here would repoint every
     # other subscriber's feed (backend-roadmap.md § Contract resolutions, 3).
     feed = own_feed(request.auth, uid)
-    name = payload.name.strip()
-    if not name:
-        raise HttpError(422, 'name cannot be empty')
-    feed.name = name
+    feed.name = clean_name(payload.name)
     feed.save(update_fields=['name'])
     return feed
 
@@ -141,23 +172,6 @@ def deactivate_if_orphaned(source):
     if source.active and not source.feeds.exists():
         source.active = False
         source.save(update_fields=['active'])
-
-
-def infer_type(feed_url):
-    """Which of the three source types a URL is, by host.
-
-    Inferred here rather than taken from the request: the add wizard's type step is a UI
-    filter, and a client is free to be wrong about it. T11's discovery knows more (it
-    resolves handles and subreddit names), but a pasted feed URL only has its host to go on.
-    """
-    host = (urlparse(feed_url).hostname or '').lower()
-    for domain, source_type in (
-        ('youtube.com', Source.Type.YOUTUBE),
-        ('reddit.com', Source.Type.REDDIT),
-    ):
-        if host == domain or host.endswith(f'.{domain}'):
-            return source_type
-    return Source.Type.WEBSITE
 
 
 def next_member_order(folder):

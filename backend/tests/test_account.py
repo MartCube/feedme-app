@@ -66,3 +66,23 @@ def test_delete_me_removes_the_account_and_its_data(authed_client, user):
     assert not AuthToken.objects.exists()
     # the shared Source outlives the user who subscribed to it
     assert Source.objects.filter(pk=source.pk).exists()
+
+
+def test_delete_me_stops_polling_the_sources_nobody_follows_any_more(
+    authed_client, user, other_user, make_feed, make_source
+):
+    """The one path that removes feeds without going through unsubscribe. Same rule as
+    unsubscribing and deleting a folder: a source with no follower left is deactivated,
+    one another account still follows is not."""
+    mine_only = make_source()
+    shared = make_source()
+    make_feed(user, source=mine_only)
+    make_feed(user, source=shared)
+    make_feed(other_user, source=shared)
+
+    assert authed_client.delete('/api/v1/me').status_code == 204
+
+    mine_only.refresh_from_db()
+    shared.refresh_from_db()
+    assert not mine_only.active
+    assert shared.active

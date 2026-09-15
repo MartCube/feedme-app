@@ -1,10 +1,18 @@
 from functools import partial
 
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.contrib.postgres.indexes import GinIndex, OpClass
+from django.contrib.postgres.search import SearchVector, SearchVectorField
 from django.db import models
+from django.db.models.functions import Upper
 from django.utils import timezone
 
 from .uids import make_uid
+
+# The text-search dictionary Post.search is generated with. core/search.py reads it from
+# here rather than declaring its own: the column is the authoritative one, and a query that
+# stems with a different dictionary than the column was built with silently matches nothing.
+SEARCH_CONFIG = 'english'
 
 
 class UserManager(BaseUserManager):
@@ -90,6 +98,18 @@ class Post(models.Model):
     # objection doesn't apply.
     article_html = models.TextField(null=True, blank=True)  # noqa: DJ001
     published_at = models.DateTimeField()
+    # Maintained by Postgres, not by us: a persisted generated column is recomputed in the
+    # same statement that writes the row, so search can never be stale and there is no sync
+    # pipeline to run. db_persist isn't a choice — Postgres only implements STORED. Legal
+    # inside a generated expression only because the two-argument to_tsvector() Django emits
+    # for an explicit `config` is IMMUTABLE; the one-argument form would be rejected.
+    # Title outweighs summary so a later switch to rank ordering needs no migration.
+    search = models.GeneratedField(
+        expression=SearchVector('title', weight='A', config=SEARCH_CONFIG)
+        + SearchVector('summary', weight='B', config=SEARCH_CONFIG),
+        output_field=SearchVectorField(),
+        db_persist=True,
+    )
 
     class Meta:
         constraints = [
@@ -97,6 +117,13 @@ class Post(models.Model):
         ]
         indexes = [
             models.Index(fields=['source', '-published_at']),
+            GinIndex(fields=['search'], name='post_search_gin'),
+            # Functional, not a plain index on `title`: Django compiles __icontains to
+            # UPPER("title"::text) LIKE UPPER(%s) (postgresql/operations.py lookup_cast), and
+            # the planner only matches an index whose expression is the same one. This is the
+            # half that answers partial words ("rout" -> "router"), which FTS's whole-word
+            # tokens structurally cannot.
+            GinIndex(OpClass(Upper('title'), name='gin_trgm_ops'), name='post_title_trgm'),
         ]
 
     def __str__(self):

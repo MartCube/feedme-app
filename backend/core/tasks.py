@@ -19,6 +19,7 @@ from periodiq import cron
 
 from feedme import broker  # noqa: F401 — imported for its import-time side effects
 
+from . import retention
 from .ingest import POLL_INTERVAL, due_sources, ingest_source
 from .models import Source
 
@@ -78,3 +79,26 @@ def poll_due_sources():
     for uid in uids:
         poll_source.send(uid)
     logger.info('poll_due_sources: enqueued %d source(s)', len(uids))
+
+
+# The two retention sweeps, both daily and both wrapping a plain function in core/retention.py
+# the same way poll_source wraps ingest. max_retries=3 rather than poll_due_sources' 0: that
+# sweep can afford to wait five minutes for the next one, these would wait a full day, and the
+# work is idempotent and batched so a retry simply resumes where the last attempt stopped.
+
+
+@dramatiq.actor(max_retries=3, periodic=cron('30 3 * * *'), time_limit=900_000)
+def prune_posts():
+    """Delete unsaved posts past the retention window or beyond their source's cap.
+
+    The time limit is fifteen minutes, above Dramatiq's ten-minute default, because the
+    first run against a table nothing has ever pruned is the large one — every run after
+    it only has a day's worth to catch.
+    """
+    logger.info('prune_posts: deleted %s', retention.prune_posts())
+
+
+@dramatiq.actor(max_retries=3, periodic=cron('45 3 * * *'))
+def prune_expired_tokens():
+    """Delete token rows already past their sliding window. See core/auth.py."""
+    logger.info('prune_expired_tokens: deleted %d row(s)', retention.prune_expired_tokens())

@@ -27,9 +27,26 @@ CORS_ALLOWED_ORIGINS = os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:
 # becomes the list of audiences we accept.
 GOOGLE_OAUTH_CLIENT_ID = os.environ.get('GOOGLE_OAUTH_CLIENT_ID', '')
 
+# The Data API key the YouTube card's keyword search spends quota with. Empty is a
+# supported state, same rule as the client id above: a pasted URL or @handle still
+# resolves through the channel page, a bare name simply finds nothing (core/youtube.py).
+YOUTUBE_API_KEY = os.environ.get('YOUTUBE_API_KEY', '')
+
 # The Dramatiq broker the worker and scheduler share with the api. Compose's own service
 # name is the default, so a dev machine needs nothing in .env; feedme/broker.py reads it.
 REDIS_URL = os.environ.get('REDIS_URL', 'redis://redis:6379/0')
+
+# The same Redis, doubling as Django's cache — the only thing cached so far is a YouTube
+# search, and a cache that lives per process would let every worker spend the quota
+# again. Django's own backend, over the client dramatiq[redis] already installs. One
+# rule: never `cache.clear()` here — on this backend that is FLUSHDB, and the broker's
+# queues share the database. Tests swap in locmem (conftest.py) so they can.
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': REDIS_URL,
+    }
+}
 
 INSTALLED_APPS = [
     'core',
@@ -39,6 +56,10 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
+    # Registers the trigram lookups and OpClass that Post.search's indexes need. No pip
+    # dependency: pg_trgm is a Postgres extension (installed by migration 0004) and this
+    # app ships with Django.
+    'django.contrib.postgres',
     'django.contrib.staticfiles',
 ]
 

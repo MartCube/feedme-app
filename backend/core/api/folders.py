@@ -17,7 +17,7 @@ from ninja.errors import HttpError
 from ..models import Feed, FolderMember, Source
 from .errors import ErrorSchema
 from .feeds import deactivate_if_orphaned
-from .home import HomeFolderSchema, next_top_level_order
+from .home import HomeFolderSchema, clean_name, next_top_level_order
 
 router = Router(tags=['home'])
 
@@ -50,7 +50,7 @@ class FolderDeletedSchema(Schema):
 )
 def create_folder(request, payload: CreateFolderSchema):
     user = request.auth
-    name = _clean_name(payload.name)
+    name = clean_name(payload.name)
 
     with transaction.atomic():
         folder = user.folders.create(name=name, order=next_top_level_order(user))
@@ -68,30 +68,35 @@ def update_folder(request, uid: str, payload: UpdateFolderSchema):
     folder = _own_folder(request.auth, uid)
     members = list(folder.members.select_related('feed').order_by('order'))
 
-    if payload.name is not None:
-        folder.name = _clean_name(payload.name)
-        folder.save(update_fields=['name'])
-
-    if payload.feed_uids is None and payload.muted_feed_uids is None:
-        return _payload(folder)
-
-    # Mutes are validated against the membership this call *ends* with, not the one it
-    # started from — the panel can mute a feed and drop another in the same Save.
-    feed_uids = payload.feed_uids
-    if feed_uids is None:
-        feed_uids = [member.feed.uid for member in members]
-    muted_uids = payload.muted_feed_uids
-    if muted_uids is None:
-        # Carried over, but only for members that survive this call: removing a feed from a
-        # folder drops its mute with it (docs/data-model.md § Cascade rules). A mute the
-        # caller sends *explicitly* for a non-member is still a 422 — that's incoherent,
-        # not a leftover.
-        surviving = set(feed_uids)
-        muted_uids = [
-            member.feed.uid for member in members if member.muted and member.feed.uid in surviving
-        ]
-
+    # One transaction from the rename down: the panel sends the rename and the member
+    # changes in one Save, and a 422 for the members must take the rename back with it.
+    # HttpError raised inside the block rolls it back on its way out.
     with transaction.atomic():
+        if payload.name is not None:
+            folder.name = clean_name(payload.name)
+            folder.save(update_fields=['name'])
+
+        if payload.feed_uids is None and payload.muted_feed_uids is None:
+            return _payload(folder)
+
+        # Mutes are validated against the membership this call *ends* with, not the one it
+        # started from — the panel can mute a feed and drop another in the same Save.
+        feed_uids = payload.feed_uids
+        if feed_uids is None:
+            feed_uids = [member.feed.uid for member in members]
+        muted_uids = payload.muted_feed_uids
+        if muted_uids is None:
+            # Carried over, but only for members that survive this call: removing a feed
+            # from a folder drops its mute with it (docs/data-model.md § Cascade rules). A
+            # mute the caller sends *explicitly* for a non-member is still a 422 — that's
+            # incoherent, not a leftover.
+            surviving = set(feed_uids)
+            muted_uids = [
+                member.feed.uid
+                for member in members
+                if member.muted and member.feed.uid in surviving
+            ]
+
         _set_members(folder, feed_uids, muted_uids)
 
     return _payload(folder)
@@ -132,13 +137,6 @@ def _own_folder(user, uid):
     if folder is None:
         raise HttpError(404, f'no such folder: {uid}')
     return folder
-
-
-def _clean_name(name):
-    cleaned = name.strip()
-    if not cleaned:
-        raise HttpError(422, 'name cannot be empty')
-    return cleaned
 
 
 def _set_members(folder, feed_uids, muted_uids):

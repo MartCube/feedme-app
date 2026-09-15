@@ -54,6 +54,18 @@ def test_a_blank_name_422s(authed_client):
     assert not Folder.objects.exists()
 
 
+def test_a_name_with_a_nul_byte_422s(authed_client, user, make_folder):
+    """Postgres refuses a NUL in any text column — without this it is a 500 on the save."""
+    folder = make_folder(user, name='Dev')
+
+    assert create(authed_client, name='a\x00b').status_code == 422
+    assert update(authed_client, folder.uid, name='a\x00b').status_code == 422
+
+    folder.refresh_from_db()
+    assert folder.name == 'Dev'
+    assert Folder.objects.count() == 1
+
+
 def test_renaming_leaves_the_membership_alone(authed_client, user, make_feed, make_folder):
     feed = make_feed(user)
     folder = make_folder(user, name='Dev', feeds=[feed], muted=[feed])
@@ -64,6 +76,22 @@ def test_renaming_leaves_the_membership_alone(authed_client, user, make_feed, ma
     assert folder.name == 'Development'
     assert body['feed_uids'] == [feed.uid]
     assert body['muted_feed_uids'] == [feed.uid]
+
+
+def test_a_rename_is_not_kept_when_the_membership_in_the_same_call_is_refused(
+    authed_client, user, make_feed, make_folder
+):
+    """The panel commits a rename and the member changes in one Save; a 422 for one half
+    must not leave the other half applied, or the screen and the row disagree."""
+    feed = make_feed(user)
+    folder = make_folder(user, name='Dev', feeds=[feed])
+
+    response = update(authed_client, folder.uid, name='Development', feed_uids=['feed_nope'])
+
+    assert response.status_code == 422
+    folder.refresh_from_db()
+    assert folder.name == 'Dev'
+    assert list(folder.members.values_list('feed', flat=True)) == [feed.pk]
 
 
 def test_muting_a_member_without_touching_the_membership(

@@ -96,5 +96,60 @@ RSS_NO_DATE = b"""<?xml version="1.0" encoding="UTF-8"?>
 </channel></rss>
 """
 
+# An archive feed: everything the blog ever published, in one document. nuxt.com/blog/rss.xml
+# is the real one this is trimmed from — 51 entries reaching back to 2019, which is what put
+# ingest and retention in a loop over the same rows until _upsert_posts learned the window.
+RSS_ARCHIVE = b"""<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel>
+  <title>The Nuxt Blog</title>
+  <link>https://nuxt.com/blog</link>
+  <item>
+    <title>Announcing Nuxt 4</title>
+    <link>https://nuxt.com/blog/v4</link>
+    <guid isPermaLink="false">https://nuxt.com/blog/v4</guid>
+    <pubDate>Wed, 02 Sep 2026 09:00:00 GMT</pubDate>
+    <description>Fresh enough to keep</description>
+  </item>
+  <item>
+    <title>Introducing Smart Prefetching</title>
+    <link>https://nuxt.com/blog/introducing-smart-prefetching</link>
+    <guid isPermaLink="false">https://nuxt.com/blog/introducing-smart-prefetching</guid>
+    <pubDate>Mon, 28 Jan 2019 00:00:00 GMT</pubDate>
+    <description>Years past any retention window</description>
+  </item>
+</channel></rss>
+"""
+
 NOT_A_FEED = b'<html><body><h1>404 Not Found</h1></body></html>'
 """What a server hands back when the feed URL has quietly become an error page."""
+
+# Content a feed is free to serve and Postgres is free to reject. A NUL byte anywhere in a
+# text column is a DataError, which is not a parse problem feedparser can shield us from —
+# it arrives as perfectly valid XML (&#0; is not, so it is spliced in as a raw byte).
+RSS_NUL_BYTES = b"""<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel>
+  <title>Nul\x00lish</title>
+  <item><title>Bad\x00 title</title><link>https://example.com/nul</link><description>bad\x00 body</description></item>
+</channel></rss>
+"""
+
+# Links the reader would render as hrefs. Only http(s) is a post; the rest is not a place
+# a feed item can live, whatever the markup says.
+RSS_ODD_SCHEMES = b"""<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/"><channel>
+  <title>Odd</title>
+  <link>javascript:alert(1)</link>
+  <image><url>data:image/png;base64,AAAA</url><title>Odd</title><link>https://example.com/</link></image>
+  <item><title>Script</title><link>javascript:alert(1)</link></item>
+  <item><title>Mail</title><link>mailto:someone@example.com</link></item>
+  <item><title>Fine</title><link>https://example.com/fine</link><media:thumbnail url="data:image/png;base64,AAAA"/></item>
+</channel></rss>
+"""
+
+# A post dated ten years out — a buggy or hostile feed pinning itself to the top of every list.
+RSS_FUTURE_DATE = b"""<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel>
+  <title>Tomorrow</title>
+  <item><title>Not yet</title><link>https://example.com/future</link><pubDate>Mon, 01 Jan 2036 00:00:00 GMT</pubDate></item>
+</channel></rss>
+"""
