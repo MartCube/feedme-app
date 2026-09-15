@@ -6,8 +6,13 @@ const route = useRoute()
 const uid = route.params.uid as string
 const postUid = route.params.postUid as string
 
+// Captured with the params, for the same reason: back has to land on the search
+// that produced this post, not on the unfiltered feed.
+const q = route.query.q as string | undefined
+const backTo = q ? `/feed/${uid}?q=${encodeURIComponent(q)}` : `/feed/${uid}`
+
 const page = useTemplateRef('page')
-const { style: swipeStyle } = useSwipeBack(page, `/feed/${uid}`)
+const { style: swipeStyle } = useSwipeBack(page, backTo)
 
 // The page owns the post: the navbar's save toggle and the document title need
 // it as much as the detail view below does.
@@ -30,7 +35,7 @@ useHead({ title: () => post.value?.title ?? 'Post' })
     <Navbar>
       <IconButton
         icon="i-ph-caret-left-bold"
-        :to="`/feed/${uid}`"
+        :to="backTo"
         aria-label="Back"
       />
       <IconButton

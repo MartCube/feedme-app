@@ -42,6 +42,7 @@ export type Me = Schemas['MeSchema']
 export type TokenResponse = Schemas['TokenSchema']
 
 // A search result before it is subscribed: a candidate feed with no uid yet.
-// Becomes a Feed (uid minted by the backend) when the user adds it. Stays
-// hand-written until T11's /discover gives it a schema of its own.
-export type FeedCandidate = Omit<Feed, 'uid'>
+// Becomes a Feed (uid minted by the backend) when the user adds it. Same field
+// names as a Feed on purpose, plus `already_subscribed` — the wizard shows what
+// you follow rather than letting it be picked for a subscribe that 422s.
+export type FeedCandidate = Schemas['DiscoverResultSchema']

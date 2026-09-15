@@ -1,7 +1,7 @@
 <script setup lang="ts">
 const model = defineModel<string>({ default: '' })
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   placeholder?: string
   size?: 'md' | 'lg' | 'xl'
   // Opt-in: adds the focused Paste chip. Search reuse (feed, home) leaves it off.
@@ -12,12 +12,17 @@ withDefaults(defineProps<{
   // What the submit arrow does, for screen readers. Every use is a search bar
   // except the login screen's token field.
   submitLabel?: string
+  // Off for a live-search field: it re-runs on every keystroke, so there is
+  // nothing to submit and the arrow would only compete with the caller's own
+  // close button beside it.
+  submit?: boolean
 }>(), {
   placeholder: '',
   size: 'xl',
   paste: false,
   autofocus: false,
   submitLabel: 'Search',
+  submit: true,
 })
 
 const emit = defineEmits<{ submit: [] }>()
@@ -25,6 +30,25 @@ const emit = defineEmits<{ submit: [] }>()
 // The Paste chip shows only while the input is focused and still empty — once
 // there's text (typed or pasted) it gives way to the submit arrow.
 const focused = ref(false)
+
+// Whether this field can ever put anything in the trailing slot. Nuxt UI
+// reserves pe-9 for one whenever the slot is passed at all, and a live-search
+// field passes it while rendering neither control — which left the box padded
+// 16px on the left and 36px on the right. Deliberately static rather than
+// tracking whether a control is showing *right now*: the reserved space has to
+// stay put, or the wizard's placeholder would reflow the moment its Paste chip
+// appeared on focus.
+const canTrail = computed(() => props.submit || props.paste)
+
+// xl is a hero field (the wizard, the login token). Anything smaller is
+// embedded in a row beside other controls and has to fit their height, so the
+// vertical padding follows `size` rather than sitting at the hero step for all
+// of them.
+const box = computed(() => [
+  'px-sm text-body rounded-2xl transition duration-300 ease-out',
+  props.size === 'xl' ? 'py-sm' : 'py-xs',
+  canTrail.value ? '' : 'pe-sm!',
+].join(' '))
 
 // Browsers block silent clipboard reads, so the chip reads on tap (a user
 // gesture). mousedown.prevent (on the button) keeps the input focused through
@@ -50,13 +74,13 @@ async function pasteFromClipboard() {
       :autofocus="autofocus"
       :autofocus-delay="350"
       class="w-full"
-      :ui="{ base: 'px-sm py-sm text-body rounded-2xl transition duration-300 ease-out' }"
+      :ui="{ base: box }"
       @focusin="focused = true"
       @focusout="focused = false"
     >
       <template #trailing>
         <UButton
-          v-if="model"
+          v-if="submit && model"
           icon="i-ph-arrow-right-bold"
           color="neutral"
           variant="ghost"

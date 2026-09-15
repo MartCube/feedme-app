@@ -6,6 +6,18 @@ const { feeds, folders } = storeToRefs(useFeedsStore())
 const route = useRoute()
 const uid = route.params.uid as string
 
+// Live while this page is the one on screen, frozen the moment it isn't. The
+// route changes before the leave slide finishes — the same reason `uid` above
+// is captured rather than computed — but the query has to keep updating while
+// you type, so it's a tracked ref instead of a constant. Without the guard,
+// tapping Feeds would blank the search results mid-slide.
+const q = ref((route.query.q as string | undefined) ?? '')
+watch(() => route.fullPath, () => {
+  if (route.params.uid === uid && !route.params.postUid) {
+    q.value = (route.query.q as string | undefined) ?? ''
+  }
+})
+
 const page = useTemplateRef('page')
 const { style: swipeStyle } = useSwipeBack(page, '/')
 
@@ -24,13 +36,13 @@ useHead({ title: computed(() => feedTitle(uid, feeds.value, folders.value)) })
         to="/"
         aria-label="Feeds"
       />
-      <!-- TODO: wire search (filter feed posts) once the feature exists. -->
-      <IconButton
-        icon="i-ph-magnifying-glass-bold"
-        aria-label="Search"
-      />
+      <!-- Search lives on the list's own title row (FeedPostList), which the
+           desktop posts pane shares — this navbar doesn't exist there. -->
     </Navbar>
 
-    <FeedPostList :uid="uid" />
+    <FeedPostList
+      :uid="uid"
+      :q="q"
+    />
   </main>
 </template>

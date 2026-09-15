@@ -94,11 +94,16 @@ export const useFeedsStore = defineStore('feeds', () => {
   // returning restores the reading view exactly. Mobile ignores these.
   const readerFeedUid = ref('all')
   const readerPostUid = ref<string | null>(null)
-  const readerPath = computed(() =>
-    readerPostUid.value
+  // The active search, mirrored here for the same reason as the two above: the
+  // live route says /settings while the overlay is open, so reading the query
+  // off it would drop the search the moment Settings opened.
+  const readerQuery = ref('')
+  const readerPath = computed(() => {
+    const path = readerPostUid.value
       ? `/feed/${readerFeedUid.value}/post/${readerPostUid.value}`
-      : `/feed/${readerFeedUid.value}`,
-  )
+      : `/feed/${readerFeedUid.value}`
+    return readerQuery.value ? `${path}?q=${encodeURIComponent(readerQuery.value)}` : path
+  })
 
   // Signing out has to leave nothing behind: `loaded` would otherwise keep the
   // next account looking at the previous one's feeds.
@@ -111,6 +116,7 @@ export const useFeedsStore = defineStore('feeds', () => {
     expandedFolderUids.value = []
     readerFeedUid.value = 'all'
     readerPostUid.value = null
+    readerQuery.value = ''
   }
 
   function memberFeeds(folder: Folder): Feed[] {
@@ -292,5 +298,5 @@ export const useFeedsStore = defineStore('feeds', () => {
     )
   }
 
-  return { feeds, folders, savedCounts, loaded, unreachable, load, reload, reset, looseFeeds, hasFeeds, memberFeeds, expandedFolderUids, isExpanded, toggleFolder, readerFeedUid, readerPostUid, readerPath, addFeed, addFolder, renameFolder, setMutedFeeds, updateFeed, removeFromFolder, deleteFeed, folderDeleteImpact, deleteFolder }
+  return { feeds, folders, savedCounts, loaded, unreachable, load, reload, reset, looseFeeds, hasFeeds, memberFeeds, expandedFolderUids, isExpanded, toggleFolder, readerFeedUid, readerPostUid, readerQuery, readerPath, addFeed, addFolder, renameFolder, setMutedFeeds, updateFeed, removeFromFolder, deleteFeed, folderDeleteImpact, deleteFolder }
 })

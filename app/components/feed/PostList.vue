@@ -3,16 +3,96 @@
 // Rendered by the mobile feed page and, on desktop, by the posts pane.
 // `activePostUid` is the desktop master–detail selection: the open post's
 // card keeps the elevated treatment persistently.
-const props = defineProps<{ uid: string, activePostUid?: string | null }>()
+//
+// `q` is the committed search, handed in by whichever host owns the route —
+// the mobile page reads it off `route.query`, the desktop shell off the store
+// mirror that survives a content route. Same split as `uid`, for the same
+// reason.
+const props = defineProps<{
+  uid: string
+  q?: string
+  activePostUid?: string | null
+}>()
 
 const { feeds, folders } = storeToRefs(useFeedsStore())
 
 const title = computed(() => feedTitle(props.uid, feeds.value, folders.value))
 
+// vue-router's live route, NOT Nuxt's useRoute(): this component also renders
+// inside the desktop shell, which resolves no <NuxtPage/>, and Nuxt only
+// re-syncs its route object when one does. useRoute() here would work on
+// mobile and silently freeze on desktop.
+const router = useRouter()
+const route = router.currentRoute
+
+const query = computed(() => props.q?.trim() ?? '')
+
+// What's in the box, kept apart from what the list is paging: typing stays
+// instant and the URL follows 300ms behind it.
+const draft = ref(query.value)
+const debounced = refDebounced(draft, 300)
+const open = ref(Boolean(query.value))
+
+// A different list is a different search.
+watch(() => props.uid, () => {
+  draft.value = ''
+  open.value = false
+})
+
+// The query can also change from outside the box — a deep link, a reload, or
+// coming back from a post — so the box follows it. Whether it did is what tells
+// a navigation apart from typing: backspacing to empty empties `draft` first
+// and only then the query, while a navigation drops the query with the old term
+// still in the box. So the first keeps the box open to keep typing in, and the
+// second closes the row back to its title.
+watch(query, (value) => {
+  const external = value !== draft.value.trim()
+  if (external) draft.value = value
+  if (value) open.value = true
+  else if (external) open.value = false
+})
+
+const isReaderPath = (path: string) => path === '/' || path.startsWith('/feed/')
+
+function commit(term: string) {
+  // The debounce can outlive the route: without this, a keystroke landing just
+  // after the desktop content overlay opened would stamp ?q= onto /settings.
+  if (!isReaderPath(route.value.path)) return
+  if (((route.value.query.q as string | undefined) ?? '') === term) return
+
+  const next = { ...route.value.query }
+  if (term) next.q = term
+  else delete next.q
+  // replace, never push — a history entry per keystroke would make Back walk
+  // rout → rou → ro → r instead of leaving the page.
+  router.replace({ query: next })
+}
+
+watch(debounced, value => commit(value.trim()))
+
+function toggle() {
+  if (!open.value) {
+    open.value = true
+    return
+  }
+  open.value = false
+  draft.value = ''
+  // Closing is immediate; waiting out the debounce would leave the results
+  // filtered for a third of a second after the box is gone.
+  commit('')
+}
+
+// Results carry the query in their link, so back from a post returns to them —
+// and so the leaving page still sees a query while it animates out.
+function postTo(postUid: string) {
+  const path = `/feed/${props.uid}/post/${postUid}`
+  return query.value ? `${path}?q=${encodeURIComponent(query.value)}` : path
+}
+
 // The uid resolves server-side (all → saved → saved_* → folder_* → feed_*),
 // so there is nothing to filter here — this list renders whatever that stream
-// pages in.
-const { items, pending, failed, done, loadMore } = usePostList(() => props.uid)
+// pages in. A query swaps the endpoint for GET /search, scoped to the same uid.
+const { items, pending, failed, done, loadMore } = usePostList(() => props.uid, query)
 
 // A sentinel below the list, observed against the viewport: mobile scrolls the
 // page and desktop scrolls the posts pane, and neither has to be named for the
@@ -35,9 +115,34 @@ const { selectedUid, select } = useTapSelection()
 
 <template>
   <div class="flex flex-col">
-    <h1 class="mt-lg text-title tracking-tight">
-      {{ title }}
-    </h1>
+    <!-- Fixed height so opening the box doesn't shift the list under it. -->
+    <div class="mt-lg flex h-12 items-center gap-sm">
+      <h1
+        v-if="!open"
+        class="min-w-0 flex-1 truncate text-title tracking-tight"
+      >
+        {{ title }}
+      </h1>
+      <!-- The title's job moves into the placeholder: it names the list you're
+           searching, without a noun that would be wrong for a folder or Saved. -->
+      <SearchInput
+        v-else
+        v-model="draft"
+        :placeholder="`Search ${title}`"
+        size="md"
+        autofocus
+        :submit="false"
+        class="min-w-0 flex-1"
+      />
+      <IconButton
+        :icon="open ? 'i-ph-x-bold' : 'i-ph-magnifying-glass-bold'"
+        size="sm"
+        variant="quiet"
+        :aria-label="open ? 'Close search' : 'Search posts'"
+        :aria-expanded="open"
+        @click="toggle"
+      />
+    </div>
 
     <ul class="mt-md flex flex-col space-y-sm">
       <li
@@ -46,7 +151,7 @@ const { selectedUid, select } = useTapSelection()
       >
         <FeedPostCard
           :post="post"
-          :to="`/feed/${uid}/post/${post.uid}`"
+          :to="postTo(post.uid)"
           :selected="selectedUid === post.uid || activePostUid === post.uid"
           @pointerdown="select(post.uid)"
         />
@@ -63,7 +168,7 @@ const { selectedUid, select } = useTapSelection()
       v-else-if="done && !items.length"
       class="mt-md text-body text-muted"
     >
-      No posts here yet.
+      {{ query ? `No posts match "${query}".` : 'No posts here yet.' }}
     </p>
 
     <!-- Only while there's a next page: an always-present sentinel would keep

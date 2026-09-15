@@ -9,6 +9,7 @@ export type WizardDirection = 'forward' | 'back'
 // the sheet has fully closed.
 export function useAddFeedWizard() {
   const feedsStore = useFeedsStore()
+  const { $api } = useNuxtApp()
 
   const step = useState<WizardStep>('add-step', () => 'type')
   const type = useState<FeedType | null>('add-type', () => null)
@@ -24,8 +25,14 @@ export function useAddFeedWizard() {
   // state and something to say when the server refuses.
   const adding = useState('add-adding', () => false)
   const error = useState<string | null>('add-error', () => null)
+  // Which search the results on screen belong to. Shared like everything else here,
+  // not a local: a second submit while the first is in flight would otherwise let the
+  // slower answer land last and win, and the Drawer's reset() has to be able to
+  // disown an in-flight search from a step component that is already gone.
+  const searchSeq = useState('add-search-seq', () => 0)
 
   function selectType(t: FeedType) {
+    searchSeq.value++
     // Re-picking a type (e.g. back to phase 1, then a different type) must clear
     // the previous type's search — otherwise stale, wrong-typed results would
     // show, and could even be added under the wrong type.
@@ -40,40 +47,36 @@ export function useAddFeedWizard() {
     step.value = 'input'
   }
 
-  // Searching by keyword is T11 (GET /discover?type=&q=). The one thing that can be
-  // resolved without a server is a pasted feed URL — which is where T11's website branch
-  // ends up anyway — so a URL becomes a single candidate and anything else finds nothing.
-  function search() {
+  // GET /discover resolves the query: a pasted page becomes the feeds it declares, a
+  // channel URL or a subreddit name becomes its feed, and a name under the YouTube card
+  // is a channel search. A keyword under the other cards still finds nothing — searching
+  // our own catalog for one is T11d. An empty list is a normal answer, so only a request
+  // that actually failed sets `error` — including the 503 YouTube answers when its API
+  // won't, which is not "nothing found" and shouldn't read like it.
+  async function search() {
     if (!type.value) return
+    const attempt = ++searchSeq.value
     direction.value = 'forward'
-    loading.value = false
+    loading.value = true
     error.value = null
     // A new search invalidates prior picks — stale selections would keep the
     // forward button enabled on feeds no longer visible in the list.
     selectedFeeds.value = []
     searched.value = true
-    const candidate = candidateFromUrl(query.value, type.value)
-    results.value = candidate ? [candidate] : []
-  }
-
-  // Name and type here are placeholders the server overwrites: it fetches the feed and
-  // takes the real title from it, and infers the type from the host. All that has to
-  // survive to POST /feeds is the URL.
-  function candidateFromUrl(input: string, feedType: FeedType): FeedCandidate | null {
-    let url: URL
     try {
-      url = new URL(input.trim())
+      const found = await $api<FeedCandidate[]>('/discover', {
+        query: { type: type.value, q: query.value.trim() },
+      })
+      if (attempt !== searchSeq.value) return
+      results.value = found
     }
-    catch {
-      return null
+    catch (failure) {
+      if (attempt !== searchSeq.value) return
+      results.value = []
+      error.value = detailOf(failure, 'Couldn\'t search right now.')
     }
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
-    return {
-      name: url.hostname.replace(/^www\./, ''),
-      feed_url: url.href,
-      site_url: url.origin,
-      type: feedType,
-      icon_url: '',
+    finally {
+      if (attempt === searchSeq.value) loading.value = false
     }
   }
 
@@ -82,6 +85,9 @@ export function useAddFeedWizard() {
   }
 
   function toggleFeed(feed: FeedCandidate) {
+    // Nothing to pick: POST /feeds answers 422 on a duplicate, so the row says
+    // "Following" instead of buying that error one step later.
+    if (feed.already_subscribed) return
     selectedFeeds.value = isSelected(feed)
       ? selectedFeeds.value.filter(f => f.feed_url !== feed.feed_url)
       : [...selectedFeeds.value, feed]
@@ -104,7 +110,7 @@ export function useAddFeedWizard() {
       return true
     }
     catch (failure) {
-      error.value = detailOf(failure)
+      error.value = detailOf(failure, 'Couldn\'t add that feed.')
       return false
     }
     finally {
@@ -112,10 +118,11 @@ export function useAddFeedWizard() {
     }
   }
 
-  // The API's one error shape, {"detail": string}, as ofetch hands it back.
-  function detailOf(failure: unknown) {
+  // The API's one error shape, {"detail": string}, as ofetch hands it back. A network
+  // failure carries no body at all, which is what the fallback is for.
+  function detailOf(failure: unknown, fallback: string) {
     const detail = (failure as { data?: { detail?: string } })?.data?.detail
-    return detail || 'Couldn\'t add that feed.'
+    return detail || fallback
   }
 
   function goToNewFolder() {
@@ -143,6 +150,8 @@ export function useAddFeedWizard() {
   }
 
   function reset() {
+    // any search still in flight belongs to the flow being thrown away
+    searchSeq.value++
     step.value = 'type'
     type.value = null
     query.value = ''

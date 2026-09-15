@@ -6,6 +6,11 @@ import type { Destination } from '~/stores/feeds'
 // content page; wizard state is global (useAddFeedWizard), so hosts only
 // decide what close/done mean — dismiss the sheet vs return to the reader.
 // Hosts own resetting the wizard once the flow is dismissed.
+// `slide` is the host's call, not the wizard's: the mobile sheet is a single
+// pane where motion is the only thing saying which way the flow moved, while
+// the desktop content area is a page and its steps just replace each other.
+const props = withDefaults(defineProps<{ slide?: boolean }>(), { slide: true })
+
 const emit = defineEmits<{ close: [], done: [] }>()
 
 const wizard = useAddFeedWizard()
@@ -14,8 +19,10 @@ const { step, direction } = wizard
 // Same push/pop mechanism as the settings drawer (utils/panel-slide.ts), but
 // the direction comes from the wizard rather than from path depth: forward =
 // push (next phase in from the right), back = pop (previous phase in from the
-// left).
-const slideVars = computed(() => panelSlideVars(direction.value === 'back' ? 'pop' : 'push'))
+// left). 'none' holds --panel-duration at 0s, so the steps cut instantly.
+const slideVars = computed(() => panelSlideVars(
+  !props.slide ? 'none' : direction.value === 'back' ? 'pop' : 'push',
+))
 
 // The sheet closes only if the subscribe actually landed — otherwise the step stays up
 // with the server's reason on it.

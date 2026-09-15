@@ -8,7 +8,7 @@ const { type, query, loading, results, searched, error, selectedFeeds } = wizard
 // just tapped (website when the type is somehow unset).
 const typeMeta = computed(() => feedTypes.find(option => option.type === type.value) ?? feedTypes[0]!)
 
-// Strip the protocol so the result's site reads cleanly (css-tricks.com).
+// Strip the protocol so the URL reads cleanly (css-tricks.com/feed/).
 function displayUrl(url: string) {
   return url.replace(/^https?:\/\//, '')
 }
@@ -84,17 +84,40 @@ function displayUrl(url: string) {
         <button
           type="button"
           class="flex w-full items-center gap-sm rounded-2xl bg-elevated p-sm text-left shadow-elevated transition-colors"
+          :class="result.already_subscribed && 'opacity-60'"
+          :disabled="result.already_subscribed"
           :aria-pressed="wizard.isSelected(result)"
-          :aria-label="`Select ${result.name}`"
+          :aria-label="result.already_subscribed ? `${result.name}, already following` : `Select ${result.name}`"
           @click="wizard.toggleFeed(result)"
         >
+          <!-- YouTube only: five channels named "One Piece" are told apart by their
+               avatars, and those are always square. A website's icon_url is as often a
+               wide banner, which a circle would crop badly — that gets its own pass.
+               Not loading="lazy": at most five rows, all on screen, and inside the
+               drawer Chrome never got round to fetching a lazy one at all. -->
+          <img
+            v-if="result.type === 'youtube' && result.icon_url"
+            :src="result.icon_url"
+            alt=""
+            class="size-10 shrink-0 rounded-full bg-muted object-cover"
+          >
           <span class="min-w-0 flex-1">
             <span class="block truncate text-body">{{ result.name }}</span>
-            <span class="block truncate text-caption text-muted">{{ displayUrl(result.site_url) }}</span>
+            <!-- The feed URL, not the site: one page can declare several feeds, and this
+                 is the only thing that tells them apart — same reason the edit panel keeps
+                 it on screen. It is also what actually gets subscribed. -->
+            <span class="block truncate text-caption text-muted">{{ displayUrl(result.feed_url) }}</span>
           </span>
+          <!-- One column, two answers: a well you can check, or the word for why
+               there is nothing to check. Never both. -->
+          <span
+            v-if="result.already_subscribed"
+            class="shrink-0 pr-2xs text-caption text-muted"
+          >Following</span>
           <!-- Page-bg circle reads as a well punched into the card; checking
                only drops a primary checkmark in, nothing else changes. -->
           <span
+            v-else
             class="flex size-10 shrink-0 items-center justify-center"
             aria-hidden="true"
           >
@@ -110,13 +133,14 @@ function displayUrl(url: string) {
       </li>
     </ul>
 
-    <!-- Discovery (GET /discover) is a later task; until it exists a search
-         finds nothing, and saying so beats a blank panel. -->
+    <!-- /discover resolves links, channels and subreddits, and searches YouTube by name;
+         a keyword under the other cards finds nothing until T11d searches our own
+         catalog. Saying so beats a blank panel. -->
     <p
       v-else-if="searched"
       class="mt-md text-body text-muted"
     >
-      Nothing found — feed search is coming.
+      Nothing found. Try pasting a link.
     </p>
 
     <!-- The folder-scoped add commits straight from this step (it already knows the

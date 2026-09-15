@@ -187,6 +187,36 @@ export interface paths {
         patch: operations["rename_feed"];
         trace?: never;
     };
+    "/api/v1/discover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Discover Feeds
+         * @description Resolve a query into subscribable feeds. An unresolvable one is an empty list.
+         *
+         *     Empty rather than an error: "nothing found" is the honest answer to a keyword the
+         *     catalog doesn't have yet (T11d) as much as to a URL that hosts no feed, and neither is
+         *     a failure the wizard should paint red. The 503 is the one thing that *is*: a YouTube
+         *     search the Data API wouldn't answer, which is not the same as a name with no channel.
+         *
+         *     `type` is the wizard's card, and it only decides how a *bare name* is read — `OnePiece`
+         *     is a subreddit under the Reddit card and a channel search under YouTube. Every URL
+         *     result is typed by its own URL, so a YouTube channel pasted under the Website card
+         *     still comes back as YouTube rather than being quietly mislabelled.
+         */
+        get: operations["discover"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/feeds/{uid}/posts": {
         parameters: {
             query?: never;
@@ -221,6 +251,39 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/posts/{uid}/article": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Post Article
+         * @description The full article, extracted on the first request for a post and cached after it.
+         *
+         *     Synchronous with a hard timeout rather than a queued job — docs/backend.md's job table
+         *     said the other thing, and docs/backend-roadmap.md § Decision log records the reversal.
+         *     The reader is blocked on this either way, so queueing it would buy a free web thread at
+         *     the cost of a polling loop and a third state on screen.
+         *
+         *     The cache is global: `article_html` lives on the post, which is one row shared by every
+         *     subscriber, so only the first person to open a post pays for the extraction.
+         *
+         *     Anything short of an article is retried — `''` as much as `None`. A page that read as
+         *     empty once (a bot-challenge page served as 200, a site mid-deploy) is not evidence about
+         *     the article, and one bounded fetch per open is cheap next to a post that is wrong for
+         *     everyone forever.
+         */
+        get: operations["get_post_article"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/posts/{uid}/save": {
         parameters: {
             query?: never;
@@ -234,6 +297,30 @@ export interface paths {
         post?: never;
         /** Unsave Post */
         delete: operations["unsave_post"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Posts
+         * @description Scoped post search. `scope` takes the same polymorphic uid the post list does.
+         *
+         *     Engine-neutral by contract: no tsquery syntax on the way in, no rank on the way out.
+         *     Replacing Postgres FTS with a dedicated engine later is a rewrite of `core/search.py`
+         *     and nothing else — this signature is what makes that promise checkable.
+         */
+        get: operations["search_posts"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -392,6 +479,30 @@ export interface components {
             /** Name */
             name: string;
         };
+        /**
+         * DiscoverResultSchema
+         * @description A candidate feed. HomeFeedSchema minus the uid it hasn't earned, plus the flag.
+         *
+         *     Field-for-field the same names as a real feed on purpose — the frontend's
+         *     `FeedCandidate` is this schema, and it hands `feed_url` straight to POST /feeds.
+         */
+        DiscoverResultSchema: {
+            /** Name */
+            name: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "website" | "youtube" | "reddit";
+            /** Site Url */
+            site_url: string;
+            /** Feed Url */
+            feed_url: string;
+            /** Icon Url */
+            icon_url: string;
+            /** Already Subscribed */
+            already_subscribed: boolean;
+        };
         /** PostPageSchema */
         PostPageSchema: {
             /** Items */
@@ -420,6 +531,16 @@ export interface components {
             published_at: string;
             /** Saved Group */
             saved_group: ("bookmarks" | "favorites" | "later") | null;
+        };
+        /** ArticleSchema */
+        ArticleSchema: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "unavailable";
+            /** Article Html */
+            article_html: string | null;
         };
         /** SavedSchema */
         SavedSchema: {
@@ -949,6 +1070,56 @@ export interface operations {
             };
         };
     };
+    discover: {
+        parameters: {
+            query: {
+                type: "website" | "youtube" | "reddit";
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscoverResultSchema"][];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+        };
+    };
     list_posts: {
         parameters: {
             query?: {
@@ -1019,6 +1190,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PostSchema"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+        };
+    };
+    get_post_article: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleSchema"];
                 };
             };
             /** @description Unauthorized */
@@ -1123,6 +1334,58 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+        };
+    };
+    search_posts: {
+        parameters: {
+            query: {
+                q: string;
+                scope?: string;
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PostPageSchema"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
