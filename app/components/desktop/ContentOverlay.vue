@@ -6,10 +6,11 @@
 // scroll; that's the no-reload guarantee when closing back to the reader.
 // Reuses the same panel components the mobile bottom sheets host.
 //
-// Switching detail is a plain swap, exactly like clicking a different post:
-// the master stays put and nothing slides. Only the area as a whole slides,
-// in from the right when it opens (.content-slide-*, transitions.css) — which
-// is the desktop equivalent of the page push mobile gets.
+// Nothing here animates. Opening the area is a page replacing a page, and
+// switching detail is a plain swap, exactly like clicking a different post.
+// Sliding is the mobile stack's language: there, one pane is the whole screen
+// and the motion is what tells you which way you moved. Here both ends of the
+// move are on screen at once, so it would only be decoration.
 const route = useRouter().currentRoute
 const feedsStore = useFeedsStore()
 const wizard = useAddFeedWizard()
@@ -56,64 +57,67 @@ function closeAdd() {
 </script>
 
 <template>
-  <Transition name="content-slide">
-    <div
-      v-if="open"
-      class="absolute inset-0 z-10 flex bg-default"
+  <div
+    v-if="open"
+    class="absolute inset-0 z-10 flex bg-default"
+  >
+    <!-- Flows with no list to sit beside: the add wizard (four linear steps)
+         and a loose feed's edit. Left-aligned, not centred — the panel
+         carries the same page-inset the sidebar does, and flush-left is what
+         makes the two insets line up. -->
+    <section
+      v-if="single"
+      class="min-w-0 w-full max-w-reading"
     >
-      <!-- Flows with no list to sit beside: the add wizard (four linear steps)
-           and a loose feed's edit. Left-aligned, not centred — the panel
-           carries the same page-inset the sidebar does, and flush-left is what
-           makes the two insets line up. -->
-      <section
-        v-if="single"
-        class="min-w-0 w-full max-w-reading"
-      >
-        <AddSteps
-          v-if="onAdd"
-          @close="closeAdd"
-          @done="closeAdd"
+      <AddSteps
+        v-if="onAdd"
+        :slide="false"
+        @close="closeAdd"
+        @done="closeAdd"
+      />
+      <EditPanels
+        v-else
+        pane="single"
+      />
+    </section>
+
+    <!-- Two equal panes, NOT the reader's 40/60. A form is not an article: it
+         doesn't get wider-and-better, it just gets a longer line to read a
+         label across. Equal columns keep the detail at the master's measure
+         and leave the remainder empty on the right, which is the correct
+         answer for content that has a natural width. Each panel brings its
+         own scroll-host and page-inset, so the sections only carry the split. -->
+    <template v-else>
+      <section class="min-w-0 basis-2/5 shrink-0">
+        <SettingsHome
+          v-if="onSettings"
+          :active-path="route.path"
         />
         <EditPanels
           v-else
-          pane="single"
+          pane="master"
         />
       </section>
 
-      <!-- Same 40/60 split as the reading panes. Each panel brings its own
-           scroll-host and page-inset, so the sections only carry the measure. -->
-      <template v-else>
-        <section class="basis-2/5 shrink-0">
-          <SettingsHome
-            v-if="onSettings"
-            :active-path="route.path"
-          />
-          <EditPanels
-            v-else
-            pane="master"
-          />
-        </section>
-
-        <section class="min-w-0 basis-3/5">
-          <component
-            :is="settingsDetail"
-            v-if="settingsDetail"
-            :key="route.path"
-          />
-          <EditPanels
-            v-else-if="editDetail"
-            pane="detail"
-          />
-          <div
-            v-else-if="placeholder"
-            class="flex h-full items-center justify-center"
-          >
-            <p class="text-body text-dimmed">
-              {{ placeholder }}
-            </p>
-          </div>
-        </section>
-      </template>
-    </div>
-  </Transition>
+      <section class="min-w-0 basis-2/5 shrink-0">
+        <component
+          :is="settingsDetail"
+          v-if="settingsDetail"
+          :key="route.path"
+        />
+        <EditPanels
+          v-else-if="editDetail"
+          pane="detail"
+        />
+        <div
+          v-else-if="placeholder"
+          class="flex h-full items-center justify-center"
+        >
+          <p class="text-body text-dimmed">
+            {{ placeholder }}
+          </p>
+        </div>
+      </section>
+    </template>
+  </div>
 </template>

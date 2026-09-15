@@ -90,15 +90,7 @@
   transform: translateX(var(--panel-leave-to));
 }
 
-/* The desktop content area (settings / add / edit) sliding in over the reading
-   panes — the desktop counterpart of a page push. Same easing and duration as
-   .page-slide-*; the panes container clips it (desktop/Shell.vue). */
-.content-slide-enter-active,
-.content-slide-leave-active {
-  transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
-}
-
-.content-slide-enter-from,
-.content-slide-leave-to {
-  transform: translateX(100%);
-}
+/* Nothing slides on desktop. Settings / add / edit replace the reading panes
+   the way a new page would, and the panels inside them swap in place — the
+   push/pop above is the mobile stack's language, where one pane is all there
+   is and motion is what says which way you moved. */

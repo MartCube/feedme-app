@@ -68,16 +68,22 @@ html[data-theme='claude'] {
   background-color: var(--ui-bg-sunken);
 }
 
-/* Row hover, desktop only. Touch pointers get nothing — the tap flash is the
-   feedback there, and :hover sticks after a tap. A 10% primary wash rather
-   than a surface step: bg-muted is *brighter* than bg-elevated, so using it
-   here would make a hovered row louder than the selected one. Rows that
-   already carry a surface (selected, or cards mode) don't get this — hover:
-   outranks a plain bg-elevated and would strip it. */
-@utility hover-highlight {
+/* Row hover, desktop only: the row's label goes primary and nothing else
+   moves. Touch pointers get nothing — the tap flash is the feedback there,
+   and :hover sticks after a tap.
+
+   This started as a 10% primary wash on the row background and was changed
+   because it barely registered: there is no alpha of the accent that is both
+   visible over bg-default and quieter than bg-elevated, so it landed as haze.
+   Colour borrows no surface, which means it also stacks on a row that already
+   has one (cards mode, or the selected row) instead of fighting it for the
+   background — the reason the wash had to be withheld from exactly the rows
+   that most needed feedback. Meta that sets its own colour (counts, muted
+   feeds) keeps it, so only the name lights up. */
+@utility hover-accent {
   @media (hover: hover) {
     &:hover {
-      background-color: color-mix(in oklab, var(--ui-primary) 10%, transparent);
+      color: var(--ui-primary);
     }
   }
 }

@@ -10,17 +10,19 @@
 // useRoute() the URL changes but the panes never update.
 const route = useRouter().currentRoute
 const feedsStore = useFeedsStore()
-const { feeds, folders, hasFeeds, loaded, unreachable, readerFeedUid, readerPostUid } = storeToRefs(feedsStore)
+const { feeds, folders, hasFeeds, loaded, unreachable, readerFeedUid, readerPostUid, readerQuery } = storeToRefs(feedsStore)
 
 // Sync selection from reader routes only; content routes leave it frozen.
 watch(() => route.value.fullPath, () => {
   if (route.value.path === '/') {
     readerFeedUid.value = 'all'
     readerPostUid.value = null
+    readerQuery.value = (route.value.query.q as string | undefined) ?? ''
   }
   else if (route.value.path.startsWith('/feed/')) {
     readerFeedUid.value = route.value.params.uid as string
     readerPostUid.value = (route.value.params.postUid as string | undefined) ?? null
+    readerQuery.value = (route.value.query.q as string | undefined) ?? ''
   }
 }, { immediate: true })
 
@@ -53,14 +55,14 @@ useHead({
     <DesktopSidebar class="w-sidebar shrink-0" />
 
     <!-- Reading panes. The content area (settings/add/edit) mounts over these
-         without unmounting them; overflow-x-clip is what hides it off to the
-         right while it slides in and out. -->
-    <div class="relative flex min-w-0 flex-1 overflow-x-clip">
+         without unmounting them — relative is its positioning context. -->
+    <div class="relative flex min-w-0 flex-1">
       <template v-if="hasFeeds">
         <!-- 40/60 split of everything left of the sidebar. -->
         <section class="basis-2/5 shrink-0 scroll-host page-inset">
           <FeedPostList
             :uid="readerFeedUid"
+            :q="readerQuery"
             :active-post-uid="readerPostUid"
           />
         </section>

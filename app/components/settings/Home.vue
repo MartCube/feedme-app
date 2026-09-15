@@ -4,11 +4,18 @@ useHead({ title: 'Settings — FeedMe' })
 // `activePath` is the desktop master–detail selection: the section open in the
 // detail pane keeps the elevated row. The mobile sheet passes none — there the
 // list slides away behind the section anyway.
-defineProps<{ activePath?: string }>()
+const props = defineProps<{ activePath?: string }>()
 
 const closeDrawer = inject(settingsDrawerCloseKey, () => {})
 
 const { selectedUid, select } = useTapSelection()
+
+// Mobile tap flash OR persistent desktop selection — same rule as the feed
+// list's rows, and the same treatment: the label goes primary and the row
+// takes the elevated surface.
+function isActive(to: string) {
+  return selectedUid.value === to || props.activePath === to
+}
 </script>
 
 <template>
@@ -32,14 +39,17 @@ const { selectedUid, select } = useTapSelection()
       >
         <NuxtLink
           :to="section.to"
-          class="-mx-sm flex items-center gap-sm rounded-2xl px-sm py-sm text-body transition-colors"
-          :class="selectedUid === section.to || activePath === section.to ? 'bg-elevated shadow-elevated' : 'hover-highlight'"
+          class="group -mx-sm flex items-center gap-sm rounded-2xl px-sm py-sm text-body transition-colors"
+          :class="isActive(section.to) ? 'bg-elevated shadow-elevated text-primary' : 'hover-accent'"
           @pointerdown="select(section.to)"
         >
+          <!-- The icon sets its own colour, so it can't inherit the row's
+               hover accent — it follows by the same gate instead, or the label
+               would light up beside a muted icon. -->
           <UIcon
             :name="section.icon"
             class="size-6 transition-colors duration-300 ease-out"
-            :class="selectedUid === section.to || activePath === section.to ? 'text-primary' : 'text-muted'"
+            :class="isActive(section.to) ? 'text-primary' : 'text-muted [@media(hover:hover)]:group-hover:text-primary'"
           />
           {{ section.label }}
         </NuxtLink>

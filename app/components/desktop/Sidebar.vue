@@ -18,8 +18,8 @@ const { readerFeedUid } = storeToRefs(useFeedsStore())
 
     <NuxtLink
       to="/add"
-      class="-mx-sm mt-md flex items-center gap-sm rounded-2xl px-sm py-sm text-body text-muted transition-colors"
-      :class="route.path === '/add' ? 'bg-elevated shadow-elevated' : 'hover-highlight'"
+      class="-mx-sm mt-md flex items-center gap-sm rounded-2xl px-sm py-sm text-body transition-colors"
+      :class="route.path === '/add' ? 'bg-elevated shadow-elevated text-primary' : 'text-muted hover-accent'"
     >
       <UIcon
         name="i-ph-plus-bold"
@@ -30,8 +30,8 @@ const { readerFeedUid } = storeToRefs(useFeedsStore())
 
     <NuxtLink
       to="/settings"
-      class="-mx-sm flex items-center gap-sm rounded-2xl px-sm py-sm text-body text-muted transition-colors"
-      :class="route.path.startsWith('/settings') ? 'bg-elevated shadow-elevated' : 'hover-highlight'"
+      class="-mx-sm flex items-center gap-sm rounded-2xl px-sm py-sm text-body transition-colors"
+      :class="route.path.startsWith('/settings') ? 'bg-elevated shadow-elevated text-primary' : 'text-muted hover-accent'"
     >
       <UIcon
         name="i-ph-gear-bold"

@@ -18,6 +18,12 @@ const { selectedUid, select } = useTapSelection()
 
 const members = computed(() => memberFeeds(props.folder))
 
+// Mobile tap flash OR persistent desktop selection — same rule and treatment
+// as the feed list's rows.
+function isActive(feedUid: string) {
+  return selectedUid.value === feedUid || props.activeUid === feedUid
+}
+
 // Local drafts so edits are explicit — the name and the per-feed mutes are
 // both staged here and committed together by the Save pill, never on the
 // keystroke or the toggle. Key the reset on uid, not the folder object, so an
@@ -113,12 +119,14 @@ const deletePath = computed(() => `/edit/${props.folder.uid}/delete`)
           v-for="feed in members"
           :key="feed.uid"
           class="flex items-center rounded-2xl pr-sm transition-colors"
-          :class="selectedUid === feed.uid || activeUid === feed.uid ? 'bg-elevated shadow-elevated' : 'hover-highlight'"
+          :class="isActive(feed.uid) ? 'bg-elevated shadow-elevated text-primary' : 'hover-accent'"
         >
+          <!-- Dimmed by opacity alone, not text-muted: an explicit colour here
+               would beat the row's inherited accent and primary. -->
           <NuxtLink
             :to="`/edit/${folder.uid}/feed/${feed.uid}`"
             class="min-w-0 flex-1 truncate py-sm pl-sm text-body"
-            :class="isMuted(feed.uid) && 'text-muted opacity-60'"
+            :class="isMuted(feed.uid) && 'opacity-60'"
             @pointerdown="select(feed.uid)"
           >
             {{ feed.name }}

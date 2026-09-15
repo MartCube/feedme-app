@@ -25,6 +25,20 @@ function isActive(uid: string) {
   return selectedUid.value === uid || props.activeUid === uid
 }
 
+// The row treatment both modes share, in one place because six rows use it.
+// Selected lights the row's *name* primary — the tap flash on the way out, the
+// master–detail selection standing still — and adds the elevated surface;
+// everything else takes the desktop hover accent (themes.css). Selection rides
+// the name rather than the surface because in cards mode every top-level row
+// already has a surface, so the name is the only cue left there. `carded` is
+// that case: pass isCards on a top-level row, nothing on a member row.
+function rowClass(uid: string, carded = false) {
+  return [
+    carded || isActive(uid) ? 'bg-elevated shadow-elevated' : '',
+    isActive(uid) ? 'text-primary' : 'hover-accent',
+  ]
+}
+
 // A row's trailing 3-dot: revealed by hover — or keyboard focus, or it would be
 // unreachable without a pointer — on hover-capable pointers only. The two
 // flavours differ on touch: folders and loose feeds hide it there, where
@@ -59,9 +73,14 @@ onScopeDispose(() => clearTimeout(flashTimer))
   <div class="flex flex-col">
     <!-- Stand-in wordmark until a designer supplies a real one: FEED in the
          theme's accent, ME in body ink. text-logo is a brand-only size that
-         sits outside the four-size scale on purpose (typography.css). -->
+         sits outside the four-size scale on purpose (typography.css). The
+         link is inside the h1 and sized to the text, so only the wordmark is
+         a target — a block link would make the whole row's dead space
+         clickable. It goes where the Home row goes. -->
     <h1 class="text-logo tracking-tight">
-      <span class="text-primary">FEED</span>ME
+      <NuxtLink to="/feed/all">
+        <span class="text-primary">FEED</span>ME
+      </NuxtLink>
     </h1>
 
     <!-- Home is a list row like the rest — same height, same surface, same
@@ -70,11 +89,18 @@ onScopeDispose(() => clearTimeout(flashTimer))
          instead of linking to /edit. -->
     <div
       class="group -mx-sm mt-md flex items-center rounded-2xl transition-colors"
-      :class="isCards || isActive('all') ? 'bg-elevated shadow-elevated' : 'hover-highlight'"
+      :class="rowClass('all', isCards)"
     >
+      <!-- items-center, not items-baseline like the folder rows: those pair a
+           name with a digit count, which has no descender and sits right on
+           the baseline. "All feeds" is a word, and on a shared baseline a
+           12px word beside a 16px one reads as sagging — centring the two
+           line boxes lifts it the ~1px that fixes it, without a magic
+           offset. Row height is unchanged; the caption's box is the shorter
+           of the two. -->
       <NuxtLink
         to="/feed/all"
-        class="flex min-w-0 flex-1 items-baseline gap-xs py-sm pl-sm"
+        class="flex min-w-0 flex-1 items-center gap-xs py-sm pl-sm"
         @pointerdown="select('all')"
       >
         <span class="truncate text-body">Home</span>
@@ -92,19 +118,21 @@ onScopeDispose(() => clearTimeout(flashTimer))
     </div>
 
     <!-- Cards-mode spacing is per-row margins, not a ul gap: md between
-         top-level cards, xs for the plain member rows inside a dropdown. In
-         list mode the rows run contiguously, Home included. -->
+         top-level cards, xs for the plain member rows inside a dropdown. List
+         mode instead runs the rows on the smallest step — Home included, hence
+         the matching mt — so a selected row's rounded surface doesn't fuse
+         with the row above it. -->
     <ul
       v-auto-animate
       class="flex flex-col"
-      :class="isCards && 'mt-md'"
+      :class="isCards ? 'mt-md' : 'mt-2xs gap-2xs'"
     >
       <!-- Pinned Saved group: same split row as folders (link + chevron), but
            its members are the fixed saved groups, not store feeds. Expansion
            reuses expandedFolderUids under the literal 'saved' uid. -->
       <li
         class="-mx-sm flex items-center rounded-2xl transition-colors"
-        :class="isCards ? 'bg-elevated shadow-elevated mt-md first:mt-0' : isActive('saved') ? 'bg-elevated shadow-elevated' : 'hover-highlight'"
+        :class="[rowClass('saved', isCards), isCards && 'mt-md first:mt-0']"
       >
         <NuxtLink
           to="/feed/saved"
@@ -138,7 +166,7 @@ onScopeDispose(() => clearTimeout(flashTimer))
           <NuxtLink
             :to="`/feed/${group.uid}`"
             class="-mr-sm flex items-baseline gap-xs rounded-2xl py-sm pl-md pr-sm text-body transition-colors"
-            :class="isActive(group.uid) ? 'bg-elevated shadow-elevated' : 'hover-highlight'"
+            :class="rowClass(group.uid)"
             @pointerdown="select(group.uid)"
           >
             <span class="truncate">{{ group.name }}</span>
@@ -159,7 +187,7 @@ onScopeDispose(() => clearTimeout(flashTimer))
              without flashing the row. -->
         <li
           class="group -mx-sm flex items-center rounded-2xl transition-colors"
-          :class="isCards ? 'bg-elevated shadow-elevated mt-md first:mt-0' : isActive(folder.uid) ? 'bg-elevated shadow-elevated' : 'hover-highlight'"
+          :class="[rowClass(folder.uid, isCards), isCards && 'mt-md first:mt-0']"
         >
           <NuxtLink
             :to="`/feed/${folder.uid}`"
@@ -207,12 +235,17 @@ onScopeDispose(() => clearTimeout(flashTimer))
             :key="`${folder.uid}_${feed.uid}`"
             :class="isCards && 'mt-xs'"
           >
+            <!-- A muted member is dimmed by opacity alone, not text-muted, so
+                 it still takes the hover accent and the selected primary —
+                 dimmed versions of both — instead of two colours racing for
+                 the same property on one element. At 60% over the page it
+                 lands where text-muted already sat. -->
             <NuxtLink
               :to="`/feed/${feed.uid}`"
               class="-mr-sm block truncate rounded-2xl py-sm pl-md pr-sm text-body transition-colors"
               :class="[
-                folder.muted_feed_uids.includes(feed.uid) && 'text-muted opacity-60',
-                isActive(feed.uid) ? 'bg-elevated shadow-elevated' : 'hover-highlight',
+                rowClass(feed.uid),
+                folder.muted_feed_uids.includes(feed.uid) && 'opacity-60',
               ]"
               @pointerdown="select(feed.uid)"
             >
@@ -226,7 +259,7 @@ onScopeDispose(() => clearTimeout(flashTimer))
         v-for="feed in looseFeeds"
         :key="feed.uid"
         class="group -mx-sm flex items-center rounded-2xl transition-colors"
-        :class="isCards ? 'bg-elevated shadow-elevated mt-md first:mt-0' : isActive(feed.uid) ? 'bg-elevated shadow-elevated' : 'hover-highlight'"
+        :class="[rowClass(feed.uid, isCards), isCards && 'mt-md first:mt-0']"
       >
         <NuxtLink
           :to="`/feed/${feed.uid}`"
