@@ -4,7 +4,7 @@
 - [Claude dir layout](project-claude-dir-layout.md) — everything Claude-Code/superpowers-related lives under .claude/ (plans, specs, scratch, memory); never in docs/ or root
 - [Docs are source of truth](project-docs-source-of-truth.md) — docs/ is the agreed product spec, check it before building; current-state.md tracks status/decisions; batch doc edits at session end / pre-commit
 - [Naming taste](feedback-naming-taste.md) — no enterprise-speak entity names (Subscription vetoed → Feed); backend + frontend share the same nouns; check docs/backend.md vocabulary table
-- [Model policy](feedback-model-policy.md) — k3 default; k2.7-code for code-search subagents, k2.6 only for mechanical ones (git, checker); IDs at platform.kimi.ai/docs/models
+- [Model policy](feedback-model-policy.md) — Claude Pro era: main loop opus; judgment/prose subagents sonnet; mechanical (git, checker) haiku; tier by failure cost
 - [Full access, direct execution](feedback-full-file-access.md) — blanket read/edit on all project files, no permission asking; no subagent/task ceremony for simple fixes
 - [Discuss before building](feedback-discuss-before-building.md) — for ANY building work: present plan/strategy, discuss, agree, then act; simple concrete fixes exempt
 - [Ask, don't assume](feedback-ask-dont-assume.md) — confirm uncertain facts (browser, symptoms, what was tried) with the user before building diagnostic steps or plans on them
@@ -20,3 +20,7 @@
 - [Minimal machinery](feedback-minimal-machinery.md) — justify every new composable/util in detail or cut it; separate "moved code" from "new code" in plans
 - [One integration per task](feedback-one-integration-per-task.md) — a YouTube/Reddit/website task stays inside its own type; don't unify result shapes or justify a field by a future task
 - [Backend vs frontend depth](user-backend-vs-frontend-depth.md) — expert on the Nuxt frontend, beginner on Python/Django + IDE/Docker tooling; explain backend/dev-env steps at junior level and spell out backend decisions in prose before asking them to choose, skip hand-holding on frontend
+- [Strategy decisions](feedback-strategy-decisions.md) — judge options on best-for-product, not least code; when they say "a lot to ingest", collapse to one plain pick; split decisions into independent axes
+- [crowdfeed reference](reference-crowdfeed.md) — user's previous aggregator (crowdfeed.com, live): pre-rendered md/lg JPEGs on S3+CloudFront; their infra baseline; code on another laptop
+- [Plan budget](user-plan-budget.md) — user is on Claude Pro ($20), wants max daily use: rate tooling by runtime token cost; deterministic hooks first, no always-on context, no wholesale config plugins
+- [Review first](feedback-review-first.md) — when asked for a review/analysis/strategy, write it; state assumptions inline instead of AskUserQuestion rounds

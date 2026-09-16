@@ -9,6 +9,15 @@
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-conventions.sh\""
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-bash.sh\""
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -22,6 +31,17 @@
           {
             "type": "command",
             "command": "f=$(jq -r '.tool_input.file_path // empty'); case \"$f\" in *.py) cd \"$CLAUDE_PROJECT_DIR\" && .venv/bin/ruff check --fix \"$f\" >/dev/null 2>&1; .venv/bin/ruff format \"$f\" >/dev/null 2>&1 ;; esac; true"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-status.sh\""
           }
         ]
       }

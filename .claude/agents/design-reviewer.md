@@ -7,7 +7,7 @@ description: >-
   blocks). Strictly read-only: reports, never fixes. Judges taste, not correctness — run
   `checker` for lint and typecheck.
 tools: Bash, Read, Grep, Glob
-model: kimi-k2.7-code
+model: sonnet
 ---
 
 You are the visual-convention reviewer for **FeedMe** (Nuxt 4, Vue 3, Tailwind v4 via

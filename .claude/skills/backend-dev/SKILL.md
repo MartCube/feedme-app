@@ -1,6 +1,6 @@
 ---
 name: backend-dev
-description: Work on the FeedMe Django backend — compose workflow, django-ninja conventions, and the vocabulary the API must share with the frontend
+description: Work on the FeedMe Django backend — the compose workflow, the host venv, and where the hard rules live
 ---
 
 # FeedMe backend
@@ -10,16 +10,21 @@ Django 5.2 + django-ninja in `backend/`, Postgres 16 + Redis via `docker-compose
 the working shorthand. **`docs/backend-roadmap.md` says what to build next** — its § Status
 names the current task; update it when the task lands.
 
-**Status check first.** The backend is early: `backend/feedme/api.py` may still be little
-more than `/health`. Read what actually exists before assuming a model or endpoint is
-there.
+**Status check first.** Read what actually exists (`backend/feedme/api.py`, `backend/core/`)
+before assuming a model or endpoint is there.
+
+**The hard rules load themselves.** `.claude/rules/backend.md` is path-scoped to
+`backend/**/*.py` and enters context when you read any backend file: the vocabulary table,
+ninja `Schema` conventions, the `core/fetch.py` rule for anything that touches the internet,
+generated migrations, the ruff F401 trap, and the worker/scheduler restart. Read a sibling
+module first when creating a new one.
 
 ## Running it
 
 ```bash
 docker compose up -d db redis     # deps only
-docker compose up api             # Django on :8000
-docker compose logs -f api
+docker compose up -d api          # Django on :8000 — always -d; the Bash guard blocks foreground
+docker compose logs -f api        # the stream, run backgrounded
 ```
 
 Django commands run *inside* the `api` service — that's where Django actually executes:
@@ -28,18 +33,21 @@ Django commands run *inside* the `api` service — that's where Django actually 
 docker compose exec api python manage.py makemigrations
 docker compose exec api python manage.py migrate
 docker compose exec api python manage.py shell
+docker compose exec -T api pytest -q
 ```
 
-`backend/` is bind-mounted, so edits reload without a rebuild. Rebuild only after
-touching `requirements.txt` or the `Dockerfile`: `docker compose build api`.
+`backend/` is bind-mounted, so edits reload without a rebuild (`api` only — `worker` and
+`scheduler` need `docker compose restart worker scheduler`). Rebuild only after touching
+`requirements.txt` or the `Dockerfile`: `docker compose build api`.
 
 The Nuxt dev server stays on `pnpm dev` and talks to `api` on localhost — the frontend is
 never containerised for development.
 
-### The host venv is for the IDE only
+### The host venv is for the IDE and the lint hook only
 
 `.venv/` at the repo root (gitignored) mirrors `requirements.txt` so the IDE can resolve
-`django`/`ninja` imports — **nothing runs from it**. Recreate on a fresh machine with
+`django`/`ninja` imports and the PostToolUse hook can run `ruff` — **nothing else runs from
+it**. Recreate on a fresh machine with
 `python3 -m venv .venv && .venv/bin/pip install -r backend/requirements.txt`, then point the
 IDE at `.venv/bin/python` and mark `backend/` as the sources root (imports are rooted there,
 not at the repo root).
@@ -52,48 +60,14 @@ not at the repo root).
 It sits at the repo root rather than `backend/.venv` because the Dockerfile's `COPY . .` runs
 from the `backend/` build context and would bake the venv into the image.
 
-## Vocabulary — this is the load-bearing rule
+## Lint and tests
 
-Backend code, API responses, and the frontend share **the same nouns**. Drift here is the
-expensive mistake, and enterprise-speak is vetoed (`Subscription` was rejected in favour
-of `Feed`).
+ruff is configured in `backend/pyproject.toml` (`select = E W F I UP B DJ`, single quotes, 100
+cols); the hook runs `ruff check --fix` + `ruff format` on every edited `.py`. Tests are
+`pytest` + `pytest-django` in `backend/tests/`, run inside the container. The `checker` agent
+runs ruff, the suite and `makemigrations --check` when `backend/` changed.
 
-| Term | What it is | Public? |
-|---|---|---|
-| **Source** | One RSS endpoint. Global, deduplicated, polled once regardless of follower count. | No — backend-only |
-| **Post** | One item of a source. Global, deduped per source by guid. | Yes — `post_*` |
-| **Feed** | The user↔source link: *your* handle on a source (custom name, order). Same noun as the frontend's `Feed` type, deliberately. | Yes — `feed_*` |
-| **Folder** | A user's named group of feeds; many-to-many, per-folder mute. | Yes — `folder_*` |
-| **Saved** | Per-user post→group map; fixed groups Bookmarks / Favorites / Later. | Yes — `saved_*` |
+## Before committing
 
-**The backend mints every public uid** with the prefixes the frontend already resolves:
-`feed_*`, `folder_*`, `post_*`, plus literals `all` / `saved` and the fixed `saved_*` group
-uids from `app/utils/saved.ts`. Mock ids (`art_med_1`) are replaced by `post_*`.
-
-Merged streams (a folder's read, `all`, `saved`) get no entity name — the polymorphic
-`/feeds/{uid}/posts` uid expresses them, mirroring the frontend's resolver order.
-
-Before naming a new model, field, or endpoint: check the table above and `docs/backend.md`
-§ Vocabulary. A new public noun is a discussion, not a unilateral call.
-
-## django-ninja conventions
-
-- Routes hang off the `NinjaAPI` in `backend/feedme/api.py`; group by resource with
-  `Router` as the catalogue grows (`docs/backend.md` § Endpoint catalog is the contract).
-- Request/response shapes are **ninja `Schema` classes**, not bare dicts — the frontend's
-  types are generated from this contract's shape.
-- Schema field names are the API's public surface: `snake_case`, matching the vocabulary
-  table. Never leak a `Source` to the frontend; it's backend-only.
-- Return the uid, never the integer pk.
-
-## Ground rules
-
-- **Secrets never enter git.** Google client id/secret, YouTube API key, Reddit
-  credentials live in `.env` (gitignored). Add the *key* to `.env.example` with an empty
-  or placeholder value; a hook blocks `.env` edits outright.
-- Migrations are generated, never hand-written, and get committed alongside the model
-  change.
-- No Python lint config exists yet. If the backend grows past a few modules, propose
-  `ruff` — don't add it silently.
-- `docs/backend.md` § Decision log records *why*. Append there when a choice is made;
-  don't rewrite past entries.
+`checker`, then `docs` to sync `docs/backend.md` § Decision log and the roadmap § Status, then
+hand off to `git`.

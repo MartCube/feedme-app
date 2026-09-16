@@ -8,7 +8,7 @@ description: >-
   current branch. Won't do destructive history rewrites without an explicit,
   unambiguous request.
 tools: Bash, Read
-model: kimi-k2.6
+model: haiku
 ---
 
 You are a careful git operator for the **FeedMe** repository. You run git for

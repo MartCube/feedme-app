@@ -1,20 +1,25 @@
 ---
 name: feedback-model-policy
-description: "Model policy (Kimi era): k3 default; k2.7-code for code-search subagents, k2.6 only for tightly-railed mechanical subagents"
-metadata: 
-  node_type: memory
+description: "Model policy (Claude Pro era, since 2026-09-16): main loop opus; judgment/prose subagents sonnet; tightly-railed mechanical subagents haiku — tier by failure cost, never opus for a railed task"
+metadata:
   type: feedback
-  originSessionId: 96ccb424-2068-4d4b-9f7d-37a50b517cb1
-  modified: 2026-07-24T17:06:43.035Z
 ---
 
-Main loop and judgment/accuracy-critical subagents run `kimi-k3`; code-search subagents run
-`kimi-k2.7-code`; tightly-railed mechanical subagents (git ops, lint/typecheck running) run
-`kimi-k2.6`. Model IDs verified at platform.kimi.ai/docs/models.
+Main loop runs Opus (judgment lives there). Subagents pin their own `model:` in
+`.claude/agents/*.md`, tiered by the task's failure cost:
 
-**Why:** quality first — a wrong answer from a weaker model costs more than the tokens it
-saves. Smaller models only where the task genuinely can't benefit from a stronger one.
+| Tier | Alias | Agents |
+|---|---|---|
+| judgment / prose | `sonnet` | docs, librarian, design-reviewer, explorer |
+| mechanical, railed | `haiku` | checker, git |
 
-**How to apply:** each `.claude/agents/*.md` pins its own `model:` — don't override it with
-a weaker one at dispatch. When creating a new subagent, pick the tier by the task's failure
-cost and say why. Relates to [[feedback-full-file-access]].
+The earlier Kimi-era pins (`kimi-k3` / `kimi-k2.7-code` / `kimi-k2.6`) were remapped on
+2026-09-16 — no router was present, so they couldn't resolve in Claude Code.
+
+**Why:** quality first, but on the Pro plan ([[user-plan-budget]]) an opus subagent for a task
+that can't benefit from it is the single most expensive habit. A wrong answer from too weak a
+model still costs more than the tokens saved — so `haiku` only where the task is fully railed.
+
+**How to apply:** don't override an agent's pinned model with a weaker one at dispatch. When
+creating a new subagent, pick the tier by failure cost and say why. Bump `docs` to opus by hand
+only when drafting a whole new spec doc. Relates to [[feedback-full-file-access]].

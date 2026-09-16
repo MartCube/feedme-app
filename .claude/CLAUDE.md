@@ -17,26 +17,28 @@ Nuxt 4 (Vue 3 + TypeScript), source in `app/`, pnpm. @nuxt/ui v4 bundles Tailwin
   somewhere in this repo — or before adding any dependency — delegate to the `librarian`
   agent first. Library-first: prefer VueUse/Nuxt UI/Nuxt built-ins over new deps.
 - When asked to commit after building work, delegate to the `checker` agent first
-  (lint + typecheck) — plus the `design-reviewer` agent when the work touched UI — then the
-  `docs` agent to sync docs/ with what was built, then hand off to the `git` agent.
+  (lint + typecheck; ruff + pytest + migrations check when `backend/` changed) — plus the
+  `design-reviewer` agent when the work touched UI — then the `docs` agent to sync docs/
+  with what was built, then hand off to the `git` agent.
 - Frontend work in `app/`: use the `frontend-dev` skill (running it, the mobile/desktop
-  shell, the routing traps, and the vocabulary the UI shares with the API). `new-component`
-  is the narrower companion for scaffolding one component.
-- Backend work in `backend/`: use the `backend-dev` skill (compose workflow, django-ninja
-  conventions, and the vocabulary the API shares with the frontend).
+  shell). `new-component` is the narrower companion for scaffolding one component.
+- Backend work in `backend/`: use the `backend-dev` skill (compose workflow, host venv).
 
 ## Conventions
 
+- **The hard rules live in `.claude/rules/` and load themselves** when you read a matching
+  file: `components.md` (any `.vue`, css), `shell.md` (layouts, desktop shell, pages,
+  middleware), `data-layer.md` (stores, plugins, composables), `backend.md` (`backend/**/*.py`).
+  Creating a new file? Read a sibling first so the rules are in context.
 - 2-space indent, single quotes, no semicolons — a PostToolUse hook runs `eslint --fix` on
-  every edited `.vue`/`.ts`/`.mjs`, so don't hand-format. Python is the same deal: a second hook
-  runs `ruff check --fix` + `ruff format` on every edited `.py`, from the host `.venv`.
-- No `<style>` blocks in components — utilities in the template; the rest in `app/assets/css/`.
-- No wrapper composables around Pinia stores — use stores directly.
-- Drawers (settings, add) mount in the **layout**, never as nested route pages — nested
-  routes remount the host page (known Nuxt trap, details in .claude/memory gotchas).
-  A PreToolUse hook blocks `app/pages/{settings,add,edit}*`, along with `.env` and the lockfile.
-- Separation: spacing is the default, **hairline dividers are allowed** where spacing
-  doesn't carry the grouping — but never stack divider + gap + card edge. No gloss;
-  elevation is `shadow-elevated`. See `docs/design-system.md` § Separation.
-
-
+  every edited `.vue`/`.ts`/`.mjs`; a second runs `ruff check --fix` + `ruff format` on every
+  edited `.py`. Don't hand-format.
+- Hooks enforce the invariants deterministically (`.claude/hooks/`, tests in
+  `test-guards.sh`): no `.env`, lockfile, `app/types/api.d.ts` or migration edits; no drawer
+  route pages under `app/pages/{settings,add,edit}*`; no new markdown outside `docs/`,
+  `.claude/`, `pending_tasks/`; no foreground `pnpm dev` / `docker compose up` (background
+  them or use `-d`); pnpm only, never npm/npx/yarn.
+- Vocabulary is shared end to end — `Feed`, `Folder`, `Post`, `Saved`; `Source` is
+  backend-only. No wrapper composables around Pinia stores. Spacing is the default separator;
+  hairline dividers are allowed, never stacked with gap + card edge. No gloss; elevation is
+  `shadow-elevated`.

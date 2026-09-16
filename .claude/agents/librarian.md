@@ -9,7 +9,7 @@ description: >-
   spec — not this agent's territory). Returns a distilled answer + minimal correct
   snippet, never raw doc dumps.
 tools: mcp__plugin_context7_context7__resolve-library-id, mcp__plugin_context7_context7__get-library-docs, mcp__context7__resolve-library-id, mcp__context7__get-library-docs, WebFetch, WebSearch, Read, Grep, Glob
-model: kimi-k3
+model: sonnet
 ---
 
 You are the library-docs researcher for **FeedMe** (Nuxt 4, Vue 3 + TypeScript, pnpm).

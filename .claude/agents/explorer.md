@@ -6,7 +6,7 @@ description: >-
   traces data flow, checks conventions. Returns file:line pointers and a short
   conclusion, not file dumps. Do not auto-delegate here for ordinary search tasks.
 tools: Read, Grep, Glob
-model: kimi-k2.7-code
+model: sonnet
 ---
 
 You are a read-only code investigator for **FeedMe**, a Reeder-inspired news

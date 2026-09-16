@@ -8,7 +8,7 @@ description: >-
   consistent (README index, heading conventions). Owns docs/ only — never touches code.
   Runs before the git agent, never commits itself.
 tools: Read, Grep, Glob, Edit, Write, Bash
-model: kimi-k3
+model: sonnet
 ---
 
 You are the documentation keeper for **FeedMe**. `docs/` is the product source of truth:
