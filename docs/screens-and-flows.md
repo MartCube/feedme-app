@@ -234,12 +234,10 @@ it renders beside the feed list on desktop and full-screen on mobile.
 **The user can:**
 - Read the post: a 16:9 **hero** (`post.image`, above the title; absent when the post has none or
   it fails to load — [images.md](./images.md) § Rendering), `title`, formatted `published_at`,
-  and its text. The **article
-  text** is the goal — extracted and sanitised server-side, so it is the one text field the
-  screen renders as markup. Until the screen is wired to it, it shows what RSS gave us
-  (`summary`) as plain text — a summary is untrusted third-party markup and is never rendered
-  as HTML. When extraction can't produce an article the screen falls back to that same summary,
-  plus **Open source**.
+  and its text. The **article text** — extracted and sanitised server-side — is the one text
+  field the screen renders as markup; when extraction can't produce one the screen falls back to
+  what RSS gave us (`summary`) as plain text — untrusted third-party markup, never rendered as
+  HTML — plus **Open source**.
 - **Save** the post (toggle) — it lands in **Bookmarks**; toggling again unsaves it. See
   [data-model.md](./data-model.md#saved-state).
 - **Open source** — opens `post.post_url` (the original article / YouTube watch page) in a

@@ -1,4 +1,4 @@
-import type { Post, SavedGroupName } from '~/assets/types'
+import type { Article, Post, SavedGroupName } from '~/assets/types'
 
 // Where a plain Save lands. The spec (screens-and-flows.md) makes Save a
 // toggle, not a chooser; the three groups exist and are readable, but nothing
@@ -19,11 +19,27 @@ export function usePost(uid: MaybeRefOrGetter<string | null>) {
   const saved = computed(() => Boolean(post.value?.saved_group))
   const saving = ref(false)
 
-  watch(() => toValue(uid), async (current) => {
+  // The article is a second request with the same owner: the reader renders
+  // it as markup when it's there and falls back to the post's summary when
+  // it isn't. `unavailable` covers both the endpoint saying so and the request
+  // failing — the screen does the same thing either way.
+  const article = ref<string | null>(null)
+  const articleState = ref<'loading' | 'ok' | 'unavailable'>('loading')
+
+  watch(() => toValue(uid), (current) => {
     post.value = null
     failed.value = false
+    article.value = null
+    articleState.value = 'loading'
     // Nothing open — the desktop detail pane is empty until a post is picked.
     if (!current) return
+    // Both in flight at once: extraction can take a second on a post's first
+    // open, and the title shouldn't wait on it.
+    loadPost(current)
+    loadArticle(current)
+  }, { immediate: true })
+
+  async function loadPost(current: string) {
     try {
       const result = await $api<Post>(`/posts/${current}`)
       // A second navigation while this one was in flight owns the pane now.
@@ -32,7 +48,25 @@ export function usePost(uid: MaybeRefOrGetter<string | null>) {
     catch {
       if (toValue(uid) === current) failed.value = true
     }
-  }, { immediate: true })
+  }
+
+  async function loadArticle(current: string) {
+    let result: Article | null = null
+    try {
+      result = await $api<Article>(`/posts/${current}/article`)
+    }
+    catch {
+      // Falls through to `unavailable` below.
+    }
+    if (toValue(uid) !== current) return
+    if (result?.status === 'ok' && result.article_html) {
+      article.value = result.article_html
+      articleState.value = 'ok'
+    }
+    else {
+      articleState.value = 'unavailable'
+    }
+  }
 
   async function toggleSave() {
     if (!post.value || saving.value) return
@@ -59,5 +93,5 @@ export function usePost(uid: MaybeRefOrGetter<string | null>) {
     }
   }
 
-  return { post, failed, saved, saving, toggleSave }
+  return { post, failed, article, articleState, saved, saving, toggleSave }
 }

@@ -21,7 +21,7 @@ const { style: swipeStyle } = useSwipeBack(page, backTo)
 // the breakpoint check flips, and the desktop shell fetches the same post a
 // moment later. The synchronous check exists for exactly this (useIsDesktop's
 // ref is deliberately false until mounted).
-const { post, failed, saved, toggleSave } = usePost(isDesktopNow() ? null : postUid)
+const { post, failed, article, articleState, saved, toggleSave } = usePost(isDesktopNow() ? null : postUid)
 
 useHead({ title: () => post.value?.title ?? 'Post' })
 </script>
@@ -38,17 +38,20 @@ useHead({ title: () => post.value?.title ?? 'Post' })
         :to="backTo"
         aria-label="Back"
       />
-      <IconButton
-        :icon="saved ? 'i-ph-bookmark-simple-fill' : 'i-ph-bookmark-simple-bold'"
-        :aria-label="saved ? 'Unsave' : 'Save'"
-        :aria-pressed="saved"
-        @click="toggleSave"
+      <!-- Open source needs the post's URL, so the pair waits for the post. -->
+      <FeedPostActions
+        v-if="post"
+        :post="post"
+        :saved="saved"
+        @toggle-save="toggleSave"
       />
     </Navbar>
 
     <FeedPostView
       :post="post"
       :failed="failed"
+      :article="article"
+      :article-state="articleState"
     />
   </main>
 </template>

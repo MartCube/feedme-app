@@ -1,0 +1,122 @@
+/* Article — the reading styles for extracted article markup (PostView.vue).
+
+   The HTML comes from GET /posts/{uid}/article, sanitised server-side against
+   the backend's own allowlist (core/extract.py ARTICLE_TAGS), so it carries no
+   classes and components may not carry <style> blocks: the element rules live
+   here, built from the same tokens as everything else. Covers exactly the
+   allowlisted tags and nothing more. */
+@utility article {
+  /* The reading rhythm: one heading→content step between every block. */
+  & > * + * {
+    margin-top: var(--spacing-md);
+  }
+
+  /* Headings sit below the page title (text-title) — h1–h3 take the subtitle
+     size, h4–h6 stay at body size and only gain the weight. */
+  & h1,
+  & h2,
+  & h3 {
+    font-size: var(--text-subtitle);
+    line-height: var(--text-subtitle--line-height);
+    font-weight: var(--text-subtitle--font-weight);
+  }
+
+  & h4,
+  & h5,
+  & h6 {
+    font-weight: 600;
+  }
+
+  & a {
+    color: var(--ui-primary);
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+  }
+
+  /* The hairline role, as every other divider in the app; the muted text is
+     what carries the "quoted" reading. */
+  & blockquote {
+    border-left: 2px solid var(--ui-border);
+    padding-left: var(--spacing-sm);
+    color: var(--ui-text-muted);
+  }
+
+  & ul,
+  & ol {
+    padding-left: var(--spacing-lg);
+  }
+
+  & ul {
+    list-style: disc;
+  }
+
+  & ol {
+    list-style: decimal;
+  }
+
+  & li + li {
+    margin-top: var(--spacing-2xs);
+  }
+
+  /* Code blocks are elevated surfaces that scroll sideways rather than wrap —
+     the card radius (rounded-2xl), like every other rounded surface. */
+  & pre {
+    background-color: var(--ui-bg-elevated);
+    padding: var(--spacing-sm);
+    border-radius: var(--radius-2xl);
+    overflow-x: auto;
+    font-size: var(--text-caption);
+    line-height: var(--text-body--line-height);
+  }
+
+  /* Inline code is a chip inside a line, the one place the card radius would
+     read as a pill — so it takes the smallest step instead. */
+  & code {
+    background-color: var(--ui-bg-muted);
+    padding: 0 0.25em;
+    border-radius: var(--radius-sm);
+  }
+
+  /* Inside a block the inline treatment would double up. */
+  & pre code {
+    background-color: transparent;
+    padding: 0;
+    border-radius: 0;
+  }
+
+  /* Article images fit the reading width. T15c later rewrites `src` through
+     the image proxy; the layout stays the same. */
+  & img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border-radius: var(--radius-2xl);
+  }
+
+  & figcaption {
+    margin-top: var(--spacing-2xs);
+    font-size: var(--text-caption);
+    line-height: var(--text-caption--line-height);
+    color: var(--ui-text-muted);
+  }
+
+  /* Tables scroll sideways as a block rather than breaking the measure. */
+  & table {
+    display: block;
+    overflow-x: auto;
+    font-size: var(--text-caption);
+    line-height: var(--text-caption--line-height);
+  }
+
+  & th,
+  & td {
+    padding: var(--spacing-2xs) var(--spacing-xs);
+    border-bottom: 1px solid var(--ui-border);
+    text-align: left;
+    vertical-align: top;
+  }
+
+  & th {
+    font-weight: 600;
+  }
+}

@@ -94,11 +94,16 @@ function displayUrl(url: string) {
                avatars, and those are always square. A website's icon_url is as often a
                wide banner, which a circle would crop badly — that gets its own pass.
                Not loading="lazy": at most five rows, all on screen, and inside the
-               drawer Chrome never got round to fetching a lazy one at all. -->
+               drawer Chrome never got round to fetching a lazy one at all.
+               no-referrer: Google's image CDN throttles hotlinks that carry a foreign
+               Referer — five avatars at once meant one loaded and four 429'd (measured
+               in Chromium, not a Brave quirk); with no Referer all five load. Interim
+               until T15b serves icons through our own proxy. -->
           <img
             v-if="result.type === 'youtube' && result.icon_url"
             :src="result.icon_url"
             alt=""
+            referrerpolicy="no-referrer"
             class="size-10 shrink-0 rounded-full bg-muted object-cover"
           >
           <span class="min-w-0 flex-1">

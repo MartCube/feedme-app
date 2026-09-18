@@ -31,6 +31,12 @@ export type Post = Schemas['PostSchema']
 // app/utils/saved.ts is the home-list row that shows one.
 export type SavedGroupName = NonNullable<Post['saved_group']>
 
+// GET /posts/{uid}/article: the extracted article, sanitised server-side
+// against the backend's own allowlist (core/extract.py) — the one field the
+// app renders as markup. `unavailable` is a fallback, not an error: the reader
+// shows the summary instead.
+export type Article = Schemas['ArticleSchema']
+
 // Response shapes the stores and composables load from.
 export type Home = Schemas['HomeSchema']
 export type PostPage = Schemas['PostPageSchema']

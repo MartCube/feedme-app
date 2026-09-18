@@ -27,8 +27,16 @@ watch(() => route.value.fullPath, () => {
 }, { immediate: true })
 
 // The shell owns the open post the way the mobile post page does, and passes
-// it into the detail pane below.
-const { post: readerPost, failed: readerPostFailed } = usePost(readerPostUid)
+// it into the detail pane below — together with the pane's own action pair,
+// since there is no navbar here to carry Save and Open source.
+const {
+  post: readerPost,
+  failed: readerPostFailed,
+  article: readerArticle,
+  articleState: readerArticleState,
+  saved: readerPostSaved,
+  toggleSave: toggleReaderSave,
+} = usePost(readerPostUid)
 
 // The reused settings/edit panels close themselves via these injected keys
 // (on mobile they collapse the sheet); here closing means returning to the
@@ -68,12 +76,27 @@ useHead({
         </section>
 
         <section class="min-w-0 basis-3/5 scroll-host page-inset">
-          <FeedPostView
-            v-if="readerPostUid"
-            :post="readerPost"
-            :failed="readerPostFailed"
-            class="max-w-post"
-          />
+          <template v-if="readerPostUid">
+            <!-- Sits on the posts pane's title-row axis; right-aligned within
+                 the reading measure so it stays beside the text, not the pane.
+                 Height reserved (an IconButton's) so the title doesn't drop
+                 when the post arrives and the pair appears. -->
+            <div class="flex min-h-12 max-w-post justify-end">
+              <FeedPostActions
+                v-if="readerPost"
+                :post="readerPost"
+                :saved="readerPostSaved"
+                @toggle-save="toggleReaderSave"
+              />
+            </div>
+            <FeedPostView
+              :post="readerPost"
+              :failed="readerPostFailed"
+              :article="readerArticle"
+              :article-state="readerArticleState"
+              class="max-w-post"
+            />
+          </template>
           <div
             v-else
             class="flex h-full items-center justify-center"

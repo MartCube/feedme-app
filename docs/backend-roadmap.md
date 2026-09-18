@@ -57,7 +57,7 @@ reading order.
 | T14 | Feed preview — a candidate's latest posts | ⬜ ungated, beside T15a |
 | T15a | Images — proxy, post images, card toggle | ⬜ next |
 | T15b | Images — feed icons | ⬜ after T15a |
-| T15c | Images — article images | ⬜ after T15a and the T10 reader wiring |
+| T15c | Images — article images | ⬜ after T15a |
 | T15d | Images — the bucket (stage 2) | ⬜ after T15a |
 | T15e | Images — CDN, then paid (stage 3) | ⬜ needs a deploy target |
 
@@ -207,9 +207,10 @@ The fetch refuses to be aimed inside our own network: scheme allowlist, `ipaddre
 every redirect hop (redirects are followed by hand precisely so each one is checked), a 2MB cap
 read with `iter_content`, non-HTML content types refused, and the DNS-rebinding gap recorded
 rather than papered over. A YouTube source short-circuits to `unavailable` with no fetch at all.
-**The Nuxt reader is not wired to it** — `app/components/feed/PostView.vue` still renders
-`stripHtml(post.summary)`, so nothing on screen changed; that half of T10's acceptance is an owned
-follow-up (see the task entry). 208 backend tests green (was 182), `ruff check` clean.
+**The Nuxt reader was wired to it on 2026-09-18** — `usePost` fires it alongside
+`GET /posts/{uid}` and `FeedPostView` renders `article_html` as markup, falling back to
+`stripHtml(post.summary)` plus Open source when extraction can't produce one; that half of T10's
+acceptance is closed (see the task entry). 208 backend tests green (was 182), `ruff check` clean.
 
 T12 made the lists searchable. `Post.search` is a **persisted generated column** — a tsvector of
 `title` (weight A) over `summary` (weight B), both built with the `'english'` dictionary
@@ -296,9 +297,8 @@ wizard's hotlinked YouTube avatars), and the endpoints stop at
 `/health`, `/me`, `/auth/google`, `/auth/logout`, `/home`, `/home/order`, `/settings`, `/feeds`,
 `/feeds/{uid}`, `/feeds/{uid}/posts`, `/folders`, `/folders/{uid}`, `/posts/{uid}`,
 `/posts/{uid}/article`, `/posts/{uid}/save`, `/search` and `/discover`.
-`PUT /home/order` still has no drag-and-drop UI driving it. The reverse gap — served with no
-frontend caller — is **one**: `/posts/{uid}/article`. `/search` and `/discover` are not; the post
-list and the add wizard call them.
+`PUT /home/order` still has no drag-and-drop UI driving it. Every served endpoint now has a
+frontend caller — `/posts/{uid}/article` was the last one without, wired 2026-09-18.
 
 ## Contract resolutions
 
@@ -321,9 +321,10 @@ dropped from the list.
 backend deliberately splits what RSS gave us (`summary`) from on-demand extracted article text
 (`article_html`). Lists and detail return `summary`; the reader calls `/posts/{uid}/article`
 separately. **Applied in T6:** the reader renders `summary`, and — since a summary is arbitrary
-third-party HTML — renders it as plain text (§ Decision log, 2026-09-01). **Still true after T10
-_(2026-09-05)_:** the endpoint and its global cache exist, but nothing on the frontend calls them
-yet, so the reader still shows the stripped `summary`. Wiring it is an owned follow-up.
+third-party HTML — renders it as plain text (§ Decision log, 2026-09-01). **Wired 2026-09-18:**
+`usePost` calls `/posts/{uid}/article` alongside the post, and the reader renders `article_html`
+as markup, falling back to the stripped `summary` plus Open source when extraction can't produce
+one.
 
 **3. `feed_url` is not user-editable.** `updateFeed()` in `app/stores/feeds.ts` currently
 patched `feed_url`, but that field lives on the shared global `Source` — editing it would
@@ -543,7 +544,10 @@ Decided 2026-09-01 while building T6 (all frontend):
 - **RSS summaries are rendered as text** — a summary is HTML (Reddit wraps a whole `<table>`
   around every post), and nothing sanitises it, so `v-html` is not an option; `stripHtml`
   parses it inertly and shows the text. The real answer is T10's extracted article text — this
-  is the honest interim, not the intended reading experience.
+  is the honest interim, not the intended reading experience. — **Reasoning holds, intended
+  experience shipped _(2026-09-18)_:** the reader now renders `article_html` as markup and keeps
+  this stripped-text treatment only for the `unavailable` fallback — the summary is still text;
+  only the article is markup.
 - **An unreachable API is a first-class state** — a failed `GET /home` shows "Can't reach the
   server" + Try again, never the first-run empty state: telling someone they follow nothing is
   worse than telling them the network failed. The failure is swallowed inside the store rather
@@ -934,6 +938,20 @@ Decided 2026-09-15 while writing the images strategy (no code; the reasoning liv
 - **The card setting is synced.** It is the fourth appearance preference and follows the other
   three: a `UserSettings` column, a `Literal`, the drift guard, a full-replace `PUT`.
 
+Decided 2026-09-18, outside any task (frontend-only, attached to T14):
+
+- **Add wizard state moves onto the URL — type and query, not picks.** A reload of `/add` today
+  loses the wizard entirely; the folder-scoped add already puts the *step* on the route
+  (`/edit/:uid/add` vs. `/edit/:uid/add/input`), but not the type or the search term. Direction:
+  `/add?type=youtube&q=one+piece`, written with `router.replace` (not `push`) exactly like the
+  post list's `?q=` ([current-state.md](./current-state.md) → Built → Feed page v1), with the
+  step derived from the params; picks and the destination step stay in `useState`. Deferred to
+  T14 rather than built now, so the scheme is designed once together with the preview state — a
+  tapped candidate should be addressable too. Rejected: leaving it as-is (fine on Capacitor, but
+  the developer and desktop users reload, and there's no deep link), and steps as path segments
+  (`/add/youtube/destination` — over-built for four steps, and a destination URL means nothing
+  without state).
+
 ## Tasks
 
 ### T1 — Foundations: CORS, linting, test harness
@@ -1267,15 +1285,12 @@ green (was 182, 26 of them new in `backend/tests/test_article.py`), `ruff check`
 
 **Done when.** Opening a post renders extracted article text, a second open is instant
 (served from `article_html`), and a page that can't be extracted falls back to summary + Open
-source rather than showing an error. — **Half closed _(2026-09-05)_:** the endpoint and the
-global cache are built and measured (first call 0.99s, second 0.012s; an unextractable page
-answers `unavailable` rather than erroring), but **nothing on the frontend calls them** —
-`app/components/feed/PostView.vue` still renders `stripHtml(post.summary)`, so no reader screen
-shows an extracted article and the fallback path has never run in the UI. **Wiring the reader is
-an owned follow-up**, the way T8's dev-token field is: the endpoint's shape is settled, what's
-left is a frontend session — render `article_html` as markup, keep the stripped summary as the
-`unavailable` fallback, and add the Open source action that fallback names
-([current-state.md](./current-state.md) → Not started → Post page (rest)).
+source rather than showing an error. — **Met on the server _(2026-09-05)_, closed on the
+frontend _(2026-09-18)_:** the endpoint and the global cache landed first (first call 0.99s,
+second 0.012s; an unextractable page answers `unavailable` rather than erroring), and `usePost`
+now fires it alongside `GET /posts/{uid}`; `FeedPostView` renders `article_html` as markup,
+keeps the stripped summary as the `unavailable` fallback, and adds the Open source action that
+fallback names ([current-state.md](./current-state.md) → Built → Post page v1).
 
 **From T6.** This is what the reader is waiting on. A `summary` is arbitrary third-party HTML
 and nothing sanitises it, so the detail view strips it to plain text — Reddit posts arrive
@@ -1595,7 +1610,9 @@ subscribing, reading, and unsubscribing. Pays off the `latest items` half of
 
 **Build.** `GET /discover/posts?feed_url=` → the candidate's newest posts, as a bare list like
 `/discover`. Backend only; the wizard's presentation is a frontend follow-up that consumes
-this contract (regenerate `app/types/api.d.ts` with `pnpm types:api` when it starts).
+this contract (regenerate `app/types/api.d.ts` with `pnpm types:api` when it starts) — and is
+also the occasion to put the wizard's type and query on the URL as query params (decided
+2026-09-18, § Decision log), since a tapped candidate should become addressable at the same time.
 
 *Why this shape.* A candidate has no uid, so `feed_url` — the one field the wizard already keeps
 from a `/discover` result — is the key. The path is `/discover/posts`, not `/discover/preview`
@@ -1752,8 +1769,10 @@ desktop, reviewed by `design-reviewer` before the docs → git chain.
 ### T15b — Images: feed icons
 
 **Goal.** Every feed has a face. The add wizard's rows show an icon for every type — today only
-YouTube's avatars are shown, hotlinked — with initials when a source has none; home rows and the
-card's type cue pick the same icon up when the design says so.
+YouTube's avatars are shown, hotlinked with `referrerpolicy="no-referrer"` as an interim fix for
+Google's CDN 429ing foreign-referrer hotlinks (measured 2026-09-18) — with initials when a
+source has none; home rows and the card's type cue pick the same icon up when the design says
+so.
 
 **Depends on:** T15a (the proxy and `core/images.py`).
 
@@ -1776,8 +1795,8 @@ favicon both render through the proxy against live sites; the containment test s
 **Goal.** The pictures inside an extracted article load — over https, at reading width, without
 leaking the reader to the article's host.
 
-**Depends on:** T15a, and the reader being wired to `/posts/{uid}/article` (T10's open
-follow-up) — there is no consumer to verify against before that.
+**Depends on:** T15a. The reader has been wired to `/posts/{uid}/article` since 2026-09-18, so
+there's now a consumer to verify against.
 
 **Build.** In `post_article`, rewrite every `<img src>` in the cached `article_html` to a
 proxied `rs:fit:1920:0` URL (fit, no crop) **at read time** — never into the column, so a key

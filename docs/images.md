@@ -28,6 +28,12 @@ referer there is); **mixed content** (an `http://` image on our `https://` page 
 (every reader's IP and referer goes to every source). It also can't give the card, the post page
 and a retina screen the sizes they need — that takes something that resizes.
 
+Measured, not just theorised: the add wizard's YouTube avatars hit hotlink protection directly
+_(2026-09-18)_ — Google's image CDN (`yt3.ggpht.com`) throttled five concurrent hotlinked
+requests carrying a foreign referer to one success and four 429s.
+`referrerpolicy="no-referrer"` is the interim fix on that one `<img>` until T15b serves it
+through the proxy.
+
 ## Three stages
 
 The shape is staged so the app works really well for its first hundred readers on one server,

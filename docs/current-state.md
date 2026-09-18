@@ -3,7 +3,7 @@
 A snapshot of what's actually built vs. what the spec (these docs) describes. The goal is to
 make the gap visible so implementation has a clear backlog. Update this as work lands.
 
-_Last reviewed: 2026-09-15._
+_Last reviewed: 2026-09-18._
 
 ## Summary
 
@@ -28,10 +28,10 @@ that window. **Posts are searchable** — `GET /search` _(2026-09-06)_ narrows a
 saved list, and the feed page and the desktop posts pane search through it from a box on the
 list's own title row. What has no endpoint behind it yet says so: the add wizard resolves any
 **pasted URL** and searches **YouTube** by channel name, but a keyword under Website or Reddit
-still finds nothing, and the home reorder has no UI. The gap runs the other way in **one** place:
-`GET /posts/{uid}/article` extracts and caches article text as of _2026-09-05_, and **no screen
-calls it yet**, so the reader still shows the RSS summary as plain text. See Resolved decisions →
-Backend stack & API. **No image renders anywhere yet** — cards are date + title, the post page has
+still finds nothing, and the home reorder has no UI. **The reader is wired to
+`/posts/{uid}/article`** _(2026-09-18)_: the post page renders the extracted article as markup,
+falling back to the RSS summary plus **Open source** when extraction can't produce one. See
+Resolved decisions → Backend stack & API. **No image renders anywhere yet** — cards are date + title, the post page has
 no hero, and only the add wizard hotlinks YouTube avatars; the strategy for all of it is specced
 in [images.md](./images.md) _(2026-09-15)_ and **T15a** is the roadmap's next task.
 Backend work is sequenced in [backend-roadmap.md](./backend-roadmap.md), which tracks its
@@ -47,7 +47,9 @@ own status: **read that file's § Status for what to build next.**
   nothing else moves) used across list rows — see [design-system.md](./design-system.md) § Color
   roles → Hover state. The
   font family and type scale live in their own `app/assets/css/typography.css` (imported by
-  `main.css`), and the
+  `main.css`, alongside `app/assets/css/article.css` — the sanitised article body's reading
+  styles, an `@utility article` with element rules for exactly the allowlisted tags, tokens
+  only), and the
   6-step t-shirt spacing scale (`--spacing-2xs…xl` → `p-sm`, `gap-md`, `mt-lg`, …) in
   `app/assets/css/spacing.css`, alongside the `page-inset` utility every page/drawer
   wrapper uses for the screen inset (lg sides/top, xl bottom).
@@ -124,7 +126,10 @@ own status: **read that file's § Status for what to build next.**
   can't be picked, and each row is captioned with its **feed URL**, since one page can declare
   several feeds and that is what tells them apart. A **keyword under the YouTube card** searches
   YouTube by channel name _(T11b, 2026-09-11)_: up to five channels, each row leading with the
-  channel's avatar, and the same `videos.xml` feed URL a pasted channel resolves to, so subscribing
+  channel's avatar (hotlinked with `referrerpolicy="no-referrer"` since _2026-09-18_ — Google's
+  image CDN 429s a hotlink carrying a foreign referrer, measured loading five at once in
+  Chromium; interim until T15b serves it through the proxy), and the same `videos.xml` feed URL
+  a pasted channel resolves to, so subscribing
   is the same `POST /feeds` either way. YouTube refusing to answer (quota spent, key rejected) is
   a **503** the step shows as an error — not "nothing found", which would be a lie. A keyword
   under Website or Reddit still says "Nothing found. Try pasting a link." (T11c, T11d).
@@ -191,7 +196,8 @@ own status: **read that file's § Status for what to build next.**
   — the shared `HomeFeedList` (wordmark, Home, Saved, folders, loose feeds — see Feeds list v1,
   below), then two standing rows, **Add feed** (→ `/add`) and **Settings** (→ `/settings`); a
   posts pane (24rem, `FeedPostList`); and a post pane (flexible, capped at a 42rem reading
-  measure, `FeedPostView`, or a dimmed "Select a post" placeholder — **no auto-select**).
+  measure, a `FeedPostActions` bar — Open source + Save — right-aligned above `FeedPostView`
+  once a post is loaded, or a dimmed "Select a post" placeholder — **no auto-select**).
   `Shell.vue` reads `useRouter().currentRoute` rather than Nuxt's `useRoute()` (Nuxt's route
   object only resyncs when a `NuxtPage` resolves, and the shell renders none), syncing the
   feeds store's `readerFeedUid`/`readerPostUid`/`readerQuery`/`readerPath` on reader routes only
@@ -347,24 +353,36 @@ own status: **read that file's § Status for what to build next.**
   mobile; on desktop the shell bypasses it (and every route's `<NuxtPage/>`) entirely, composing
   the posts/post panes itself from the feeds store.
 - **Post page v1** — `app/components/feed/PostView.vue` (`FeedPostView`) renders title, date and
-  the post's `summary`; it is **presentational** — the host that owns the uid (the mobile post
-  page, or the desktop shell for its post pane) fetches through `usePost(uid)` and passes the
-  post down, because the host also needs the title and the save state. The mobile navbar's
-  bookmark is wired: it toggles `PUT`/`DELETE /posts/{uid}/save` into **Bookmarks** (Save is a
-  toggle, not a group chooser) and reflects the saved state in its icon and `aria-pressed`. The
-  **desktop post pane has no action bar**, so saving is mobile-only for now (it never had one —
-  queued with Desktop polish). Summaries are RSS HTML and are rendered as **plain text**
-  (`app/utils/strip-html.ts`) — nothing sanitises third-party markup, and the extracted article
-  text is the real answer; T10 built `/posts/{uid}/article` _(2026-09-05)_ but this component
-  does not call it yet (see Not started → Post page (rest)). Open source is still missing on both
-  viewports.
+  the post body; it is **presentational** — the host that owns the uid (the mobile post page, or
+  the desktop shell for its post pane) fetches through `usePost(uid)` and passes the post and
+  article down, because the host also needs the title and the save state. **The reader is wired
+  to `/posts/{uid}/article`** _(2026-09-18)_: `usePost` fires it concurrently with
+  `GET /posts/{uid}` and exposes `article` (the html, or `null`) and `articleState` (`loading` /
+  `ok` / `unavailable` — a thrown request is treated the same as the endpoint saying so, since
+  the screen does the same thing either way). The body follows that state: a `USkeleton` while
+  loading; the article as markup via `v-html` when `ok` — the one field the app renders as HTML,
+  safe because the backend sanitises it server-side against its own allowlist
+  (`core/extract.py`); and, when `unavailable`, the stripped RSS `summary` as before plus an
+  inline "Read the full post" link to `post_url`. Links inside the article open in a new tab
+  through one delegated click handler (the sanitiser keeps `<a href>` but no `target`; this is
+  also the hook a future Capacitor Browser plugin replaces). Reading styles live in
+  `app/assets/css/article.css` — an `@utility article`, element rules for exactly the allowlisted
+  tags, tokens only — imported by `main.css` beside `typography.css`. **Open source and Save are
+  now one component**: `app/components/feed/PostActions.vue` (`FeedPostActions`, props `post` +
+  `saved`, emits `toggle-save`) renders the Open source (`post_url`, new tab) + Save `IconButton`
+  pair. The mobile post page's navbar uses it; **the desktop post pane now has one too** — the
+  shell renders it right-aligned above `FeedPostView` within `max-w-post`, height reserved so the
+  title doesn't drop when the post arrives — so **saving is no longer mobile-only**. The mobile
+  navbar's bookmark toggle underneath is unchanged: `PUT`/`DELETE /posts/{uid}/save` into
+  **Bookmarks** (Save is a toggle, not a group chooser), reflected in the icon and
+  `aria-pressed`.
 - **PostCard v1** — `app/components/feed/PostCard.vue`: date + title only (no image / type cue
   yet — the image version and the Image / Compact setting are T15a, see Not started → Images),
   whole card links to the post; rows separated by spacing (no divider lines).
 - **Context-aware navbar** — both slots swap per page: home = menu + add, feed page =
   sidebar icon (→ home) alone (search sits on the list's title row instead — see Feed page v1),
-  post page = back (→ its feed, carrying the search it was opened from) + save (wired — see Post
-  page v1). Navigation is hierarchical, not history-based.
+  post page = back (→ its feed, carrying the search it was opened from) + Open source + Save
+  (`FeedPostActions` — see Post page v1). Navigation is hierarchical, not history-based.
 - **Reader slide transitions** — **mobile only** (the desktop shell renders no `<NuxtPage/>`,
   so this machinery never runs there — see Desktop shell v1). home → feed → post slide like a
   navigation stack (deeper pushes in from the right, back pops out to the right). Direction is
@@ -396,16 +414,9 @@ own status: **read that file's § Status for what to build next.**
 
 ## Not started
 
-- **Post page (rest)** — Open source, and the **article text** itself. The endpoint behind it now
-  exists — `GET /posts/{uid}/article`, built and cached in T10 _(2026-09-05)_ — but **nothing on
-  the frontend calls it**: `FeedPostView` still renders the stripped RSS `summary`, so no screen
-  has yet shown an extracted article or exercised its `unavailable` fallback. Wiring the reader
-  (render `article_html` as markup, keep the stripped summary as the fallback, add Open source) is
-  the follow-up recorded in [backend-roadmap.md](./backend-roadmap.md) § Tasks → T10.
 - **Desktop polish** — v1 (see Built → Desktop shell v1) ships the structural three columns
   only: keyboard focus rings still globally suppressed,
-  and `HomeOptionsDrawer` still opens as a mobile-style bottom sheet on desktop. The post pane
-  has **no action bar**, so the save toggle is mobile-only. Auto-selecting
+  and `HomeOptionsDrawer` still opens as a mobile-style bottom sheet on desktop. Auto-selecting
   a detail post (e.g. the last-read one) on entering a feed is also deferred — v1 always starts
   at the "Select a post" placeholder.
 - **Settings content** — the drawer, its four subpages, and transitions are built, and
@@ -415,10 +426,11 @@ own status: **read that file's § Status for what to build next.**
 - **PostCard (rest)** — the image version (T15a) and the source-feed type cue (T15b's icon) —
   see **Images** below.
 - **Add feed (rest)** — keyword search for subreddits and our own catalog (T11c, T11d), a
-  candidate's latest posts before subscribing (T14, planned — `GET /discover/posts`), sub counts,
-  and input validation via VeeValidate/Zod. The wizard UI, RSS discovery from a pasted URL,
-  YouTube search by name and the subscribe itself are built (see Built) — any URL works end to
-  end.
+  candidate's latest posts before subscribing (T14, planned — `GET /discover/posts`), putting the
+  wizard's type and query on the URL so a reload doesn't lose them (decided 2026-09-18, deferred
+  to T14 — see [backend-roadmap.md](./backend-roadmap.md) § Decision log), sub counts, and input
+  validation via VeeValidate/Zod. The wizard UI, RSS discovery from a pasted URL, YouTube search
+  by name and the subscribe itself are built (see Built) — any URL works end to end.
 - **Saved posts (rest)** — saving, unsaving and reading the saved streams work end to end (see
   Built), but every save lands in **Bookmarks**: there is no group chooser and no way to move a
   post between Bookmarks / Favorites / Later, though the API call for it is the same upsert.
@@ -732,9 +744,10 @@ _None currently._
   Verified: 208 backend tests green (was 182), `ruff check` clean, and driven against live pages —
   a blog post extracted in 0.99s and served from the column in 0.012s, a YouTube post answered
   `unavailable` in 0.010s with no outbound request, and Reddit's JS interstitial correctly stored
-  as "read it, no article". **Nothing on the frontend calls the endpoint yet** — the reader still
-  renders the stripped `summary` (see Not started → Post page (rest)), which is why nothing on
-  screen changed.
+  as "read it, no article". **The frontend was wired to the endpoint on 2026-09-18** — `usePost`
+  fires it alongside `GET /posts/{uid}`, and `FeedPostView` renders `article_html` as markup,
+  falling back to the stripped `summary` plus Open source when extraction can't produce one (see
+  Built → Post page v1).
   **T12 landed _(2026-09-06)_, ahead of T11a and on the server only:** `GET /search?q=&scope=`
   searches inside any list the app can already read — the `scope` is the *same* polymorphic uid
   the post list takes, resolved by the *same* `core/postlist.py` resolver, so muting a feed drops
