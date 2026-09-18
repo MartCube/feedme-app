@@ -34,7 +34,8 @@ interface Feed {
   name: string      // display name, e.g. 'Vue.js on Medium' — the only editable field
   feed_url: string  // the RSS endpoint we pull items from (read-only: it's the Source's)
   site_url: string  // human-facing site; where "visit source" for the feed points
-  icon_url: string  // the source's icon, when the feed advertised one
+  icon_url: string  // the source's icon, when the feed advertised one — becomes `icon: string | null`
+                    // (a 64px proxied square) in T15b, see images.md
   type: FeedType    // drives icon / small rendering differences
 }
 ```
@@ -94,7 +95,7 @@ interface Post {
   uid: string             // stable id, e.g. 'post_a1b2c3'
   feed_uid: string | null // the reader's Feed for this post's source; null once unsubscribed
   title: string
-  image_url: string       // card image; for YouTube this is the video thumbnail
+  image: { src: string, srcset: string } | null  // ready <img> attributes, or null — see below
   published_at: string    // ISO 8601 timestamp
   post_url: string        // link to the original (or the YouTube watch page)
   summary: string         // what RSS gave us — HTML, from an arbitrary third party
@@ -102,6 +103,10 @@ interface Post {
 }
 ```
 
+- `image` _(planned, T15a — today the wire still carries the raw `image_url`)_ is what the card
+  and the post page put straight into an `<img>`: a signed, resized URL family from the image
+  proxy, never the source's own URL, and `null` when the post has none. The frontend adds only
+  `sizes`. How it is built, cached and later stored is [images.md](./images.md).
 - `summary` is **not trusted markup**: it comes from whatever the feed published (Reddit wraps
   every post in a `<table>`), so the reader strips it to plain text rather than rendering it.
   The article text meant for reading is fetched separately from `/posts/{uid}/article`.

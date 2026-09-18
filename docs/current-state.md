@@ -31,7 +31,9 @@ list's own title row. What has no endpoint behind it yet says so: the add wizard
 still finds nothing, and the home reorder has no UI. The gap runs the other way in **one** place:
 `GET /posts/{uid}/article` extracts and caches article text as of _2026-09-05_, and **no screen
 calls it yet**, so the reader still shows the RSS summary as plain text. See Resolved decisions →
-Backend stack & API.
+Backend stack & API. **No image renders anywhere yet** — cards are date + title, the post page has
+no hero, and only the add wizard hotlinks YouTube avatars; the strategy for all of it is specced
+in [images.md](./images.md) _(2026-09-15)_ and **T15a** is the roadmap's next task.
 Backend work is sequenced in [backend-roadmap.md](./backend-roadmap.md), which tracks its
 own status: **read that file's § Status for what to build next.**
 
@@ -357,7 +359,8 @@ own status: **read that file's § Status for what to build next.**
   does not call it yet (see Not started → Post page (rest)). Open source is still missing on both
   viewports.
 - **PostCard v1** — `app/components/feed/PostCard.vue`: date + title only (no image / type cue
-  yet), whole card links to the post; rows separated by spacing (no divider lines).
+  yet — the image version and the Image / Compact setting are T15a, see Not started → Images),
+  whole card links to the post; rows separated by spacing (no divider lines).
 - **Context-aware navbar** — both slots swap per page: home = menu + add, feed page =
   sidebar icon (→ home) alone (search sits on the list's title row instead — see Feed page v1),
   post page = back (→ its feed, carrying the search it was opened from) + save (wired — see Post
@@ -407,8 +410,10 @@ own status: **read that file's § Status for what to build next.**
   at the "Select a post" placeholder.
 - **Settings content** — the drawer, its four subpages, and transitions are built, and
   Appearance and Account are real (see Built); About's version string is hardcoded and Report
-  still needs real content and a way to actually send anything.
-- **PostCard (rest)** — image and source-feed type cue.
+  still needs real content and a way to actually send anything. Appearance gains a fourth row,
+  **Post cards: Image / Compact**, with T15a.
+- **PostCard (rest)** — the image version (T15a) and the source-feed type cue (T15b's icon) —
+  see **Images** below.
 - **Add feed (rest)** — keyword search for subreddits and our own catalog (T11c, T11d), a
   candidate's latest posts before subscribing (T14, planned — `GET /discover/posts`), sub counts,
   and input validation via VeeValidate/Zod. The wizard UI, RSS discovery from a pasted URL,
@@ -431,6 +436,13 @@ own status: **read that file's § Status for what to build next.**
   the other half of [backend.md](./backend.md#auth) § Auth's step 1, and no Capacitor build
   exists yet. Noted for a deploy: `ux_mode: 'popup'` needs a
   `Cross-Origin-Opener-Policy: same-origin-allow-popups` header if one is ever set.
+- **Images** — nothing on screen is an image yet, and the wire still carries the raw `image_url`
+  / `icon_url`. The whole strategy is [images.md](./images.md): a signed image proxy (`imgproxy`
+  in compose) that the backend alone builds URLs for, in three stages — proxy now (T15a: post
+  images on cards and the post page + the Image / Compact card setting), originals into a bucket
+  next (T15d), a CDN and a paid transformer at deploy (T15e) — with feed icons (T15b) and the
+  pictures inside articles (T15c) as the other consumers. Task entries in
+  [backend-roadmap.md](./backend-roadmap.md) § Tasks → T15a–T15e.
 - **Home reorder** — `PUT /home/order` exists and is strict, but **nothing drives it**: the home
   list has no drag-and-drop, and the options sheet's Reorder feeds row is a placeholder. The
   `order` from `/home` is applied as a sort at load and not retained, so the UI, when it lands,
@@ -447,6 +459,14 @@ _None currently._
 
 ## Resolved decisions
 
+- **Images** _(recorded 2026-09-15)_ — every image the app shows goes through a proxy the
+  backend signs URLs for; the frontend never builds one. Staged so the first hundred readers
+  run on one server and growth is bought, not rewritten: `imgproxy` with nothing stored, then
+  originals in a bucket, then a CDN / paid transformer — each a change inside
+  `core/images.py`. Cards come in two versions (16:9 image on top / compact) behind a synced
+  Appearance setting; the post page gets a 16:9 hero. Pre-rendering sizes at ingest — the
+  previous project's shape — was rejected because a new size then means a backfill. Full
+  reasoning in [images.md](./images.md) § Decision log.
 - **Post search presentation** _(recorded 2026-09-15)_ — the question T12 left open (mobile
   sheet vs. centered dialog) is settled as **neither**: the search box swaps in for the list's
   title on the same row, in `FeedPostList.vue`, so the mobile feed page and the desktop posts

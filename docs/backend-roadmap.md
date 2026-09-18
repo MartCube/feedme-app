@@ -16,10 +16,16 @@ deliberate checkpoint that wires the real frontend before the backlog grows furt
 
 **Last completed:** T11b — Discovery: YouTube keyword search _(2026-09-11)_, after T13 —
 Retention _(2026-09-07)_
-**Next up:** **T14 — Feed preview** _(planned 2026-09-15)_, ungated. T11c (Reddit app
-credentials) and T11d (a catalog worth searching) stay open beside it, each waiting on something
-outside the code.
+**Next up:** **T15a — Images: proxy, post images, card toggle** _(planned 2026-09-15, spec in
+[images.md](./images.md))_, ungated. **T14 — Feed preview** _(planned 2026-09-15)_ stays open
+beside it, also ungated — build whichever the frontend needs first. T11c (Reddit app credentials)
+and T11d (a catalog worth searching) each wait on something outside the code.
 **Roadmap written:** 2026-08-19
+
+**T15 is five tasks from the start _(2026-09-15)_** — one per stage of the images strategy plus
+one per consumer: the proxy with post images (a), feed icons (b), article images (c), the bucket
+(d), the CDN / paid step (e). Lettered like T11 so each can land alone; T15b and T15c are
+independent of each other, T15d builds on T15a, T15e waits on a deploy target.
 
 **T11 was split into four _(2026-09-06)_.** As written it was one task carrying website
 autodiscovery, the YouTube Data API, Reddit and keyword search — four integrations, two of them
@@ -48,7 +54,12 @@ reading order.
 | T11d | Discovery — keyword search over our own catalog | ⬜ needs a catalog worth searching |
 | T12 | Search | ✅ done _(2026-09-06)_ |
 | T13 | Retention | ✅ done _(2026-09-07)_ |
-| T14 | Feed preview — a candidate's latest posts | ⬜ next |
+| T14 | Feed preview — a candidate's latest posts | ⬜ ungated, beside T15a |
+| T15a | Images — proxy, post images, card toggle | ⬜ next |
+| T15b | Images — feed icons | ⬜ after T15a |
+| T15c | Images — article images | ⬜ after T15a and the T10 reader wiring |
+| T15d | Images — the bucket (stage 2) | ⬜ after T15a |
+| T15e | Images — CDN, then paid (stage 3) | ⬜ needs a deploy target |
 
 ## Current state
 
@@ -279,7 +290,9 @@ source the account was the last subscriber of; and a cursor with a naive timesta
 as committed**, `ruff check .` clean.
 
 **Not built.** Everything else: keyword discovery outside YouTube (T11c, T11d — gated on
-credentials and on a catalog worth searching), T14's preview, and the endpoints stop at
+credentials and on a catalog worth searching), T14's preview, every image the app should show
+(T15a–e — [images.md](./images.md); nothing renders `image_url` or `icon_url` today beyond the
+wizard's hotlinked YouTube avatars), and the endpoints stop at
 `/health`, `/me`, `/auth/google`, `/auth/logout`, `/home`, `/home/order`, `/settings`, `/feeds`,
 `/feeds/{uid}`, `/feeds/{uid}/posts`, `/folders`, `/folders/{uid}`, `/posts/{uid}`,
 `/posts/{uid}/article`, `/posts/{uid}/save`, `/search` and `/discover`.
@@ -906,6 +919,20 @@ Decided 2026-09-07 while building T13:
   job visibility is still `docker compose logs -f worker`, the story T9 settled. In-flight cursors
   survive a prune, since `postlist.decode_cursor` turns a cursor into a keyset predicate over
   values rather than a row lookup.
+
+Decided 2026-09-15 while writing the images strategy (no code; the reasoning lives in
+[images.md](./images.md) § Decision log — these are the roadmap consequences):
+
+- **Images are five tasks, staged.** T15a proves the proxy on real URLs with two consumers
+  (card, hero) and the card toggle; T15b and T15c add consumers; T15d adds permanence; T15e is
+  deploy-time. Each is additive on the last — the wire contract and the components are fixed in
+  T15a and never change shape.
+- **T15a jumps ahead of T14.** Both are ungated; images are what the reader is missing most,
+  and T14's preview will carry `image` for free once `DiscoverPostSchema` resolves the same way.
+- **`image_url` and `icon_url` are renamed on the wire, not repurposed** — `image` and `icon` —
+  so the generated types find every consumer. The columns keep their names.
+- **The card setting is synced.** It is the fourth appearance preference and follows the other
+  three: a `UserSettings` column, a `Literal`, the drift guard, a full-replace `PUT`.
 
 ## Tasks
 
@@ -1651,6 +1678,155 @@ subreddit's `.rss` — the endpoint returns its newest posts with titles, links 
 the fetch timeout, and writes nothing. A dead URL and a page that isn't a feed answer 422 with a
 message the wizard can show; an empty feed answers `[]`. Verified **against live URLs, not only
 the suite** — T11a's rule, since both of its bugs were shapes no fixture had.
+
+### T15a — Images: proxy, post images, card toggle
+
+**Goal.** The first image on screen. Cards and the post page show the post's image through an
+image proxy — resized, WebP, signed — and a new *Post cards: Image / Compact* setting picks the
+card version. Stage 1 of [images.md](./images.md): nothing is stored; that doc carries the
+strategy, the wire contract and the rendering rules, and this entry only says what to build.
+
+**Depends on:** nothing new. No credentials — imgproxy is a container, and the secret is one
+we mint.
+
+**Build.**
+
+*Compose.* An `imgproxy` service (`ghcr.io/imgproxy/imgproxy`, pin the current v3 tag — check
+it at build time), port 8080. Environment: `IMGPROXY_KEY` and `IMGPROXY_SALT` through compose
+interpolation with a dev fallback — `${IMGPROXY_KEY:-<hex>}` — so the fallback is written
+**once** and the `x-backend` anchor hands the same two values to `api` (plus
+`IMGPROXY_PUBLIC_URL`, default `http://localhost:8080`); `IMGPROXY_MAX_SRC_FILE_SIZE` 10 MB;
+`IMGPROXY_DOWNLOAD_TIMEOUT` 10 s; `IMGPROXY_TTL` one year, explicit. Private / loopback /
+link-local source addresses stay refused (imgproxy's default — the rule `core/fetch.py` had to
+write by hand). `.env.example` documents the three variables. `IMGPROXY_USER_AGENT` only if
+verification shows Reddit refusing the default.
+
+*Settings.* `IMGPROXY_KEY`, `IMGPROXY_SALT`, `IMGPROXY_PUBLIC_URL` in `feedme/settings.py`, read
+like `YOUTUBE_API_KEY`: an empty key is a supported state in which every `image` is `null`.
+
+*`core/images.py` — the seam.* `WIDTHS = (480, 960, 1440, 1920)`, `DEFAULT_WIDTH = 960`, one
+entry point `post_image(url) -> dict | None`: for each width, the path
+`/rs:fill:{w}:{h}/g:ce/{base64url(url)}.webp` (height = 16:9 of the width), signed as
+base64url(HMAC-SHA256(key, salt + path)) with key and salt decoded from hex, under
+`IMGPROXY_PUBLIC_URL`; returns `{'src': <960>, 'srcset': '<480> 480w, …'}`; `None` for a blank
+URL or an unset key. The module docstring states the rule from images.md — no other module
+builds an image URL — and a **containment test** modelled on `test_search.py`'s scans
+`core/**/*.py` and fails if anything but `core/images.py` reads an `IMGPROXY_*` setting.
+
+*API.* `ImageSchema(src, srcset)` in `core/api/posts.py`; `PostSchema.image_url` becomes
+`image: ImageSchema | None`, resolved by `@staticmethod resolve_image(obj)` →
+`images.post_image(obj.image_url)`. The list, detail and `/search` share `PostPageSchema`, so
+the three change together. T14's `DiscoverPostSchema`, when it lands, resolves the same way.
+
+*Card toggle.* `UserSettings.post_card_style` — `TextChoices` `image` / `compact`, default
+`image` — migration `0005_usersettings_post_card_style.py`; `SettingsSchema` gains the
+`Literal`, `GET` answers the default with no row, `PUT` stays a full replace of all four fields;
+`tests/test_settings.py`'s drift guard covers the new pair.
+
+*Frontend.* `pnpm types:api`, then `app/assets/types.ts` exports
+`PostImage = NonNullable<Post['image']>`. The `settings` store gains `postCardStyle` beside the
+three it syncs (and in the persisted `pick` list); `settings/Appearance.vue` gets a *Post cards*
+control shaped like the Feed list one. A new `feed/PostImage.vue` — justified by identical
+placeholder / error / too-small logic in two hosts — takes `image`, `sizes`, `eager?`, keeps a
+`hidden` ref, and renders the 16:9 `bg-muted` box with the `<img>` or nothing at all: `@error`,
+or `@load` with `naturalWidth < 320`, hides it. `PostCard.vue` puts it above the date + title
+when the style is `image` and `post.image` is set (`sizes="(min-width: 1024px) 40vw, 100vw"`,
+lazy); `PostView.vue` puts it above the `<h1>` (`sizes="(min-width: 1024px) 56rem, 100vw"`,
+eager). The desktop posts and post panes render the same components, so nothing else moves.
+Any Nuxt UI prop not already used in the repo goes through the `librarian` first.
+
+*Tests* (`tests/test_images.py`, plus the two existing files): `post_image('')` and
+`post_image` with no key are `None`; a URL yields four widths, `.webp`, the public base, and a
+`src` equal to the 960 entry; changing one character of the path changes the signature; the
+containment test; list, detail and search carry `image` as an object or `null`; the setting
+round-trips through `GET` / `PUT` and the Literal matches the choices.
+
+**Done when.** `pytest`, `ruff`, `pnpm lint` and `pnpm typecheck` are clean, and — the part a
+suite can't prove — through the **running** imgproxy: a Reddit `preview.redd.it` thumb (does it
+403 our UA?), a YouTube `hqdefault.jpg` (letterbox gone?), a Medium CDN image,
+`https://nuxt.com/icon.png`, an `http://` URL, a dead URL (the card collapses to compact), a
+tampered signature (403), and a tiny image (hidden) all behave as images.md § Rendering says.
+`verify` screenshots of the feed list in both card styles and of the post page, mobile and
+desktop, reviewed by `design-reviewer` before the docs → git chain.
+
+### T15b — Images: feed icons
+
+**Goal.** Every feed has a face. The add wizard's rows show an icon for every type — today only
+YouTube's avatars are shown, hotlinked — with initials when a source has none; home rows and the
+card's type cue pick the same icon up when the design says so.
+
+**Depends on:** T15a (the proxy and `core/images.py`).
+
+**Build.** `images.icon(url) -> str | None` (64 × 64 fill; imgproxy reads ICO and SVG, which is
+what favicons are). `HomeFeedSchema.icon_url` and `DiscoverResultSchema.icon_url` become
+`icon: str | None` (the rename finds every consumer). A **favicon backfill** for sources that
+declare no icon: `core/discover.py` already parses a page's `<link>` tags for feeds — add
+`rel="icon"` (largest declared size wins), fall back to `/favicon.ico`, and let
+`ingest._backfill_source_metadata` store it under the never-overwrite rule. Frontend: the
+wizard rows render `UAvatar` with the feed name as the initials fallback, for every type
+(`librarian` for the component's fallback and `src` props first). Optional in the same slice,
+if small: store Google's `picture` claim on `User` at sign-in, `Me.avatar` through the same
+`images.icon`, an avatar on Settings → Account.
+
+**Done when.** The five dev sources show an icon or initials in the wizard; an ICO and an SVG
+favicon both render through the proxy against live sites; the containment test still passes.
+
+### T15c — Images: article images
+
+**Goal.** The pictures inside an extracted article load — over https, at reading width, without
+leaking the reader to the article's host.
+
+**Depends on:** T15a, and the reader being wired to `/posts/{uid}/article` (T10's open
+follow-up) — there is no consumer to verify against before that.
+
+**Build.** In `post_article`, rewrite every `<img src>` in the cached `article_html` to a
+proxied `rs:fit:1920:0` URL (fit, no crop) **at read time** — never into the column, so a key
+rotation can't break every cached article. nh3 already limits `<img>` to `src` / `alt` /
+`title`, so the rewrite is a pass over one attribute. A relative `src` was absolutised at
+extraction; a `data:` or non-http one is dropped with the tag.
+
+**Done when.** A live article with images (kk.org, a Medium post) renders them through the
+proxy; the cached column is byte-for-byte unchanged by a read.
+
+### T15d — Images: the bucket (stage 2)
+
+**Goal.** Permanence. Every post's original is ours from the moment it is polled, so a saved
+post keeps its image forever, `image: null` is truthful, and the read path never depends on a
+stranger's server.
+
+**Depends on:** T15a. No credentials in dev (MinIO in compose); R2 or S3 keys in prod.
+
+**Build** — planned in its own session; the shape is fixed here. A `minio` service with the
+bucket created on start; `boto3` and a thin `core/storage.py`; `Pillow` for a header-only
+dimension read; `Post.image_key` (blank when none), `image_width`, `image_height` + migration;
+an actor `fetch_source_images(source_uid)` enqueued at the end of `ingest_source` for posts with
+an `image_url` and no key, running **sequentially per source** through `core/fetch.py`'s guarded
+`fetch_url` with image content types and a 10 MB cap; `images.post_image` builds an `s3://`
+source when a key exists and answers `null` below 320px wide; `retention.prune_posts` deletes
+the objects of the posts it deletes; `manage.py fetch_images` as the backfill; imgproxy gains
+`IMGPROXY_USE_S3`, the endpoint and keys. Open for that plan: the retry policy for a failed
+fetch, and whether to store a size-capped master instead of the raw original.
+
+**Done when.** A freshly polled feed's images appear within a poll; deleting the source's image
+on the web changes nothing on screen; pruning a post removes its object; a `--dry-run` of the
+backfill reports what a real run would fetch.
+
+### T15e — Images: CDN, then paid (stage 3)
+
+**Goal.** Fast first views and a transform budget that grows with money rather than code.
+
+**Depends on:** a deploy target — [backend.md](./backend.md) § Docker defers production
+topology, and this task is the first thing that needs a hostname.
+
+**Build.** `img.<domain>` → imgproxy, proxied through Cloudflare's free tier;
+`IMGPROXY_PUBLIC_URL` set to match; the one-year `Cache-Control` imgproxy already sends is what
+makes the CDN the store for derived images. Later, when transform CPU shows on a graph: a second
+imgproxy replica, or a managed transformer reading from the bucket (Cloudflare Images
+Transformations, Bunny Optimizer) — a change inside `core/images.py` and nothing else. AVIF via
+`<picture>` if bandwidth ever matters.
+
+**Done when.** A second load of any image is a CDN hit; rotating the key invalidates every URL
+and the cache refills without a code change.
 
 ## Housekeeping
 

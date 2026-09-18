@@ -214,8 +214,12 @@ different URL and nothing else ([backend.md](./backend.md#search)).
 empty search says which query matched nothing; a failed page says the posts couldn't be loaded
 and stops asking, rather than retrying into a server that just refused.
 
-**PostCard** shows: `image_url`, `title`, and `published_at` (and a type cue from the parent
-feed). Tapping it opens the Post page.
+**PostCard** comes in **two versions**, chosen in Settings → Appearance → *Post cards*: **Image**
+(default) — a fixed 16:9 image on top, then `published_at` and `title` — and **Compact** — the
+date and title alone. A post with no image is compact under either setting, and an image that
+fails to load collapses the card to compact rather than leaving a broken box. The image is the
+API's `post.image` (a proxied, resized `src`/`srcset` — [images.md](./images.md)); a type cue
+from the parent feed is still to come. Tapping the card opens the Post page.
 
 **Desktop:** the posts pane is fixed-width and always visible beside the post pane; there is
 no back navigation for it (nothing to go back to — the sidebar is always there instead).
@@ -228,7 +232,9 @@ no back navigation for it (nothing to go back to — the sidebar is always there
 it renders beside the feed list on desktop and full-screen on mobile.
 
 **The user can:**
-- Read the post: `title`, `image_url`, formatted `published_at`, and its text. The **article
+- Read the post: a 16:9 **hero** (`post.image`, above the title; absent when the post has none or
+  it fails to load — [images.md](./images.md) § Rendering), `title`, formatted `published_at`,
+  and its text. The **article
   text** is the goal — extracted and sanitised server-side, so it is the one text field the
   screen renders as markup. Until the screen is wired to it, it shows what RSS gave us
   (`summary`) as plain text — a summary is untrusted third-party markup and is never rendered
@@ -328,8 +334,9 @@ sidebar carries a single **Settings** link, not a second copy of the section lis
 **Subpages:**
 - **Account** — `/settings/account` — how you're signed in, member since, and **Sign out**
   (which ends the session server-side and returns to screen 0).
-- **Appearance** — `/settings/appearance` — card style, font size, theme (see
-  [product-overview.md → Planned](./product-overview.md#planned-not-now)).
+- **Appearance** — `/settings/appearance` — theme, feed-list style, scrollbar style, and
+  **Post cards** (Image / Compact, T15a — [images.md](./images.md) § Rendering); font size is
+  still planned (see [product-overview.md → Planned](./product-overview.md#planned-not-now)).
 - **About** — `/settings/about` — app info.
 - **Report an issue** — `/settings/report`.
 
@@ -426,6 +433,9 @@ actions confirm before committing:
   `pages:extend` records don't change.
 - **Type-aware rendering:** `Feed.type` drives small differences (YouTube thumbnail vs.
   article body), but the layout and interactions are the same across types.
+- **Images are never hotlinked.** Every image on screen — post images, feed icons, the pictures
+  inside an article — is a URL the API built through the image proxy; the frontend adds
+  `sizes` and nothing else. The stages, sizes and fallbacks are [images.md](./images.md).
 - **Signed out is a state, not an error:** every route redirects to screen 0 without one, and a
   session the server stops accepting drops the user there mid-use with the app's data cleared.
   An **unreachable server** is different and is never confused with it — the app stays on its

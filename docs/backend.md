@@ -125,7 +125,9 @@ AuthToken     user FK, token_hash (SHA-256, unique), created_at, last_used_at, d
 Source        uid, type (website|youtube|reddit), feed_url (unique), site_url, title,
               icon_url, active, etag, last_modified, last_fetched_at, next_fetch_at,
               error_count
-Post          uid (post_*), source FK, guid (unique per source), title, post_url, image_url,
+Post          uid (post_*), source FK, guid (unique per source), title, post_url, image_url
+              (the source's URL as fetched — the wire carries a proxied `image` built from it,
+              see images.md; stage 2 adds image_key / image_width / image_height),
               summary, article_html (nullable — filled by on-demand extraction),
               published_at, search (persisted generated tsvector, title weighted over summary,
               GIN-indexed) + a functional trigram index on upper(title)
@@ -181,7 +183,7 @@ the per-group descriptions come from `TAGS` in `feedme/api.py`.
 | `POST /auth/logout` | Revoke the presented token (delete its row) |
 | `GET /me` | Profile: email, member-since, sign-in provider (Settings → Account) |
 | `DELETE /me` | Delete account + all user data (tokens, feeds, folders, saved, settings) |
-| `GET /home` | **One aggregate round-trip for the home screen:** folders (with member uids + muted uids), feeds (uid, name, type, site_url, icon), top-level order, saved counts per group |
+| `GET /home` | **One aggregate round-trip for the home screen:** folders (with member uids + muted uids), feeds (uid, name, type, site_url, feed_url, icon_url — `icon`, a proxied 64px square or null, from T15b), top-level order, saved counts per group |
 | `PUT /home/order` | Persist home-list reorder: ordered list of top-level uids (folders + loose feeds) |
 | `POST /feeds` | Subscribe: `{feed_url, folder_uid?}`. Find-or-create the Source (`type` inferred from the host), create the Feed, and fetch a brand-new Source inline — **fetching it is what validates it**, so a URL that isn't a feed answers 422 and leaves no Source behind. Returns the new feed |
 | `PATCH /feeds/{uid}` | Rename (the user's Feed row, never the shared Source) |
@@ -190,8 +192,8 @@ the per-group descriptions come from `TAGS` in `feedme/api.py`.
 | `PATCH /folders/{uid}` | Rename / set members / set per-folder mute — every field optional, so one call can commit a rename and the mutes together |
 | `DELETE /folders/{uid}` | Cascade delete per the rules above; returns `unsubscribed_count` |
 | `GET /feeds/{uid}/posts` | **The post list, polymorphic uid:** `all` \| `saved` \| `saved_*` \| `folder_*` (members minus muted) \| `feed_*` — same resolution order as the frontend's `usePostList`. Newest-first, cursor-paginated |
-| `GET /posts/{uid}` | Post detail (what RSS gave us) |
-| `GET /posts/{uid}/article` | Full article: extract-on-first-request (trafilatura), cached globally in `article_html`, served instantly after. Returns extracted HTML or a "couldn't extract" signal (frontend falls back to summary + Open source) |
+| `GET /posts/{uid}` | Post detail (what RSS gave us). From T15a every post here and in the lists carries `image: {src, srcset} \| null` in place of `image_url` — ready `<img>` attributes built by `core/images.py`, see [images.md](./images.md) § Wire contract |
+| `GET /posts/{uid}/article` | Full article: extract-on-first-request (trafilatura), cached globally in `article_html`, served instantly after. Returns extracted HTML or a "couldn't extract" signal (frontend falls back to summary + Open source). From T15c the `<img src>` inside `article_html` are rewritten to proxied, reading-width URLs at read time — never into the cached column |
 | `PUT /posts/{uid}/save` | Body: `{group}` (bookmarks \| favorites \| later). Upsert — moving groups is the same call |
 | `DELETE /posts/{uid}/save` | Unsave |
 | `GET /discover` | `?type=website|youtube|reddit&q=<url or keyword>` → candidate feeds (`name`, `type`, `site_url`, `feed_url`, `icon_url`, `already_subscribed`) — `HomeFeedSchema` minus the uid one hasn't earned, plus the flag. Field names follow § Vocabulary, not this row's earlier `title`/`icon` wording. A URL resolves under any card; a bare name is a YouTube channel search under `youtube` (503 when YouTube won't answer) and finds nothing under the other two until T11c/T11d. Backs the add wizard |
@@ -351,6 +353,7 @@ anyway), and swap the one search module behind the unchanged endpoint. Frontend:
 | `scheduler` | `periodiq -v core.tasks` — the cron sweep; enqueues, never executes |
 | `db` | Postgres 16 |
 | `redis` | Redis (Dramatiq broker) |
+| `imgproxy` | _(T15a, planned)_ the image proxy — resizes and converts every image the app shows, from a signed URL `core/images.py` builds; nothing stored. Stage 2 adds `minio` (the dev bucket). See [images.md](./images.md) § Operations |
 
 `api`, `worker` and `scheduler` are one image behind three different commands —
 `docker-compose.yml`'s `x-backend` YAML anchor shares the build, the bind mount and the
@@ -459,3 +462,14 @@ Added 2026-09-07 (T13):
   belongs to the contract, not just the job: subscribing to a feed whose entries are all past the
   window **succeeds and yields zero posts**, since `POST /feeds` only refuses a URL with no
   entries at all.
+
+Added 2026-09-15 (images strategy, before T15a):
+
+- **Images go through a proxy the backend signs for; the frontend never builds an image URL.**
+  A new `imgproxy` service resizes on demand from signed URLs that `core/images.py` alone knows
+  how to build — the containment rule `core/search.py` already follows. Staged: nothing stored
+  first (T15a), originals copied into a bucket at ingest next (T15d), a CDN and, if ever needed,
+  a paid transformer at deploy (T15e) — each a change inside that one module. Pre-rendering
+  sizes at ingest (the previous project's shape) was rejected because a new size then means a
+  backfill over every post. The full comparison and the wire contract are in
+  [images.md](./images.md) § Decision log.

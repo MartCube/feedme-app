@@ -102,4 +102,5 @@ built yet:
 
 - **Theme switching** — a light theme alongside dark. Kept minimal: **1–2 themes max** to
   start, not a theme gallery. Dark stays the default.
-- **Card layout options** — e.g. an image / no-image (compact) PostCard style.
+- **Card layout options** — the image / compact PostCard style is now specced
+  ([images.md](./images.md) § Rendering, built in T15a); other layout options stay deferred.

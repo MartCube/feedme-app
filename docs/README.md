@@ -20,6 +20,7 @@ screen or feature is ambiguous in code, this folder wins.
 | [backend.md](./backend.md) | The server spec — architecture, data model, API endpoints, auth, fetching jobs, search |
 | [backend-roadmap.md](./backend-roadmap.md) | The backend build order — what's done, what's next, and what "done" means per task |
 | [ai-feed.md](./ai-feed.md) | The AI reading-companion feed — book chapters → AI posts → a custom RSS feed (separate `feedme-books` repo) |
+| [images.md](./images.md) | How every image reaches an `<img>` — the proxy → bucket → CDN stages, the image inventory, the wire contract, and the rendering rules |
 | [current-state.md](./current-state.md) | What's built today vs. not-yet-built (the gap to close) |
 
 ## Tech stack (at a glance)
