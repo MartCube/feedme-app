@@ -105,3 +105,12 @@ metadata:
   `headers={'host': 'localhost'}` (pytest patches ALLOWED_HOSTS; the shell doesn't), and
   wrap in `transaction.atomic()` + `set_rollback(True)` — with a nested `atomic()` per probe,
   or the first DataError poisons every probe after it.
+- `.env` is read by compose **when a container is created**, not on restart — a key added after
+  `docker compose up -d` (or on a `restart`) is invisible to the running `api`/`worker`, and an
+  optional key (`YOUTUBE_API_KEY`, `IMGPROXY_*`) then silently takes its "unset" path (e.g.
+  `/discover` answering `[]`). After any `.env` change run `docker compose up -d` again (it
+  recreates on env diff) and prove it inside: `docker compose exec -T api sh -c 'echo ${#VAR}'`.
+- Headless verification needs a dev token in the browser, and the auto-mode classifier blocks
+  every route that materialises it (cat, copying into `public/`). Ask the user to paste a token
+  or eyeball it themselves instead of trying a third route. `evaluate_script` on `/login` still
+  works for anything that needs no session (compiled CSS, third-party image loads).
