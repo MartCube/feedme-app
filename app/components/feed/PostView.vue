@@ -29,7 +29,20 @@ function openLink(event: MouseEvent) {
 <template>
   <div class="flex flex-col">
     <template v-if="post">
-      <h1 class="mt-lg text-title tracking-tight">
+      <!-- 56rem is --container-post, the measure the pane caps the body at.
+           Eager and high priority: it is the largest thing on the screen, and
+           lazy loading inside a drawer has bitten this repo before. -->
+      <FeedPostImage
+        v-if="post.image"
+        :image="post.image"
+        sizes="(min-width: 1024px) 56rem, 100vw"
+        eager
+        class="mt-lg"
+      />
+      <h1
+        class="text-title tracking-tight"
+        :class="post.image ? 'mt-md' : 'mt-lg'"
+      >
         {{ post.title }}
       </h1>
       <time
