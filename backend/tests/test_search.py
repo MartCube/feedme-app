@@ -11,7 +11,7 @@ import pathlib
 from datetime import timedelta
 
 from django.db import connection
-from django.test import Client
+from django.test import Client, override_settings
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
@@ -266,6 +266,22 @@ def test_results_carry_the_per_caller_fields(authed_client, user, make_feed, mak
     item = search(authed_client, 'rout').json()['items'][0]
     assert item['feed_uid'] == feed.uid
     assert item['saved_group'] == 'favorites'
+
+
+@override_settings(
+    IMGPROXY_KEY='aa' * 32, IMGPROXY_SALT='bb' * 32, IMGPROXY_PUBLIC_URL='http://img.test'
+)
+def test_a_result_carries_the_same_image_shape_as_a_list_row(
+    authed_client, user, make_feed, make_post
+):
+    """One schema behind three endpoints — a result that rendered differently would be a
+    second kind of post (docs/images.md § Wire contract)."""
+    make_post(make_feed(user).source, title='Kittens', image_url='https://e.com/k.jpg')
+
+    item = search(authed_client, 'kittens').json()['items'][0]
+
+    assert item['image']['src'].endswith('.webp')
+    assert 'image_url' not in item
 
 
 def test_query_count_does_not_grow_with_page_size(authed_client, user, make_feed, make_post):

@@ -12,6 +12,7 @@ from typing import Literal
 from ninja import Query, Router, Schema, Status
 from ninja.errors import HttpError
 
+from .. import images
 from ..extract import extract_article
 from ..models import SavedPost
 from ..postlist import page, resolve_stream, visible_posts
@@ -34,6 +35,15 @@ MAX_LIMIT = 100
 SavedGroup = Literal['bookmarks', 'favorites', 'later']
 
 
+class ImageSchema(Schema):
+    """Ready <img> attributes — docs/images.md § Wire contract. `src` is the 960w URL, a safe
+    default for a tag that ignores srcset; `srcset` is the finished attribute string, because
+    which sizes exist is the backend's fact and sending it as data would let the two drift."""
+
+    src: str
+    srcset: str
+
+
 class PostSchema(Schema):
     uid: str
     # null when the caller has no feed for this post's source: a saved post outlives
@@ -41,12 +51,19 @@ class PostSchema(Schema):
     feed_uid: str | None
     title: str
     post_url: str
-    image_url: str
+    # null when the post has no image, or when this deployment has no imgproxy key. Named
+    # `image` rather than reusing `image_url` with a new meaning: it is no longer a URL, and
+    # the rename is what makes `pnpm types:api` plus typecheck find every consumer.
+    image: ImageSchema | None
     summary: str
     published_at: datetime
     # null when the caller hasn't saved it — cards render the save state without a second
     # request, which is the whole point of carrying it on the post
     saved_group: SavedGroup | None
+
+    @staticmethod
+    def resolve_image(obj):
+        return images.post_image(obj.image_url)
 
 
 class PostPageSchema(Schema):

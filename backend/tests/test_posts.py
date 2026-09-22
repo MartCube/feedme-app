@@ -9,7 +9,7 @@ from datetime import timedelta
 from typing import get_args
 
 from django.db import connection
-from django.test import Client
+from django.test import Client, override_settings
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
@@ -18,6 +18,13 @@ from core.auth import issue_token
 from core.models import SavedPost
 
 DAY = timedelta(days=1)
+IMAGE = 'https://example.com/photo.jpg'
+
+# the image tests care that the attributes arrive, not what they say — core/images.py's own
+# tests pin the recipe. A fixed key keeps a signature stable, a fake base makes it obvious.
+proxy_on = override_settings(
+    IMGPROXY_KEY='aa' * 32, IMGPROXY_SALT='bb' * 32, IMGPROXY_PUBLIC_URL='http://img.test'
+)
 
 
 def get_posts(client, uid, **params):
@@ -206,6 +213,41 @@ def test_a_post_carries_the_summary_not_the_article(authed_client, user, make_fe
 
     assert item['summary'] == '<p>what RSS gave us</p>'
     assert 'article_html' not in item and 'content' not in item
+
+
+# --- the image ------------------------------------------------------------------------
+
+
+@proxy_on
+def test_a_post_carries_ready_img_attributes_rather_than_the_raw_url(
+    authed_client, user, make_feed, make_post
+):
+    """docs/images.md § Wire contract: the app puts these in the tag, and can't build one
+    itself — the URLs are signed, and a key on the client is a key in the bundle."""
+    post = make_post(source=make_feed(user).source, image_url=IMAGE)
+
+    body = authed_client.get(f'/api/v1/posts/{post.uid}').json()
+
+    assert 'image_url' not in body
+    assert body['image']['src'].startswith('http://img.test/')
+    assert '480w' in body['image']['srcset']
+
+
+@proxy_on
+def test_a_post_with_no_image_says_null(authed_client, user, make_feed, make_post):
+    post = make_post(source=make_feed(user).source)
+
+    assert authed_client.get(f'/api/v1/posts/{post.uid}').json()['image'] is None
+
+
+@proxy_on
+def test_the_list_carries_the_image_too(authed_client, user, make_feed, make_post):
+    """List, detail and search share PostSchema; this is the one that renders ten at a time."""
+    make_post(source=make_feed(user).source, image_url=IMAGE)
+
+    items = get_posts(authed_client, 'all').json()['items']
+
+    assert items[0]['image']['src'].endswith('.webp')
 
 
 # --- the cursor -----------------------------------------------------------------------
