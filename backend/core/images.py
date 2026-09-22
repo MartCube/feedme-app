@@ -40,10 +40,15 @@ def post_image(url):
 
 
 def _signed(url, width):
-    # fill + centre gravity: predictable, and it takes exactly the black bars off YouTube's
-    # 480x360 hqdefault poster. .webp is named in the path rather than negotiated from Accept,
-    # so one URL is one file and no CDN has a Vary header to get wrong.
-    path = f'/rs:fill:{width}:{round(width * 9 / 16)}/g:ce/{_b64(url.encode())}.webp'
+    # fill-down + centre gravity: a 16:9 centre crop, which is what takes the black bars off
+    # YouTube's 480x360 hqdefault poster. `fill-down` rather than plain `fill` because we never
+    # enlarge, and a plain `fill` of a source smaller than the requested size skips the crop
+    # altogether and hands back the original aspect — measured against the real poster, which
+    # came back 480x360, bars and all. fill-down shrinks the *requested size* to fit the source
+    # instead, so the aspect ratio survives and the pixels are still the source's own.
+    # .webp is named in the path rather than negotiated from Accept, so one URL is one file
+    # and no CDN has a Vary header to get wrong.
+    path = f'/rs:fill-down:{width}:{round(width * 9 / 16)}/g:ce/{_b64(url.encode())}.webp'
     stamp = hmac.new(
         bytes.fromhex(settings.IMGPROXY_KEY),
         bytes.fromhex(settings.IMGPROXY_SALT) + path.encode(),

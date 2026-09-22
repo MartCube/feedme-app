@@ -54,11 +54,13 @@ def test_src_is_the_default_width_so_a_bare_img_tag_is_right():
 @proxy_on
 def test_the_path_is_a_sixteen_by_nine_fill_of_the_encoded_source():
     """The recipe imgproxy is being asked for, spelled out: a centre-cropped 16:9 fill of the
-    base64url source. Centre gravity is what takes the black bars off YouTube's poster."""
+    base64url source. `fill-down`, not `fill`: measured against a real YouTube poster, a plain
+    `fill` of a source smaller than the requested size hands back the original aspect, bars
+    and all (see core/images.py)."""
     src = images.post_image(IMAGE)['src']
     encoded = base64.urlsafe_b64encode(IMAGE.encode()).rstrip(b'=').decode()
 
-    assert src.endswith(f'/rs:fill:960:540/g:ce/{encoded}.webp')
+    assert src.endswith(f'/rs:fill-down:960:540/g:ce/{encoded}.webp')
 
 
 @proxy_on
