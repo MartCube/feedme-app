@@ -1,3 +1,11 @@
+# The two ends of the image signature, written once and handed to both: Django stamps every
+# image path with an HMAC of it, imgproxy refuses a path whose stamp doesn't match, so nobody
+# can point our resizer at their own images. The fallbacks are dev values, not secrets —
+# production sets both through .env (docs/images.md § Operations).
+x-imgproxy-secret: &imgproxy-secret
+  IMGPROXY_KEY: ${IMGPROXY_KEY:-4c6787d69a0eabca6a551dc54df3d45c2f6230bfd6767cf00ccfa2584aed956d}
+  IMGPROXY_SALT: ${IMGPROXY_SALT:-12229850b010d088efab8693437c0a66045956f88875b4d70a1cda319387379c}
+
 # api, worker and scheduler are one image with three different commands — the shared bits
 # live here so they can't drift apart.
 x-backend: &backend
@@ -7,7 +15,11 @@ x-backend: &backend
   volumes:
     - ./backend:/app
   environment:
+    <<: *imgproxy-secret
     POSTGRES_HOST: db
+    # where the *browser* reaches imgproxy — a phone on the LAN needs the host's LAN address
+    # here, exactly as it does for NUXT_PUBLIC_API_BASE
+    IMGPROXY_PUBLIC_URL: ${IMGPROXY_PUBLIC_URL:-http://localhost:8080}
   env_file:
     - path: .env
       required: false
@@ -83,6 +95,20 @@ services:
   redis:
     image: redis:7
     restart: unless-stopped
+
+  # Resizes and crops on demand and stores nothing — stage 1 of docs/images.md. Private,
+  # loopback and link-local source addresses are refused by default: the SSRF rule
+  # core/fetch.py had to write by hand, here for free.
+  imgproxy:
+    image: ghcr.io/imgproxy/imgproxy:v3.31.0
+    restart: unless-stopped
+    environment:
+      <<: *imgproxy-secret
+      IMGPROXY_MAX_SRC_FILE_SIZE: 10485760 # 10 MB
+      IMGPROXY_DOWNLOAD_TIMEOUT: 10
+      IMGPROXY_TTL: 31536000 # a year, explicit: a signed URL is stable, so caches should hold
+    ports:
+      - '8080:8080'
 
 volumes:
   pgdata:

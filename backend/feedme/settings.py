@@ -32,6 +32,14 @@ GOOGLE_OAUTH_CLIENT_ID = os.environ.get('GOOGLE_OAUTH_CLIENT_ID', '')
 # resolves through the channel page, a bare name simply finds nothing (core/youtube.py).
 YOUTUBE_API_KEY = os.environ.get('YOUTUBE_API_KEY', '')
 
+# The image proxy every image on screen goes through (docs/images.md). Key and salt are hex,
+# shared with the imgproxy container; the public URL is the base the *browser* reaches it at.
+# An empty key is a supported state, same rule as the two above: core/images.py answers None
+# and every card renders compact.
+IMGPROXY_KEY = os.environ.get('IMGPROXY_KEY', '')
+IMGPROXY_SALT = os.environ.get('IMGPROXY_SALT', '')
+IMGPROXY_PUBLIC_URL = os.environ.get('IMGPROXY_PUBLIC_URL', 'http://localhost:8080')
+
 # The Dramatiq broker the worker and scheduler share with the api. Compose's own service
 # name is the default, so a dev machine needs nothing in .env; feedme/broker.py reads it.
 REDIS_URL = os.environ.get('REDIS_URL', 'redis://redis:6379/0')
