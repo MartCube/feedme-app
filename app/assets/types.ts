@@ -31,6 +31,11 @@ export type Post = Schemas['PostSchema']
 // app/utils/saved.ts is the home-list row that shows one.
 export type SavedGroupName = NonNullable<Post['saved_group']>
 
+// Ready <img> attributes for a post image (docs/images.md § Wire contract):
+// the backend signs them, the app puts them in the tag. Null on a Post means
+// no image, or a deployment with no proxy key — the card renders compact.
+export type PostImage = NonNullable<Post['image']>
+
 // GET /posts/{uid}/article: the extracted article, sanitised server-side
 // against the backend's own allowlist (core/extract.py) — the one field the
 // app renders as markup. `unavailable` is a fallback, not an error: the reader

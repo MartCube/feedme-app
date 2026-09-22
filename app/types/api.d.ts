@@ -503,6 +503,18 @@ export interface components {
             /** Already Subscribed */
             already_subscribed: boolean;
         };
+        /**
+         * ImageSchema
+         * @description Ready <img> attributes — docs/images.md § Wire contract. `src` is the 960w URL, a safe
+         *     default for a tag that ignores srcset; `srcset` is the finished attribute string, because
+         *     which sizes exist is the backend's fact and sending it as data would let the two drift.
+         */
+        ImageSchema: {
+            /** Src */
+            src: string;
+            /** Srcset */
+            srcset: string;
+        };
         /** PostPageSchema */
         PostPageSchema: {
             /** Items */
@@ -520,8 +532,7 @@ export interface components {
             title: string;
             /** Post Url */
             post_url: string;
-            /** Image Url */
-            image_url: string;
+            image: components["schemas"]["ImageSchema"] | null;
             /** Summary */
             summary: string;
             /**
@@ -580,6 +591,11 @@ export interface components {
              * @enum {string}
              */
             scrollbar_style: "thin" | "comfortable" | "auto";
+            /**
+             * Post Card Style
+             * @enum {string}
+             */
+            post_card_style: "image" | "compact";
         };
     };
     responses: never;

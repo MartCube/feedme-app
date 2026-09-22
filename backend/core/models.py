@@ -214,6 +214,12 @@ class UserSettings(models.Model):
         # the Appearance panel calls this one "System" — it writes no scrollbar rules at all
         AUTO = 'auto', 'System'
 
+    class PostCardStyle(models.TextChoices):
+        # a 16:9 image on top, or date + title alone. A post with no image renders compact
+        # under either (docs/images.md § Rendering).
+        IMAGE = 'image'
+        COMPACT = 'compact'
+
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='settings')
     theme = models.CharField(max_length=10, choices=Theme.choices, default=Theme.INK)
     feed_list_style = models.CharField(
@@ -221,6 +227,9 @@ class UserSettings(models.Model):
     )
     scrollbar_style = models.CharField(
         max_length=11, choices=ScrollbarStyle.choices, default=ScrollbarStyle.THIN
+    )
+    post_card_style = models.CharField(
+        max_length=7, choices=PostCardStyle.choices, default=PostCardStyle.IMAGE
     )
 
     class Meta:

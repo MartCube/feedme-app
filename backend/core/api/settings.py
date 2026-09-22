@@ -26,6 +26,9 @@ class SettingsSchema(Schema):
     # 'auto' is the native baseline the app writes no scrollbar rules for; the Appearance
     # panel labels it "System"
     scrollbar_style: Literal['thin', 'comfortable', 'auto']
+    # which version of a post card to render: a 16:9 image on top, or date + title alone
+    # (docs/images.md § Rendering)
+    post_card_style: Literal['image', 'compact']
 
 
 @router.get(

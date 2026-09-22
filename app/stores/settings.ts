@@ -1,6 +1,6 @@
 import type { Settings } from '~/assets/types'
 
-// The three synced values take their unions from the API schema, so a value
+// The four synced values take their unions from the API schema, so a value
 // the backend would 422 can't be assigned here in the first place.
 export type ThemeName = Settings['theme']
 
@@ -26,6 +26,16 @@ export const scrollbarStyles: { name: ScrollbarStyle, label: string }[] = [
   { name: 'auto', label: 'System' },
 ]
 
+// Which version of a post card to render: a 16:9 image on top, or date and
+// title alone. A post with no image renders compact under either
+// (docs/images.md § Rendering).
+export type PostCardStyle = Settings['post_card_style']
+
+export const postCardStyles: { name: PostCardStyle, label: string }[] = [
+  { name: 'image', label: 'Image' },
+  { name: 'compact', label: 'Compact' },
+]
+
 // App-wide user preferences. These live on the account (GET/PUT /settings) so
 // they follow the user across devices; the cookie persistence stays as a local
 // cache, which is what renders the chosen theme server-side without a flash
@@ -38,11 +48,13 @@ export const useSettingsStore = defineStore('settings', () => {
   const theme = ref<ThemeName>('ink')
   const feedListStyle = ref<FeedListStyle>('list')
   const scrollbarStyle = ref<ScrollbarStyle>('thin')
+  const postCardStyle = ref<PostCardStyle>('image')
 
   const payload = computed<Settings>(() => ({
     theme: theme.value,
     feed_list_style: feedListStyle.value,
     scrollbar_style: scrollbarStyle.value,
+    post_card_style: postCardStyle.value,
   }))
 
   const loaded = ref(false)
@@ -63,6 +75,7 @@ export const useSettingsStore = defineStore('settings', () => {
       theme.value = remote.theme
       feedListStyle.value = remote.feed_list_style
       scrollbarStyle.value = remote.scrollbar_style
+      postCardStyle.value = remote.post_card_style
       synced = remote
       loaded.value = true
     }
@@ -76,7 +89,7 @@ export const useSettingsStore = defineStore('settings', () => {
     }
   }
 
-  // A full replace, true to the verb — the store holds all three values, so
+  // A full replace, true to the verb — the store holds all four values, so
   // there's never a partial payload to send.
   watch(payload, (next) => {
     if (!loaded.value || same(next, synced)) return
@@ -96,10 +109,10 @@ export const useSettingsStore = defineStore('settings', () => {
     return Boolean(b) && (Object.keys(a) as (keyof Settings)[]).every(key => a[key] === b![key])
   }
 
-  return { theme, feedListStyle, scrollbarStyle, loaded, load, reset }
+  return { theme, feedListStyle, scrollbarStyle, postCardStyle, loaded, load, reset }
 }, {
   // The values only — never `loaded`. Restoring that from the cookie would skip
   // the GET on the next load and let the sync watcher fire against an empty
   // snapshot, turning every page load into a PUT.
-  persist: { pick: ['theme', 'feedListStyle', 'scrollbarStyle'] },
+  persist: { pick: ['theme', 'feedListStyle', 'scrollbarStyle', 'postCardStyle'] },
 })

@@ -8,8 +8,18 @@ from core.api.settings import SettingsSchema
 from core.auth import issue_token
 from core.models import UserSettings
 
-DEFAULTS = {'theme': 'ink', 'feed_list_style': 'list', 'scrollbar_style': 'thin'}
-CHANGED = {'theme': 'claude', 'feed_list_style': 'cards', 'scrollbar_style': 'auto'}
+DEFAULTS = {
+    'theme': 'ink',
+    'feed_list_style': 'list',
+    'scrollbar_style': 'thin',
+    'post_card_style': 'image',
+}
+CHANGED = {
+    'theme': 'claude',
+    'feed_list_style': 'cards',
+    'scrollbar_style': 'auto',
+    'post_card_style': 'compact',
+}
 
 
 def put_settings(client, payload):
@@ -74,6 +84,9 @@ def test_the_schemas_literals_match_the_models_choices():
     )
     assert set(get_args(fields['scrollbar_style'].annotation)) == set(
         UserSettings.ScrollbarStyle.values
+    )
+    assert set(get_args(fields['post_card_style'].annotation)) == set(
+        UserSettings.PostCardStyle.values
     )
 
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { feedListStyles, scrollbarStyles, themes } from '~/stores/settings'
+import { feedListStyles, postCardStyles, scrollbarStyles, themes } from '~/stores/settings'
 
 const settings = useSettingsStore()
 
@@ -12,21 +12,25 @@ const isDesktop = useIsDesktop()
   <SettingsPage title="Appearance">
     <section>
       <h3 class="text-caption font-semibold uppercase tracking-wide text-muted text-inset">
-        Cards
+        Post cards
       </h3>
       <div class="mt-xs flex flex-col gap-px overflow-hidden rounded-2xl">
-        <div class="flex items-center justify-between bg-elevated p-sm">
-          <span>Card style</span>
-          <span class="text-caption text-muted">Detailed</span>
-        </div>
-        <div class="flex items-center justify-between bg-elevated p-sm">
-          <span>Font size</span>
-          <span class="text-caption text-muted">100%</span>
-        </div>
+        <button
+          v-for="option in postCardStyles"
+          :key="option.name"
+          type="button"
+          :aria-pressed="settings.postCardStyle === option.name"
+          class="flex items-center justify-between bg-elevated p-sm text-left"
+          @click="settings.postCardStyle = option.name"
+        >
+          <span>{{ option.label }}</span>
+          <UIcon
+            v-if="settings.postCardStyle === option.name"
+            name="i-ph-check-bold"
+            class="size-5 text-primary"
+          />
+        </button>
       </div>
-      <p class="mt-xs text-caption text-muted text-inset">
-        These settings apply to post cards in feed lists. Mock content for now.
-      </p>
     </section>
 
     <section>
