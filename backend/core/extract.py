@@ -16,12 +16,15 @@ reason this does.
 """
 
 import logging
+import re
 from dataclasses import dataclass
+from urllib.parse import urlsplit
 
 import nh3
 import requests
 import trafilatura
 
+from . import images
 from .fetch import ALLOWED_SCHEMES, PageUnavailable, fetch_url
 from .models import Source
 
@@ -53,6 +56,11 @@ ARTICLE_TAGS = {
     'img', 'figure', 'figcaption',
 }  # fmt: skip
 ARTICLE_ATTRIBUTES = {'a': {'href', 'title'}, 'img': {'src', 'alt', 'title'}}
+
+# An <img> as nh3 serialises it: every value double-quoted, with `"` and `>` escaped inside
+# it, so a tag ends at the first `>` and ` src="` can only ever be the attribute itself.
+# Sound only over nh3's own output, which is why proxy_images runs it on the second pass.
+IMG_TAG = re.compile(r'<img\b[^>]*>')
 
 OK = 'ok'
 EMPTY = 'empty'
@@ -136,3 +144,35 @@ def extract_html(body, url):
         # drops a javascript: href rather than the whole <a>
         url_schemes=ALLOWED_SCHEMES,
     ).strip()
+
+
+def proxy_images(html):
+    """The article with every `<img src>` pointed at the image proxy, for serving.
+
+    Done at read time and never written back: the column keeps the source's URLs, so a key
+    rotation or a recipe change can't break every cached article (docs/images.md). A second
+    nh3 pass with the same allowlist does the rewrite, since its attribute filter hands us
+    each `src` already unescaped and escapes whatever we return.
+
+    An image that can't be proxied goes, tag and all, rather than leaving an `<img>` with no
+    `src` for the browser to draw as broken: a src that isn't an absolute http(s) URL (a
+    relative one trafilatura couldn't resolve; a data: URI was already dropped at
+    extraction), and every image when the proxy has no key — images are off, as on the cards.
+    """
+    cleaned = nh3.clean(
+        html,
+        tags=ARTICLE_TAGS,
+        attributes=ARTICLE_ATTRIBUTES,
+        url_schemes=ALLOWED_SCHEMES,
+        attribute_filter=_proxy_src,
+    )
+    return IMG_TAG.sub(lambda tag: tag[0] if ' src="' in tag[0] else '', cleaned)
+
+
+def _proxy_src(tag, attribute, value):
+    if (tag, attribute) != ('img', 'src'):
+        return value
+    parts = urlsplit(value)
+    if parts.scheme not in ALLOWED_SCHEMES or not parts.netloc:
+        return None
+    return images.article_image(value)

@@ -97,6 +97,22 @@ def test_the_path_is_a_sixteen_by_nine_fill_of_the_encoded_source():
 
 
 @proxy_on
+def test_an_article_image_is_fitted_to_the_reading_width_never_cropped():
+    """An article's pictures are the author's framing — a diagram cut to 16:9 loses what it
+    was there to show. No width floor either: a small inline image is meant to be small."""
+    src = images.article_image(f'{REDDIT}?width=140')
+    encoded = base64.urlsafe_b64encode(f'{REDDIT}?width=140'.encode()).rstrip(b'=').decode()
+
+    assert src.startswith('http://localhost:8080/')
+    assert src.endswith(f'/rs:fit:1920:0/{encoded}.webp')
+
+
+@override_settings(IMGPROXY_KEY='', IMGPROXY_SALT='', IMGPROXY_PUBLIC_URL='')
+def test_no_key_means_no_article_images_either():
+    assert images.article_image(IMAGE) is None
+
+
+@proxy_on
 def test_the_signature_covers_the_whole_path():
     """One character of difference must change the stamp, or the signature guards nothing."""
     mine = images.post_image(IMAGE)['src'].rsplit('/rs:', 1)[0]

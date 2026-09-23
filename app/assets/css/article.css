@@ -84,8 +84,8 @@
     border-radius: 0;
   }
 
-  /* Article images fit the reading width. T15c later rewrites `src` through
-     the image proxy; the layout stays the same. */
+  /* Article images fit the reading width. `src` already points at the image
+     proxy (T15c, rewritten by the API at read time). */
   & img {
     display: block;
     max-width: 100%;

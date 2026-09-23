@@ -21,6 +21,8 @@ from django.conf import settings
 WIDTHS = (480, 960, 1440, 1920)
 # the bare `src`, for an <img> that ignores srcset
 DEFAULT_WIDTH = 960
+# an article image, fitted to the 2x reading measure (docs/images.md § Sizes and formats)
+ARTICLE_WIDTH = 1920
 
 
 def post_image(url):
@@ -32,13 +34,28 @@ def post_image(url):
     """
     if not url or not settings.IMGPROXY_KEY or _declared_too_small(url):
         return None
-    urls = {width: _signed(url, width) for width in WIDTHS}
+    urls = {width: _signed(url, _card(width)) for width in WIDTHS}
     return {
         'src': urls[DEFAULT_WIDTH],
         # the finished attribute, not a list of widths: the sizes are the backend's fact, and
         # sending them as data would let the two sides drift (docs/images.md § Wire contract)
         'srcset': ', '.join(f'{signed} {width}w' for width, signed in urls.items()),
     }
+
+
+def article_image(url):
+    """A signed `src` for an image inside an extracted article, or None when images are off.
+
+    Fit, never crop, to the 2x reading measure: an article's pictures are the author's own
+    framing — a diagram or a screenshot cut to 16:9 loses what it was there to show. One URL
+    and no srcset, because the article is sanitised markup the frontend renders as-is.
+
+    No width floor either, unlike post_image: a small image inline in the text is sized to
+    sit there, not blown up into a card. imgproxy never enlarges it.
+    """
+    if not settings.IMGPROXY_KEY:
+        return None
+    return _signed(url, f'rs:fit:{ARTICLE_WIDTH}:0')
 
 
 def _declared_too_small(url):
@@ -61,16 +78,20 @@ def _declared_too_small(url):
     return declared.isdigit() and int(declared) < WIDTHS[0]
 
 
-def _signed(url, width):
+def _card(width):
     # fill-down + centre gravity: a 16:9 centre crop, which is what takes the black bars off
     # YouTube's 480x360 hqdefault poster. `fill-down` rather than plain `fill` because we never
     # enlarge, and a plain `fill` of a source smaller than the requested size skips the crop
     # altogether and hands back the original aspect — measured against the real poster, which
     # came back 480x360, bars and all. fill-down shrinks the *requested size* to fit the source
     # instead, so the aspect ratio survives and the pixels are still the source's own.
+    return f'rs:fill-down:{width}:{round(width * 9 / 16)}/g:ce'
+
+
+def _signed(url, options):
     # .webp is named in the path rather than negotiated from Accept, so one URL is one file
     # and no CDN has a Vary header to get wrong.
-    path = f'/rs:fill-down:{width}:{round(width * 9 / 16)}/g:ce/{_b64(url.encode())}.webp'
+    path = f'/{options}/{_b64(url.encode())}.webp'
     stamp = hmac.new(
         bytes.fromhex(settings.IMGPROXY_KEY),
         bytes.fromhex(settings.IMGPROXY_SALT) + path.encode(),

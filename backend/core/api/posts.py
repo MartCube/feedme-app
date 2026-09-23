@@ -13,7 +13,7 @@ from ninja import Query, Router, Schema, Status
 from ninja.errors import HttpError
 
 from .. import images
-from ..extract import extract_article
+from ..extract import extract_article, proxy_images
 from ..models import SavedPost
 from ..postlist import page, resolve_stream, visible_posts
 from .errors import ErrorSchema
@@ -133,11 +133,15 @@ def post_article(request, uid: str):
     empty once (a bot-challenge page served as 200, a site mid-deploy) is not evidence about
     the article, and one bounded fetch per open is cheap next to a post that is wrong for
     everyone forever.
+
+    Images come back pointed at the image proxy (T15c), so the reader never loads anything
+    from the article's host.
     """
     post = _visible_post(request.auth, uid)
     if not post.article_html:
         extract_article(post)
-    html = post.article_html or ''
+    # the proxy rewrite happens here, on the way out, and never reaches the column
+    html = proxy_images(post.article_html) if post.article_html else ''
     return {'status': 'ok' if html else 'unavailable', 'article_html': html or None}
 
 

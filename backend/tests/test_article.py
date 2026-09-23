@@ -10,11 +10,18 @@ The fetch underneath is core/fetch.py's, and so are its tests (test_fetch.py): w
 module owns is the one call named `fetch_page`, which every test below replaces.
 """
 
+import base64
+
 import pytest
 import requests
+from django.test import override_settings
 
 from core import extract
 from core.models import Source
+
+proxy_on = override_settings(
+    IMGPROXY_KEY='aa' * 32, IMGPROXY_SALT='bb' * 32, IMGPROXY_PUBLIC_URL='http://localhost:8080'
+)
 
 # Long enough that trafilatura calls it an article rather than boilerplate, with a relative
 # link and a relative image so the absolutising in extract_html has something to do.
@@ -86,17 +93,91 @@ def test_the_first_open_extracts_the_article(authed_client, post, monkeypatch):
     # the nav and the footer are the page, not the article
     assert 'Some Blog' not in body['article_html']
     post.refresh_from_db()
-    assert post.article_html == body['article_html']
+    # cached — though not byte-equal to the response, which carries proxied image URLs
+    assert 'Script setup is the cleanest way' in post.article_html
 
 
-def test_relative_links_and_images_come_back_absolute(authed_client, post, monkeypatch):
+def test_relative_links_and_images_are_stored_absolute(authed_client, post, monkeypatch):
     """trafilatura resolves them against the url we hand it — nothing here rewrites them."""
+    serve(monkeypatch, ARTICLE_PAGE)
+
+    article_request(authed_client, post.uid)
+
+    post.refresh_from_db()
+    assert 'https://blog.example.com/p/two' in post.article_html
+    assert 'https://blog.example.com/img/one.png' in post.article_html
+
+
+def encoded(url):
+    return base64.urlsafe_b64encode(url.encode()).rstrip(b'=').decode()
+
+
+@proxy_on
+def test_article_images_are_served_through_the_proxy(authed_client, post, monkeypatch):
+    """Fitted to the reading width, never cropped, and nothing left pointing at the article's
+    host — the reader's browser only ever talks to the proxy for pictures."""
     serve(monkeypatch, ARTICLE_PAGE)
 
     html = article_request(authed_client, post.uid).json()['article_html']
 
-    assert 'https://blog.example.com/p/two' in html
-    assert 'https://blog.example.com/img/one.png' in html
+    assert f'/rs:fit:1920:0/{encoded("https://blog.example.com/img/one.png")}.webp' in html
+    assert 'src="http://localhost:8080/' in html
+    assert 'blog.example.com/img' not in html
+    # links are not images: the reader still leaves for the source when asked to
+    assert 'href="https://blog.example.com/p/two"' in html
+
+
+@proxy_on
+def test_a_read_leaves_the_cached_column_byte_for_byte_unchanged(authed_client, post, monkeypatch):
+    """Rewritten on the way out and never stored, so a key rotation can't break every
+    cached article."""
+    serve(monkeypatch)
+    stored = '<p>Text <img src="https://cdn.example.com/a.png?w=1&amp;h=2" alt="x"></p>'
+    post.article_html = stored
+    post.save(update_fields=['article_html'])
+
+    html = article_request(authed_client, post.uid).json()['article_html']
+
+    assert 'localhost:8080' in html
+    post.refresh_from_db()
+    assert post.article_html == stored
+
+
+@override_settings(IMGPROXY_KEY='', IMGPROXY_SALT='', IMGPROXY_PUBLIC_URL='')
+def test_with_no_proxy_key_article_images_are_dropped_not_hotlinked(
+    authed_client, post, monkeypatch
+):
+    """Images off, the same as the cards: the text reads fine without them, and a hotlink
+    is the leak this task exists to close."""
+    serve(monkeypatch, ARTICLE_PAGE)
+
+    html = article_request(authed_client, post.uid).json()['article_html']
+
+    assert '<img' not in html
+    assert 'Script setup is the cleanest way' in html
+
+
+@proxy_on
+def test_an_image_that_cannot_be_proxied_goes_with_its_tag():
+    """No `<img>` left without a src for the browser to draw as broken."""
+    html = extract.proxy_images(
+        '<p>a<img src="/relative.png" alt="rel">b<img alt="no src">'
+        '<img src="//cdn.example.com/x.png" alt="scheme-relative">c</p>'
+    )
+
+    assert html == '<p>abc</p>'
+
+
+@proxy_on
+def test_the_rewrite_survives_awkward_attribute_values():
+    """An escaped `&` in the src is unescaped before it's signed, and an alt with `>` and
+    quotes in it neither ends the tag early nor loses the image."""
+    html = extract.proxy_images(
+        '<p><img src="https://cdn.example.com/a.png?w=1&amp;h=2" alt="a &gt; &quot;b&quot;"></p>'
+    )
+
+    assert encoded('https://cdn.example.com/a.png?w=1&h=2') in html
+    assert 'alt="a &gt; &quot;b&quot;"' in html
 
 
 def test_a_second_open_is_served_from_the_column(authed_client, post, monkeypatch):
