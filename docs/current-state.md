@@ -3,7 +3,7 @@
 A snapshot of what's actually built vs. what the spec (these docs) describes. The goal is to
 make the gap visible so implementation has a clear backlog. Update this as work lands.
 
-_Last reviewed: 2026-09-18._
+_Last reviewed: 2026-09-22._
 
 ## Summary
 
@@ -31,9 +31,13 @@ list's own title row. What has no endpoint behind it yet says so: the add wizard
 still finds nothing, and the home reorder has no UI. **The reader is wired to
 `/posts/{uid}/article`** _(2026-09-18)_: the post page renders the extracted article as markup,
 falling back to the RSS summary plus **Open source** when extraction can't produce one. See
-Resolved decisions → Backend stack & API. **No image renders anywhere yet** — cards are date + title, the post page has
-no hero, and only the add wizard hotlinks YouTube avatars; the strategy for all of it is specced
-in [images.md](./images.md) _(2026-09-15)_ and **T15a** is the roadmap's next task.
+Resolved decisions → Backend stack & API. **Posts carry real images** _(2026-09-22)_: a signed
+`imgproxy` proxy resizes every post image into a 16:9 WebP family, PostCards show it on top when
+Settings → Appearance → *Post cards* is **Image** (the default — **Compact**, and any post with
+no image or a failed load, is date + title alone), and the post page shows the same image as a
+hero above the title. Feed icons and the pictures inside an article are still unproxied — only
+the add wizard hotlinks YouTube avatars — which is the rest of the strategy specced in
+[images.md](./images.md) _(2026-09-15)_.
 Backend work is sequenced in [backend-roadmap.md](./backend-roadmap.md), which tracks its
 own status: **read that file's § Status for what to build next.**
 
@@ -87,8 +91,8 @@ own status: **read that file's § Status for what to build next.**
   `settingsSections` and reused by the desktop sidebar). Both `settings/Page.vue` and the route
   map that picks a panel per path read `useRouter().currentRoute` rather than Nuxt's `useRoute()`
   so they stay correct when rendered inside the desktop content overlay (see Desktop shell v1,
-  below). Appearance and Account are functional (theme/list/scrollbar switches; real profile +
-  Sign out — see **Auth & login** below); About is static info (hardcoded version string) and
+  below). Appearance and Account are functional (theme/list/scrollbar/post-card switches; real
+  profile + Sign out — see **Auth & login** below); About is static info (hardcoded version string) and
   Report is still a mock panel.
 - **Add-feed wizard** — `app/components/add/Drawer.vue` hosts the sheet, like the settings
   drawer. The `/add` URL renders the home component (via the `pages:extend` hook) so the feed
@@ -376,9 +380,33 @@ own status: **read that file's § Status for what to build next.**
   navbar's bookmark toggle underneath is unchanged: `PUT`/`DELETE /posts/{uid}/save` into
   **Bookmarks** (Save is a toggle, not a group chooser), reflected in the icon and
   `aria-pressed`.
-- **PostCard v1** — `app/components/feed/PostCard.vue`: date + title only (no image / type cue
-  yet — the image version and the Image / Compact setting are T15a, see Not started → Images),
-  whole card links to the post; rows separated by spacing (no divider lines).
+- **Post images (T15a)** — every post image on screen comes from a signed `imgproxy` proxy
+  (`docker-compose.yml`'s `imgproxy` service; nothing stored). `backend/core/images.py` is the
+  only module that builds or signs such a URL — a containment test fails the suite if a second
+  one reads an `IMGPROXY_*` setting, the rule `core/search.py` already follows for the tsvector
+  — and its one entry point, `post_image(url)`, returns `{src, srcset} | null` for a 16:9 family
+  (480 / 960 / 1440 / 1920, WebP, `rs:fill-down:…/g:ce/…` — a centre crop that shrinks the
+  *requested* size to fit a small source rather than skipping the crop, which is what removes
+  YouTube's `hqdefault` letterbox). An empty `IMGPROXY_KEY` is a supported state, like
+  `YOUTUBE_API_KEY`: every `image` answers `null` and cards render compact. `PostSchema.image_url`
+  is renamed to `image: {src, srcset} | null` on the wire (list, detail and `/search` all carry
+  it, via the shared `PostPageSchema`); `app/components/feed/PostImage.vue` is the fixed
+  `aspect-video` `bg-muted` box both hosts render it in — lazy on a card, eager with
+  `fetchpriority="high"` on the post-page hero — and it removes itself on a failed load or a
+  source narrower than 320px (a blown-up thumbnail reads worse than none) rather than leaving a
+  broken box, resetting on an `src` change since the desktop post pane reuses one instance across
+  posts. **A source that declares its own size answers `null` before any of that** _(2026-09-23)_:
+  when the image URL carries a `width=` under 480 — the smallest size we serve — there is no
+  image on the wire and the card is compact from the first paint. Reddit is why (207 of 477
+  stored Reddit images declare 140, 216 or 320, and the size is inside the URL's signature so it
+  can't be raised), and without it four cards in ten laid out a box and then took it away. The
+  two floors are a pair until T15d reads real dimensions at ingest and retires both. See
+  [images.md](./images.md).
+- **PostCard v1** — `app/components/feed/PostCard.vue`: whole card links to the post. The
+  **Image** style (the account's default, Settings → Appearance → *Post cards*) renders
+  `FeedPostImage` above the date + title; **Compact** — and any post with no image, under either
+  style — is date + title alone. Rows separated by spacing (no divider lines); the source-feed
+  type cue is still T15b, see Not started → Images (rest).
 - **Context-aware navbar** — both slots swap per page: home = menu + add, feed page =
   sidebar icon (→ home) alone (search sits on the list's title row instead — see Feed page v1),
   post page = back (→ its feed, carrying the search it was opened from) + Open source + Save
@@ -420,11 +448,10 @@ own status: **read that file's § Status for what to build next.**
   a detail post (e.g. the last-read one) on entering a feed is also deferred — v1 always starts
   at the "Select a post" placeholder.
 - **Settings content** — the drawer, its four subpages, and transitions are built, and
-  Appearance and Account are real (see Built); About's version string is hardcoded and Report
-  still needs real content and a way to actually send anything. Appearance gains a fourth row,
-  **Post cards: Image / Compact**, with T15a.
-- **PostCard (rest)** — the image version (T15a) and the source-feed type cue (T15b's icon) —
-  see **Images** below.
+  Appearance and Account are real, including the Post cards switch (see Built); About's version
+  string is hardcoded and Report still needs real content and a way to actually send anything.
+- **PostCard (rest)** — the source-feed type cue (T15b's icon); the image version shipped in
+  T15a — see Built → Post images.
 - **Add feed (rest)** — keyword search for subreddits and our own catalog (T11c, T11d), a
   candidate's latest posts before subscribing (T14, planned — `GET /discover/posts`), putting the
   wizard's type and query on the URL so a reload doesn't lose them (decided 2026-09-18, deferred
@@ -448,13 +475,12 @@ own status: **read that file's § Status for what to build next.**
   the other half of [backend.md](./backend.md#auth) § Auth's step 1, and no Capacitor build
   exists yet. Noted for a deploy: `ux_mode: 'popup'` needs a
   `Cross-Origin-Opener-Policy: same-origin-allow-popups` header if one is ever set.
-- **Images** — nothing on screen is an image yet, and the wire still carries the raw `image_url`
-  / `icon_url`. The whole strategy is [images.md](./images.md): a signed image proxy (`imgproxy`
-  in compose) that the backend alone builds URLs for, in three stages — proxy now (T15a: post
-  images on cards and the post page + the Image / Compact card setting), originals into a bucket
-  next (T15d), a CDN and a paid transformer at deploy (T15e) — with feed icons (T15b) and the
-  pictures inside articles (T15c) as the other consumers. Task entries in
-  [backend-roadmap.md](./backend-roadmap.md) § Tasks → T15a–T15e.
+- **Images (rest)** — T15a shipped post images on cards and the post page (see Built → Post
+  images); still raw on the wire is `Source.icon_url` (feed icons, T15b) and the pictures inside
+  an extracted article (T15c). Stage 2 (originals in a bucket, for permanence, T15d) and stage 3
+  (a CDN and a paid transformer at deploy, T15e) come after. The whole strategy, staged, is
+  [images.md](./images.md); task entries in [backend-roadmap.md](./backend-roadmap.md) § Tasks →
+  T15b–T15e.
 - **Home reorder** — `PUT /home/order` exists and is strict, but **nothing drives it**: the home
   list has no drag-and-drop, and the options sheet's Reorder feeds row is a placeholder. The
   `order` from `/home` is applied as a sort at load and not retained, so the UI, when it lands,

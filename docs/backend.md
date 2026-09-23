@@ -353,7 +353,7 @@ anyway), and swap the one search module behind the unchanged endpoint. Frontend:
 | `scheduler` | `periodiq -v core.tasks` — the cron sweep; enqueues, never executes |
 | `db` | Postgres 16 |
 | `redis` | Redis (Dramatiq broker) |
-| `imgproxy` | _(T15a, planned)_ the image proxy — resizes and converts every image the app shows, from a signed URL `core/images.py` builds; nothing stored. Stage 2 adds `minio` (the dev bucket). See [images.md](./images.md) § Operations |
+| `imgproxy` | the image proxy — resizes and converts every image the app shows, from a signed URL `core/images.py` builds; nothing stored. Stage 2 adds `minio` (the dev bucket). See [images.md](./images.md) § Operations |
 
 `api`, `worker` and `scheduler` are one image behind three different commands —
 `docker-compose.yml`'s `x-backend` YAML anchor shares the build, the bind mount and the

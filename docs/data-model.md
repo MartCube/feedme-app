@@ -103,10 +103,10 @@ interface Post {
 }
 ```
 
-- `image` _(planned, T15a — today the wire still carries the raw `image_url`)_ is what the card
-  and the post page put straight into an `<img>`: a signed, resized URL family from the image
-  proxy, never the source's own URL, and `null` when the post has none. The frontend adds only
-  `sizes`. How it is built, cached and later stored is [images.md](./images.md).
+- `image` _(shipped in T15a, 2026-09-22)_ is what the card and the post page put straight into
+  an `<img>`: a signed, resized URL family from the image proxy, never the source's own URL, and
+  `null` when the post has none. The frontend adds only `sizes`. How it is built, cached and
+  later stored is [images.md](./images.md).
 - `summary` is **not trusted markup**: it comes from whatever the feed published (Reddit wraps
   every post in a `<table>`), so the reader strips it to plain text rather than rendering it.
   The article text meant for reading is fetched separately from `/posts/{uid}/article`.

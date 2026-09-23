@@ -14,18 +14,24 @@ deliberate checkpoint that wires the real frontend before the backlog grows furt
 
 ## Status
 
-**Last completed:** T11b — Discovery: YouTube keyword search _(2026-09-11)_, after T13 —
-Retention _(2026-09-07)_
-**Next up:** **T15a — Images: proxy, post images, card toggle** _(planned 2026-09-15, spec in
-[images.md](./images.md))_, ungated. **T14 — Feed preview** _(planned 2026-09-15)_ stays open
-beside it, also ungated — build whichever the frontend needs first. T11c (Reddit app credentials)
-and T11d (a catalog worth searching) each wait on something outside the code.
+**Last completed:** T15a — Images: proxy, post images, card toggle _(2026-09-22, amended
+2026-09-23 with the declared-width floor)_, after T11b — Discovery: YouTube keyword search
+_(2026-09-11)_
+**Next up:** **T14 — Feed preview** _(planned 2026-09-15)_, ungated. **T15b — Images: feed
+icons** and **T15c — Images: article images** are both unblocked now the proxy is real, and
+independent of each other; **T15d — the bucket** builds on T15a too, and is the one that makes
+`image: null` truthful and retires T15a's two stand-in floors; **T15f — the loading
+placeholder** is a small frontend task that came out of using T15a for real — build whichever
+the frontend needs first. T11c (Reddit app credentials) and T11d (a catalog worth searching)
+each wait on something outside the code; T15e waits on a deploy target.
 **Roadmap written:** 2026-08-19
 
 **T15 is five tasks from the start _(2026-09-15)_** — one per stage of the images strategy plus
 one per consumer: the proxy with post images (a), feed icons (b), article images (c), the bucket
 (d), the CDN / paid step (e). Lettered like T11 so each can land alone; T15b and T15c are
-independent of each other, T15d builds on T15a, T15e waits on a deploy target.
+independent of each other, T15d builds on T15a, T15e waits on a deploy target. **A sixth
+joined them _(2026-09-23)_:** T15f, the loading placeholder — not part of the original strategy
+but a gap that only showed up once real images were on screen.
 
 **T11 was split into four _(2026-09-06)_.** As written it was one task carrying website
 autodiscovery, the YouTube Data API, Reddit and keyword search — four integrations, two of them
@@ -55,11 +61,12 @@ reading order.
 | T12 | Search | ✅ done _(2026-09-06)_ |
 | T13 | Retention | ✅ done _(2026-09-07)_ |
 | T14 | Feed preview — a candidate's latest posts | ⬜ ungated, beside T15a |
-| T15a | Images — proxy, post images, card toggle | ⬜ next |
+| T15a | Images — proxy, post images, card toggle | ✅ done _(2026-09-22)_ |
 | T15b | Images — feed icons | ⬜ after T15a |
 | T15c | Images — article images | ⬜ after T15a |
 | T15d | Images — the bucket (stage 2) | ⬜ after T15a |
 | T15e | Images — CDN, then paid (stage 3) | ⬜ needs a deploy target |
+| T15f | Images — the loading placeholder | ⬜ ungated, frontend only |
 
 ## Current state
 
@@ -292,8 +299,9 @@ as committed**, `ruff check .` clean.
 
 **Not built.** Everything else: keyword discovery outside YouTube (T11c, T11d — gated on
 credentials and on a catalog worth searching), T14's preview, every image the app should show
-(T15a–e — [images.md](./images.md); nothing renders `image_url` or `icon_url` today beyond the
-wizard's hotlinked YouTube avatars), and the endpoints stop at
+(T15b–e — [images.md](./images.md); T15a shipped post images, so what's left unproxied is
+`Source.icon_url` — feed icons, still only the wizard's hotlinked YouTube avatars — and the
+pictures inside an article), and the endpoints stop at
 `/health`, `/me`, `/auth/google`, `/auth/logout`, `/home`, `/home/order`, `/settings`, `/feeds`,
 `/feeds/{uid}`, `/feeds/{uid}/posts`, `/folders`, `/folders/{uid}`, `/posts/{uid}`,
 `/posts/{uid}/article`, `/posts/{uid}/save`, `/search` and `/discover`.
@@ -951,6 +959,30 @@ Decided 2026-09-18, outside any task (frontend-only, attached to T14):
   the developer and desktop users reload, and there's no deep link), and steps as path segments
   (`/add/youtube/destination` — over-built for four steps, and a destination URL means nothing
   without state).
+
+Decided 2026-09-22 while building T15a:
+
+- **`fill-down`, not `fill`.** Measured against a real YouTube `hqdefault.jpg` (480 × 360, a 45px
+  letterbox top and bottom), not a fixture: imgproxy's `rs:fill` skips the crop entirely when the
+  source is smaller than the requested size and enlarging is off, so the poster came back exactly
+  as fetched — bars included, the one thing the centre crop exists to remove. `rs:fill-down`
+  shrinks the *requested* size to fit the source instead, so the crop still runs and the aspect
+  ratio still comes out 16:9 at whatever size the source allows: 480 × 270 for that poster,
+  640 × 360 for a Reddit preview, 960 × 540 for a full-size blog hero. `images.md` § Sizes and
+  formats amended in place (the "imgproxy never enlarges" bullet).
+- **`IMGPROXY_USER_AGENT` is not needed — settled, not guessed.** `images.md` § Operations left
+  this as a question for T15a's real-URL pass to answer. Both `preview.redd.it` and
+  `external-preview.redd.it` served imgproxy's default User-Agent a plain 200, so nothing
+  Reddit-specific was required; the knob stays undocumented until a real source actually refuses
+  the default.
+- **Verified against real URLs, not only the suite** — the `backend-dev` rule fetch/parse
+  features already follow. A YouTube poster, two Reddit CDN hosts, a Medium CDN image
+  (188 × 106, under the 320px floor — the collapse rule fired on a real thumbnail, not a
+  contrived one), a `nuxt.com` hero, a plain `http://` source, a dead URL (404 from the proxy)
+  and a tampered signature (403) all matched `images.md` § Rendering. **Not yet run:** the
+  `verify` screenshot pass across the four screens (feed list in both card styles, the post-page
+  hero, mobile and desktop) — it needs a dev token the model can't materialise, so it stays
+  outstanding rather than assumed from the code.
 
 ## Tasks
 
@@ -1696,7 +1728,7 @@ the fetch timeout, and writes nothing. A dead URL and a page that isn't a feed a
 message the wizard can show; an empty feed answers `[]`. Verified **against live URLs, not only
 the suite** — T11a's rule, since both of its bugs were shapes no fixture had.
 
-### T15a — Images: proxy, post images, card toggle
+### T15a — Images: proxy, post images, card toggle ✅
 
 **Goal.** The first image on screen. Cards and the post page show the post's image through an
 image proxy — resized, WebP, signed — and a new *Post cards: Image / Compact* setting picks the
@@ -1758,13 +1790,29 @@ Any Nuxt UI prop not already used in the repo goes through the `librarian` first
 containment test; list, detail and search carry `image` as an object or `null`; the setting
 round-trips through `GET` / `PUT` and the Literal matches the choices.
 
-**Done when.** `pytest`, `ruff`, `pnpm lint` and `pnpm typecheck` are clean, and — the part a
-suite can't prove — through the **running** imgproxy: a Reddit `preview.redd.it` thumb (does it
-403 our UA?), a YouTube `hqdefault.jpg` (letterbox gone?), a Medium CDN image,
-`https://nuxt.com/icon.png`, an `http://` URL, a dead URL (the card collapses to compact), a
-tampered signature (403), and a tiny image (hidden) all behave as images.md § Rendering says.
-`verify` screenshots of the feed list in both card styles and of the post page, mobile and
-desktop, reviewed by `design-reviewer` before the docs → git chain.
+**As built _(2026-09-22)_.** The plan held, with one recipe change found under real load. The
+path was drafted as `rs:fill:{w}:{h}`; measured against a real YouTube `hqdefault.jpg`, imgproxy's
+plain `fill` skips the crop entirely when the source is smaller than the requested size and
+enlarging is off, so the poster came back 480 × 360, letterbox and all — the one thing the centre
+crop exists to remove. The path is now `rs:fill-down:{w}:{h}/g:ce/…`, which shrinks the
+*requested* size to fit the source instead (§ Decision log, 2026-09-22). Everything else shipped
+as specced: the `x-imgproxy-secret` compose anchor merged into both `imgproxy` and `x-backend`;
+the containment test; `PostSchema.image` on list, detail and `/search`; `UserSettings.post_card_style`
+behind the full-replace `PUT /settings`; `feed/PostImage.vue`, above the date + title on
+`PostCard.vue` and above the `<h1>` on `PostView.vue` (whose top margin drops from `mt-lg` to
+`mt-md` when a hero is present). 328 backend tests green, `ruff check` clean, `pnpm lint` and
+`pnpm typecheck` clean.
+
+**Done when.** `pytest`, `ruff`, `pnpm lint` and `pnpm typecheck` are clean — **met**. The
+running-imgproxy checks a suite can't prove are met too, against real URLs rather than fixtures:
+a YouTube `hqdefault.jpg` → 200 `image/webp` 480 × 270, letterbox gone; `preview.redd.it` and
+`external-preview.redd.it` → 200 webp 640 × 360, no User-Agent problem (settles § Operations'
+open question — `IMGPROXY_USER_AGENT` isn't needed); a Medium CDN image → 200 at 188 × 106,
+under the 320px floor, so the app hides it; a `nuxt.com` hero → 200 webp 960 × 540; an `http://`
+source → 200; a dead URL → 404 from the proxy, and the card collapses; a tampered signature →
+403. **Not yet met:** the `verify` screenshot pass across the feed list (both card styles), the
+post-page hero, and mobile/desktop hasn't run — it needs a dev token the model can't materialise
+— so `design-reviewer`'s review of it is still outstanding.
 
 ### T15b — Images: feed icons
 
@@ -1826,9 +1874,16 @@ the objects of the posts it deletes; `manage.py fetch_images` as the backfill; i
 `IMGPROXY_USE_S3`, the endpoint and keys. Open for that plan: the retry policy for a failed
 fetch, and whether to store a size-capped master instead of the raw original.
 
+*It also retires two stand-ins* _(added 2026-09-23)_. Real dimensions at ingest are what finally
+make `image: null` truthful, so this task deletes both of the things standing in for them today:
+`core/images.py`'s `_declared_too_small` (which can only read a `width=` the source happens to
+put in its own URL) and `PostImage.vue`'s read-time collapse (which lays the box out and then
+removes it — the flicker T15a shipped with). Until then they are a pair: the server drops what it
+can prove is too small, the client drops the rest once the bytes arrive.
+
 **Done when.** A freshly polled feed's images appear within a poll; deleting the source's image
 on the web changes nothing on screen; pruning a post removes its object; a `--dry-run` of the
-backfill reports what a real run would fetch.
+backfill reports what a real run would fetch; and no card lays out an image box it then removes.
 
 ### T15e — Images: CDN, then paid (stage 3)
 
@@ -1846,6 +1901,33 @@ Transformations, Bunny Optimizer) — a change inside `core/images.py` and nothi
 
 **Done when.** A second load of any image is a CDN hit; rotating the key invalidates every URL
 and the cache refills without a code change.
+
+### T15f — Images: the loading placeholder
+
+**Goal.** Make the reserved box say "an image is coming" instead of sitting there as a flat grey
+rectangle. Frontend only, one component.
+
+**Depends on:** T15a, and on the declared-width floor landing with it _(2026-09-23)_ — before
+that, a nicer placeholder would only have dressed up the flicker, since four cards in ten laid
+out a box for an image that never arrived. With the floor in place the reserved box is honest
+in almost every case, which is what makes this worth doing on its own.
+
+**Build.** `feed/PostImage.vue`'s `bg-muted` box is the whole surface area: give it a resting
+treatment while the image is in flight and drop it on `@load`. The repo already has the
+vocabulary — `USkeleton` is what `PostView.vue` shows while the article loads, so the reader
+has seen this animation before. Tokens only, no new dependency, and nothing else in the app
+changes. Whether the treatment is that same pulse or something quieter is the design call to
+make with the component on screen.
+
+*Not in this task.* A **colour-accurate** placeholder — the image's dominant colour, or a
+blurhash, behind the box so the card settles into its own palette — needs a value computed from
+the bytes at ingest, which is a column and a pass over every post. That rides on T15d, where
+the worker already opens each original to read its dimensions, and it is the reason this task
+is deliberately small: the cheap version is worth having now and does not block the good one.
+
+**Done when.** A card with a slow image shows a live placeholder rather than a grey block, and
+a card whose image is already cached shows no placeholder flash at all. `verify` screenshots,
+mobile and desktop, reviewed by `design-reviewer`.
 
 ## Housekeeping
 

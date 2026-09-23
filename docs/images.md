@@ -5,7 +5,8 @@ cards and the post page, feed icons, the pictures inside an extracted article, a
 user's avatar. Peer to [backend.md](./backend.md) (which owns the tables and endpoints these
 ride on); the build order is [backend-roadmap.md](./backend-roadmap.md) T15a–T15e.
 
-_Decided 2026-09-15. Nothing here is built yet — T15a is the first task._
+_Decided 2026-09-15. **T15a — the proxy, post images, the card toggle — shipped 2026-09-22.**
+T15b–e are still ahead._
 
 ## The one rule
 
@@ -114,7 +115,7 @@ adds the one thing only it knows — how wide the slot is: `sizes="(min-width: 1
 56rem, 100vw"` on the hero (`--container-post`).
 
 `image_url` is **renamed** to `image` rather than reused with a new meaning, so that `pnpm
-types:api` plus typecheck finds every consumer. Today there are none — nothing renders it.
+types:api` plus typecheck finds every consumer — `PostCard.vue` and `PostView.vue`, as of T15a.
 
 ## Sizes and formats
 
@@ -126,8 +127,12 @@ types:api` plus typecheck finds every consumer. Today there are none — nothing
   RSS poster is `hqdefault.jpg`, 480 × 360 with 45px black bars top and bottom, and a centred
   16:9 crop takes exactly those off. Most blog heroes are near 16:9 already, so the crop rarely
   bites; smart gravity can be a per-type refinement later.
-- **imgproxy never enlarges.** A source smaller than the requested width comes back at its own
-  size; the browser scales it. Below 320px wide the app hides it instead — see Rendering.
+- **imgproxy never enlarges — measured against a real source, not assumed.** A plain `fill`
+  skips the crop entirely when the source is smaller than the requested size, since running it
+  would mean enlarging: a real YouTube `hqdefault.jpg` (480 × 360, bars and all) came back
+  exactly as fetched, letterbox included. `fill-down` is the fix, used for the whole 16:9 family
+  — it shrinks the *requested* size to fit the source instead, so the crop still runs and
+  nothing is enlarged. Below 320px wide the app hides the image instead — see Rendering.
 - **WebP, named in the URL** (`.webp`), not negotiated from the `Accept` header: one URL is one
   file, so no `Vary` for a CDN to get wrong. AVIF is a later `<picture>` upgrade if bandwidth
   ever matters.
@@ -146,11 +151,21 @@ types:api` plus typecheck finds every consumer. Today there are none — nothing
 - Cards `loading="lazy"`; the hero loads eagerly with `fetchpriority="high"`. (Lazy is safe
   on the feed page and the desktop pane; the known trap is images *inside a vaul drawer*, which
   is why the add wizard's avatars stay eager.)
+- **A source that declares itself too small answers `null` before anything renders.** When the
+  image URL carries its own `width=` and it is under 480 — the smallest size we serve — there is
+  no image on the wire and the card is compact from the first paint. Reddit's `media:thumbnail`
+  is why: the size is baked into the preview URL and sits inside its `s=` signature, so it can't
+  be raised, and 43% of the Reddit images in the dev database declare a width under 480
+  _(measured 2026-09-22)_. Only `width`, and only when it parses as a number — a parameter we
+  can't read is not evidence, and dropping an image we could have shown is the worse mistake.
+  `core/images.py`'s `_declared_too_small`.
 - **A failed load removes the box.** The card collapses to its compact shape, the hero
   disappears; no broken-image icon, no grey square left behind. The same happens when an image
-  loads narrower than 320px — a tracking pixel, a 140px Reddit thumb — because a blown-up thumb
-  reads worse than none. From stage 2 the server knows the dimensions and answers `null`
-  instead, and the read-time collapse stops happening.
+  loads narrower than 320px — a tracking pixel, a thumbnail whose URL declared nothing — because
+  a blown-up thumb reads worse than none. This is the backstop for sources the rule above can't
+  read, and it is a **visible collapse**: the box is laid out, then removed. From stage 2 the
+  server knows real dimensions, answers `null` for both cases, and the read-time collapse — and
+  the flicker it causes — stops happening. See [backend-roadmap.md](./backend-roadmap.md) § T15d.
 - **Two card versions.** Settings → Appearance → *Post cards: Image / Compact*, synced through
   `/settings` like the theme, feed-list and scrollbar settings (a `UserSettings` column). A post
   with no image renders compact under either setting. The default is *Image* — the card
@@ -171,9 +186,10 @@ variables, documented in `.env.example`:
 An empty key is a supported state, like `YOUTUBE_API_KEY`: every `image` is `null` and the app
 renders compact cards. Limits live on the imgproxy service: a 10 MB source cap, a 10 s download
 timeout, and imgproxy's default refusal of private, loopback and link-local source addresses —
-the SSRF rule `core/fetch.py` had to build by hand, here for free. If Reddit turns out to refuse
-imgproxy's default User-Agent, `IMGPROXY_USER_AGENT` is the knob; that is answered by the
-real-URL verification in T15a, not guessed.
+the SSRF rule `core/fetch.py` had to build by hand, here for free. **Answered by T15a's real-URL
+verification, not guessed:** both `preview.redd.it` and `external-preview.redd.it` served
+imgproxy's default User-Agent a plain 200, so `IMGPROXY_USER_AGENT` is not needed; the knob
+stays undocumented until a real source actually refuses the default.
 
 **Stage 2** adds a `minio` service (bucket created on start) and bucket credentials for `api`,
 `worker` and `imgproxy` (`IMGPROXY_USE_S3`, endpoint, keys). Production uses R2 or S3 with the
@@ -222,3 +238,34 @@ Decided 2026-09-15, while writing this doc. Append here; don't rewrite past entr
   managed storage such as Cloudflare Images (paid from day one and scales with stored images
   rather than views; the originals live with the vendor); resizing inside Django with Pillow
   (image work occupying web workers, and SSRF, caching and formats rebuilt by hand).
+
+Decided 2026-09-22, verified while building T15a:
+
+- **`fill-down`, not `fill`.** The recipe drafted here was `rs:fill:{w}:{h}`. Measured against a
+  real YouTube `hqdefault.jpg` — not a fixture — imgproxy's `fill` skips the crop entirely when
+  the source is smaller than the requested size and enlarging is off, so the poster came back
+  480 × 360, letterbox and all: exactly what the centre-crop bullet above exists to remove.
+  `fill-down` shrinks the *requested* size to fit the source instead, so the crop still runs at
+  whatever size the source allows (480 × 270 for that poster, 640 × 360 for a Reddit preview,
+  960 × 540 for a full-size blog hero). § Sizes and formats amended in place.
+- **`IMGPROXY_USER_AGENT` is not needed.** Settles the question § Operations left open for this
+  task's real-URL pass: both `preview.redd.it` and `external-preview.redd.it` served imgproxy's
+  default User-Agent a plain 200, so nothing Reddit-specific was required. The knob stays
+  undocumented until a real source actually refuses the default.
+- **The 320px floor fired on a real image, not only a contrived one.** A Medium CDN image
+  proxied at 188 × 106 — under the floor — confirmed `PostImage.vue`'s collapse-on-too-small
+  rule (§ Rendering) against a source that actually exists, alongside the dead-URL (404, card
+  collapses) and tampered-signature (403) cases the plan already called for.
+- **A declared width under 480 answers `null` server-side** _(added 2026-09-23)_. The read-time
+  collapse turned out to be the *common* case, not the edge one: 10 of the 25 newest posts came
+  back under 320px, so four cards in ten laid out a grey box and then took it away. Root cause
+  was upstream of the image code — Reddit's RSS hands out preview URLs with the size in them,
+  and 207 of 477 stored Reddit images declare a width of 140, 216 or 320. The feed declares no
+  dimensions of its own (Reddit's `media:thumbnail` carries a url and nothing else, measured),
+  so the URL's own `width=` is the only thing knowable before the bytes arrive — and acting on
+  it costs no network call, no column and no backfill. After the rule, every image still served
+  in that sample came back 480 × 270 and nothing flickered. Rejected on the way: pre-loading the
+  image hidden and revealing the box only once it proved big enough (kills the flicker, but
+  `loading="lazy"` and `display:none` don't combine, so cards would lose lazy loading, and the
+  list would reflow as images arrived instead); and letting small images upscale into the box
+  (blurry, which is the thing the floor exists to prevent).
