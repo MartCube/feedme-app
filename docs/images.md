@@ -5,8 +5,8 @@ cards and the post page, feed icons, the pictures inside an extracted article, a
 user's avatar. Peer to [backend.md](./backend.md) (which owns the tables and endpoints these
 ride on); the build order is [backend-roadmap.md](./backend-roadmap.md) T15a–T15e.
 
-_Decided 2026-09-15. **T15a — the proxy, post images, the card toggle — shipped 2026-09-22.**
-T15b–e are still ahead._
+_Decided 2026-09-15. **T15a — the proxy, post images, the card toggle — shipped 2026-09-22.
+T15c — article images — shipped 2026-09-23.** T15b, T15d and T15e are still ahead._
 
 ## The one rule
 
@@ -82,7 +82,7 @@ with global sources it grows with the source count, not the reader count.
 | **Post image, card** | `Post.image_url` — ingest's `media:thumbnail` → image enclosure pick | the *image* style of PostCard, 16:9 on top | 16:9 fill, widths 480 / 960 / 1440 / 1920, WebP | the card is *compact* | T15a |
 | **Post image, hero** | same | the post page, above the title | same family, `sizes` for the reading measure | no hero | T15a |
 | **Feed icon** | `Source.icon_url` — the feed's `icon` / `logo` / `image`, a YouTube channel's avatar; a favicon backfill at subscribe for sites that declare none | add-wizard rows for every type; home rows and the card's type cue when the design says so | 64 × 64 fill (ICO and SVG in) | `UAvatar` initials | T15b |
-| **Article images** | `<img src>` inside `article_html` (T10) | the reader, once wired to `/posts/{uid}/article` | fit to the reading width, rewritten at read time | the browser's own broken image | T15c |
+| **Article images** | `<img src>` inside `article_html` (T10) | the reader | fit to the reading width, no crop, rewritten at read time | dropped from the markup (no key, an unproxiable `src`); a proxy fetch failure at render time is the browser's own broken image | T15c |
 | **User avatar** | Google's `picture` claim | Settings → Account | 64 × 64 | initials | T15b, optional |
 
 Not in this pipeline: the app's own icons (PWA, Capacitor) — static assets.
@@ -102,7 +102,7 @@ image: { src: string, srcset: string } | null
 // Feed and FeedCandidate (T15b) — replaces icon_url on the wire
 icon: string | null                   // 64 × 64
 
-// ArticleSchema (T15c) — article_html arrives with its <img src> already rewritten
+// ArticleSchema — article_html arrives with its <img src> already rewritten
 
 // Me (T15b, optional)
 avatar: string | null
@@ -269,3 +269,24 @@ Decided 2026-09-22, verified while building T15a:
   `loading="lazy"` and `display:none` don't combine, so cards would lose lazy loading, and the
   list would reflow as images arrived instead); and letting small images upscale into the box
   (blurry, which is the thing the floor exists to prevent).
+
+Decided 2026-09-23, verified while building T15c:
+
+- **Fit, not fill — and no width floor.** Unlike the card family, an article's pictures are the
+  author's own framing: `rs:fit:1920:0` shrinks to the reading width without cropping, and
+  nothing stops a small inline image from staying small, since imgproxy's `fit` never enlarges
+  it anyway. `_card`'s fill-down 16:9 recipe stays a card-and-hero thing only.
+- **An unproxiable `<img>` is dropped with its tag** — a relative or scheme-relative `src`, or
+  every image when there's no key — rather than left in the markup with no `src`, which the
+  browser would still draw as a broken-image icon. The rewrite runs as a second `nh3.clean` pass
+  over the same allowlist, using its `attribute_filter` for the swap; the one regex the code
+  carries (dropping a tag the filter answered `None` for) is sound only over nh3's own
+  canonical serialisation, which is why it's a second pass rather than one.
+- **Verified against real URLs, not only the suite.** simonwillison.net's article extracted
+  live with all 14 images rewritten; 25 proxied URLs across the dev database's 9 cached articles
+  came back 200 `image/webp`, with one exception — board.flatassembler.net, whose own server
+  fails imgproxy's TLS handshake (the source's problem, not the proxy's; renders as the
+  browser's broken image, per § Rendering). kk.org's suggested test URL 404'd on the day, so
+  simonwillison.net stood in as the live case.
+- **Not fixed here, noted for later:** imgproxy's default `IMGPROXY_MAX_ANIMATION_FRAMES=1`
+  means an animated GIF inside an article arrives as its still first frame.

@@ -3,7 +3,7 @@
 A snapshot of what's actually built vs. what the spec (these docs) describes. The goal is to
 make the gap visible so implementation has a clear backlog. Update this as work lands.
 
-_Last reviewed: 2026-09-22._
+_Last reviewed: 2026-09-23._
 
 ## Summary
 
@@ -35,9 +35,12 @@ Resolved decisions → Backend stack & API. **Posts carry real images** _(2026-0
 `imgproxy` proxy resizes every post image into a 16:9 WebP family, PostCards show it on top when
 Settings → Appearance → *Post cards* is **Image** (the default — **Compact**, and any post with
 no image or a failed load, is date + title alone), and the post page shows the same image as a
-hero above the title. Feed icons and the pictures inside an article are still unproxied — only
-the add wizard hotlinks YouTube avatars — which is the rest of the strategy specced in
-[images.md](./images.md) _(2026-09-15)_.
+hero above the title. **The pictures inside an extracted article are proxied too**
+_(2026-09-23)_: the reader's `<img src>` is rewritten to the same proxy at read time, fit to
+the reading width with no crop, and dropped along with an image that can't be proxied rather
+than left hotlinked. Feed icons are still unproxied — only the add wizard hotlinks YouTube
+avatars — which is the rest of the strategy specced in [images.md](./images.md)
+_(2026-09-15)_.
 Backend work is sequenced in [backend-roadmap.md](./backend-roadmap.md), which tracks its
 own status: **read that file's § Status for what to build next.**
 
@@ -402,6 +405,14 @@ own status: **read that file's § Status for what to build next.**
   can't be raised), and without it four cards in ten laid out a box and then took it away. The
   two floors are a pair until T15d reads real dimensions at ingest and retires both. See
   [images.md](./images.md).
+- **Article images (T15c)** — the pictures inside an extracted article load through the same
+  proxy, fit to the reading width with no crop (an author's own framing shouldn't be cropped to
+  16:9) and no width floor (a small inline image is meant to be small; imgproxy never enlarges
+  it). `backend/core/extract.py`'s `proxy_images` does the rewrite as a second `nh3.clean` pass
+  at read time, over the same allowlist — never into the cached `article_html` column, so a key
+  rotation can't break every cached article. An image that can't be proxied (a relative or
+  scheme-relative `src`, or every image when there's no proxy key) is dropped with its tag
+  rather than left srcless for the browser to draw as broken. See [images.md](./images.md).
 - **PostCard v1** — `app/components/feed/PostCard.vue`: whole card links to the post. The
   **Image** style (the account's default, Settings → Appearance → *Post cards*) renders
   `FeedPostImage` above the date + title; **Compact** — and any post with no image, under either
@@ -476,11 +487,11 @@ own status: **read that file's § Status for what to build next.**
   exists yet. Noted for a deploy: `ux_mode: 'popup'` needs a
   `Cross-Origin-Opener-Policy: same-origin-allow-popups` header if one is ever set.
 - **Images (rest)** — T15a shipped post images on cards and the post page (see Built → Post
-  images); still raw on the wire is `Source.icon_url` (feed icons, T15b) and the pictures inside
-  an extracted article (T15c). Stage 2 (originals in a bucket, for permanence, T15d) and stage 3
-  (a CDN and a paid transformer at deploy, T15e) come after. The whole strategy, staged, is
-  [images.md](./images.md); task entries in [backend-roadmap.md](./backend-roadmap.md) § Tasks →
-  T15b–T15e.
+  images), and T15c the pictures inside an extracted article (see Built → Article images);
+  still raw on the wire is `Source.icon_url` (feed icons, T15b). Stage 2 (originals in a bucket,
+  for permanence, T15d) and stage 3 (a CDN and a paid transformer at deploy, T15e) come after.
+  The whole strategy, staged, is [images.md](./images.md); task entries in
+  [backend-roadmap.md](./backend-roadmap.md) § Tasks → T15b, T15d, T15e.
 - **Home reorder** — `PUT /home/order` exists and is strict, but **nothing drives it**: the home
   list has no drag-and-drop, and the options sheet's Reorder feeds row is a placeholder. The
   `order` from `/home` is applied as a sort at load and not retained, so the UI, when it lands,

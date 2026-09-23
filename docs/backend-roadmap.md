@@ -14,16 +14,14 @@ deliberate checkpoint that wires the real frontend before the backlog grows furt
 
 ## Status
 
-**Last completed:** T15a — Images: proxy, post images, card toggle _(2026-09-22, amended
-2026-09-23 with the declared-width floor)_, after T11b — Discovery: YouTube keyword search
-_(2026-09-11)_
+**Last completed:** T15c — Images: article images _(2026-09-23)_, after T15a — Images: proxy,
+post images, card toggle _(2026-09-22, amended 2026-09-23 with the declared-width floor)_
 **Next up:** **T14 — Feed preview** _(planned 2026-09-15)_, ungated. **T15b — Images: feed
-icons** and **T15c — Images: article images** are both unblocked now the proxy is real, and
-independent of each other; **T15d — the bucket** builds on T15a too, and is the one that makes
-`image: null` truthful and retires T15a's two stand-in floors; **T15f — the loading
-placeholder** is a small frontend task that came out of using T15a for real — build whichever
-the frontend needs first. T11c (Reddit app credentials) and T11d (a catalog worth searching)
-each wait on something outside the code; T15e waits on a deploy target.
+icons** is unblocked now the proxy is real; **T15d — the bucket** builds on T15a too, and is
+the one that makes `image: null` truthful and retires T15a's two stand-in floors; **T15f — the
+loading placeholder** is a small frontend task that came out of using T15a for real — build
+whichever the frontend needs first. T11c (Reddit app credentials) and T11d (a catalog worth
+searching) each wait on something outside the code; T15e waits on a deploy target.
 **Roadmap written:** 2026-08-19
 
 **T15 is five tasks from the start _(2026-09-15)_** — one per stage of the images strategy plus
@@ -63,7 +61,7 @@ reading order.
 | T14 | Feed preview — a candidate's latest posts | ⬜ ungated, beside T15a |
 | T15a | Images — proxy, post images, card toggle | ✅ done _(2026-09-22)_ |
 | T15b | Images — feed icons | ⬜ after T15a |
-| T15c | Images — article images | ⬜ after T15a |
+| T15c | Images — article images | ✅ done _(2026-09-23)_ |
 | T15d | Images — the bucket (stage 2) | ⬜ after T15a |
 | T15e | Images — CDN, then paid (stage 3) | ⬜ needs a deploy target |
 | T15f | Images — the loading placeholder | ⬜ ungated, frontend only |
@@ -984,6 +982,24 @@ Decided 2026-09-22 while building T15a:
   hero, mobile and desktop) — it needs a dev token the model can't materialise, so it stays
   outstanding rather than assumed from the code.
 
+Decided 2026-09-23 while building T15c:
+
+- **An unproxiable `<img>` is dropped with its tag, not left srcless.** A srcless `<img>` still
+  paints the browser's own broken-image box — no better than the hotlink this task exists to
+  close. Applies to a relative or scheme-relative `src` (a `data:` URI never reaches this code;
+  it's already dropped at extraction) and to every image when there's no proxy key, matching the
+  card rule in [images.md](./images.md).
+- **The rewrite reuses `nh3.clean`'s `attribute_filter` rather than a hand-rolled parse.** A
+  second sanitiser pass over the same allowlist gets the rewrite and the escaping for free — nh3
+  hands the filter each `src` already unescaped and re-escapes whatever it returns — instead of a
+  regex over arbitrary HTML, which would have to reimplement that escaping to be safe. The one
+  regex this task does carry (`IMG_TAG`, dropping a tag `attribute_filter` answered `None` for)
+  is sound only because it runs over nh3's own canonical output, not arbitrary input.
+- **No width floor on article images, unlike cards.** `_declared_too_small` exists to keep a
+  card from laying out a box that never fills; an inline image in article text has no box to
+  fill — it is sized to sit in the text at whatever size it is, and imgproxy's `fit` never
+  enlarges it regardless.
+
 ## Tasks
 
 ### T1 — Foundations: CORS, linting, test harness
@@ -1838,7 +1854,7 @@ if small: store Google's `picture` claim on `User` at sign-in, `Me.avatar` throu
 **Done when.** The five dev sources show an icon or initials in the wizard; an ICO and an SVG
 favicon both render through the proxy against live sites; the containment test still passes.
 
-### T15c — Images: article images
+### T15c — Images: article images ✅
 
 **Goal.** The pictures inside an extracted article load — over https, at reading width, without
 leaking the reader to the article's host.
@@ -1854,6 +1870,22 @@ extraction; a `data:` or non-http one is dropped with the tag.
 
 **Done when.** A live article with images (kk.org, a Medium post) renders them through the
 proxy; the cached column is byte-for-byte unchanged by a read.
+
+**As built _(2026-09-23)_.** `images.article_image(url)` is the new entry point — `rs:fit:1920:0`,
+no crop and no width floor (imgproxy never enlarges, and an inline image is meant to be small).
+`extract.py`'s `proxy_images(html)` does the rewrite as a second `nh3.clean` pass over the same
+allowlist, using its `attribute_filter` hook rather than a hand-rolled parse; an image that can't
+be proxied is dropped **with its tag**, not left srcless — a relative or scheme-relative `src`,
+a srcless `<img>`, and every image when there's no proxy key (images off, same as the cards, and
+the deliberate close of the hotlinking leak this task exists for). `post_article` calls it on the
+way out; `article_html` is never written by a read. 340 backend tests green. Verified live —
+simonwillison.net's 14 images all rewritten, and 25 proxied URLs across the dev DB's 9 cached
+articles came back 200 `image/webp`, except one source whose TLS the source's own old server
+fails (renders as the browser's broken image, per § Rendering in
+[images.md](./images.md)) — kk.org's suggested test URL 404'd, so simonwillison.net stood in.
+One known limitation carried forward, not fixed here: imgproxy's default
+`IMGPROXY_MAX_ANIMATION_FRAMES=1` means an animated GIF inside an article arrives as its first
+frame.
 
 ### T15d — Images: the bucket (stage 2)
 
