@@ -16,6 +16,8 @@ from core import images
 KEY = 'aa' * 32
 SALT = 'bb' * 32
 IMAGE = 'https://example.com/photo.jpg'
+# the shape Reddit's media:thumbnail gives: the size is in the URL, inside the signature
+REDDIT = 'https://preview.redd.it/abc.jpeg'
 
 proxy_on = override_settings(
     IMGPROXY_KEY=KEY, IMGPROXY_SALT=SALT, IMGPROXY_PUBLIC_URL='http://localhost:8080'
@@ -31,6 +33,37 @@ def test_a_blank_url_has_no_image():
 @override_settings(IMGPROXY_KEY='', IMGPROXY_SALT='', IMGPROXY_PUBLIC_URL='')
 def test_no_key_means_no_images_rather_than_a_broken_one():
     assert images.post_image(IMAGE) is None
+
+
+@proxy_on
+def test_a_source_that_declares_itself_narrower_than_we_serve_has_no_image():
+    """Reddit hands out preview URLs with the size baked in, ?width=140 as often as
+    ?width=640, and 43% of the ones we have stored are below our smallest size (measured
+    2026-09-22). imgproxy can't enlarge them, so the honest answer is no image at all."""
+    assert images.post_image(f'{REDDIT}?width=140&crop=smart&s=abc') is None
+
+
+@proxy_on
+def test_a_source_that_declares_a_width_we_can_use_is_served():
+    assert images.post_image(f'{REDDIT}?width=640&crop=smart&s=abc') is not None
+
+
+@proxy_on
+def test_a_declared_width_exactly_at_the_smallest_size_is_served():
+    assert images.post_image(f'{REDDIT}?width={images.WIDTHS[0]}') is not None
+
+
+@proxy_on
+def test_a_source_that_declares_nothing_is_served():
+    """Most sources say nothing about size — the client's own floor is the backstop there,
+    and from T15d the dimensions read at ingest replace both."""
+    assert images.post_image(IMAGE) is not None
+
+
+@proxy_on
+def test_a_width_parameter_that_is_not_a_number_is_ignored():
+    """`width=large` is not a claim about pixels, so it is not evidence to drop an image on."""
+    assert images.post_image(f'{REDDIT}?width=large') is not None
 
 
 @proxy_on

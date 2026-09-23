@@ -11,6 +11,7 @@ file, with the wire contract and every component untouched.
 import base64
 import hashlib
 import hmac
+from urllib.parse import parse_qs, urlsplit
 
 from django.conf import settings
 
@@ -25,10 +26,11 @@ DEFAULT_WIDTH = 960
 def post_image(url):
     """Ready `<img>` attributes for a post image, or None when there is nothing to show.
 
-    None for the 63% of posts whose `image_url` is blank, and for a deployment with no key —
-    a supported state, like YOUTUBE_API_KEY: the app renders compact cards and nothing breaks.
+    None for the 63% of posts whose `image_url` is blank, for a source that declares itself
+    too small to be worth a card (below), and for a deployment with no key — a supported
+    state, like YOUTUBE_API_KEY: the app renders compact cards and nothing breaks.
     """
-    if not url or not settings.IMGPROXY_KEY:
+    if not url or not settings.IMGPROXY_KEY or _declared_too_small(url):
         return None
     urls = {width: _signed(url, width) for width in WIDTHS}
     return {
@@ -37,6 +39,26 @@ def post_image(url):
         # sending them as data would let the two sides drift (docs/images.md § Wire contract)
         'srcset': ', '.join(f'{signed} {width}w' for width, signed in urls.items()),
     }
+
+
+def _declared_too_small(url):
+    """True when the source URL itself says it is narrower than the smallest size we serve.
+
+    Reddit's RSS is the case this exists for: `media:thumbnail` carries a preview URL with
+    the size baked into it — `?width=140` as often as `?width=640` — and the size sits inside
+    the `s=` signature, so it can't be raised to ask for a bigger one. 43% of the Reddit
+    images in the dev database declare a width under 480 (measured 2026-09-22). imgproxy
+    never enlarges, so those arrive at their own size and get blown up into a card a screen
+    wide, which reads worse than no image.
+
+    Only `width`, and only when it is a number: a parameter we can't read is not evidence,
+    and dropping an image we could have shown is the worse mistake. The feed itself tells us
+    nothing — Reddit's media:thumbnail carries a url and no dimensions — so this is the only
+    thing knowable before the bytes arrive. T15d reads real dimensions at ingest and replaces
+    both this and the frontend's matching read-time floor.
+    """
+    declared = parse_qs(urlsplit(url).query).get('width', [''])[0]
+    return declared.isdigit() and int(declared) < WIDTHS[0]
 
 
 def _signed(url, width):
