@@ -21,8 +21,23 @@ const hidden = ref(false)
 // collapse stops happening.
 const MIN_WIDTH = 320
 
+// Measured on a bare Image of the same URL, not on the img itself: a srcset
+// image's naturalWidth is divided by the density its chosen candidate claims
+// (the `w` over the slot width), and the claim overstates a small source —
+// fill-down hands a 480px poster back at 480 whatever width was asked for. On
+// a 3x phone the 1440w candidate wins and that poster reads as 130, so every
+// card would collapse. With no srcset the probe reports real pixels, and the
+// file is already in memory, so it costs no second download.
 function measure(event: Event) {
-  hidden.value = (event.target as HTMLImageElement).naturalWidth < MIN_WIDTH
+  const img = event.target as HTMLImageElement
+  const src = img.currentSrc
+  const probe = new Image()
+  probe.onload = () => {
+    // The desktop pane swaps posts inside this instance; a probe that lands
+    // after the swap measured the previous post's image.
+    if (img.currentSrc === src) hidden.value = probe.naturalWidth < MIN_WIDTH
+  }
+  probe.src = src
 }
 
 // The desktop post pane keeps one instance across posts, so a box hidden for
