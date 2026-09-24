@@ -53,6 +53,10 @@ Wizard steps beyond 1 need real clicks.
 - Pinia state is client-side seed data: every full page load resets it.
 - Check `list_console_messages` after a flow — Vue hydration warnings surface there and
   nowhere in the pixels.
+- **Images: check at a real phone's pixel density, not only the configured 1×.** A srcset
+  picks a different file at 3×, and a bug in how it's measured or served stays invisible at
+  1×. `emulate` with viewport `390x844x3` (and `1440x900x2` for desktop) before calling
+  image work done.
 
 ## Useful stable selectors
 
