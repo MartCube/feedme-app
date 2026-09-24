@@ -76,8 +76,12 @@ onScopeDispose(() => clearTimeout(flashTimer))
          sits outside the four-size scale on purpose (typography.css). The
          link is inside the h1 and sized to the text, so only the wordmark is
          a target — a block link would make the whole row's dead space
-         clickable. It goes where the Home row goes. -->
-    <h1 class="text-logo tracking-tight">
+         clickable. It goes where the Home row goes.
+         Desktop pins it: the h-12 row is the top-row axis the posts pane's
+         title and the post pane's actions share, and the sidebar's inset is
+         pulled into its own padding (box-content, so h-12 stays the row) so
+         rows scroll away under an opaque sunken strip rather than past it. -->
+    <h1 class="text-logo tracking-tight lg:sticky lg:-top-lg lg:z-10 lg:-mx-lg lg:-mt-lg lg:box-content lg:flex lg:h-12 lg:items-center lg:bg-sunken lg:px-lg lg:pt-lg">
       <NuxtLink to="/feed/all">
         <span class="text-primary">FEED</span>ME
       </NuxtLink>
@@ -143,7 +147,7 @@ onScopeDispose(() => clearTimeout(flashTimer))
         </NuxtLink>
         <button
           type="button"
-          class="mr-sm flex size-12 shrink-0 items-center justify-center rounded-full transition-transform duration-200"
+          class="group/icon mr-sm flex size-12 shrink-0 items-center justify-center rounded-full transition-transform duration-200"
           :class="isExpanded('saved') && 'rotate-90'"
           :aria-expanded="isExpanded('saved')"
           :aria-label="isExpanded('saved') ? 'Collapse Saved' : 'Expand Saved'"
@@ -152,7 +156,7 @@ onScopeDispose(() => clearTimeout(flashTimer))
         >
           <UIcon
             name="i-ph-caret-right-bold"
-            class="size-6 transition-colors duration-300 ease-out"
+            class="size-6 transition-colors duration-300 ease-out [@media(hover:hover)]:group-hover/icon:text-primary"
             :class="flashingIcon === 'saved' ? 'text-primary' : 'text-default'"
           />
         </button>
@@ -215,7 +219,7 @@ onScopeDispose(() => clearTimeout(flashTimer))
                navbar buttons' vertical axis despite the li's -mx-sm bleed. -->
           <button
             type="button"
-            class="mr-sm flex size-12 shrink-0 items-center justify-center rounded-full transition-transform duration-200"
+            class="group/icon mr-sm flex size-12 shrink-0 items-center justify-center rounded-full transition-transform duration-200"
             :class="isExpanded(folder.uid) && 'rotate-90'"
             :aria-expanded="isExpanded(folder.uid)"
             :aria-label="isExpanded(folder.uid) ? `Collapse ${folder.name}` : `Expand ${folder.name}`"
@@ -224,7 +228,7 @@ onScopeDispose(() => clearTimeout(flashTimer))
           >
             <UIcon
               name="i-ph-caret-right-bold"
-              class="size-6 transition-colors duration-300 ease-out"
+              class="size-6 transition-colors duration-300 ease-out [@media(hover:hover)]:group-hover/icon:text-primary"
               :class="flashingIcon === folder.uid ? 'text-primary' : 'text-default'"
             />
           </button>

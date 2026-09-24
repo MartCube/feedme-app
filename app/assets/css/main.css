@@ -29,6 +29,13 @@
   a:focus-visible {
     outline: none;
   }
+
+  /* Tailwind v4's preflight leaves buttons on the default arrow; links get the
+     pointer from the browser, so buttons are the only thing to restore. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
 }
 
 /* Links inside the settings drawer (components/SettingsDrawer.vue) must not

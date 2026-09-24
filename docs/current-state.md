@@ -3,7 +3,7 @@
 A snapshot of what's actually built vs. what the spec (these docs) describes. The goal is to
 make the gap visible so implementation has a clear backlog. Update this as work lands.
 
-_Last reviewed: 2026-09-23._
+_Last reviewed: 2026-09-24._
 
 ## Summary
 
@@ -83,7 +83,9 @@ own status: **read that file's § Status for what to build next.**
 - **Navbar** — `app/components/Navbar.vue` (menu → `/settings`, add → `/add`).
 - **IconButton** — `app/components/ui/IconButton.vue` (round soft-fill button, accent press
   flash). A `quiet` variant blends into the page bg at rest and lifts to the normal
-  elevated look while the press flash runs (home 3-dot options trigger).
+  elevated look while the press flash runs (home 3-dot options trigger). On hover-capable
+  pointers the icon itself lights `primary`, the same cue `hover-accent` gives a row's label —
+  see [design-system.md](./design-system.md) § Color roles → Hover state.
 - **Settings drawer** — `app/components/settings/Drawer.vue` hosts the sheet; the
   `/settings/:panel?` route renders the home component (via `pages:extend`) so the feed list
   stays behind the sheet on mobile, and panels swap as in-drawer components with `panel-slide`
@@ -203,13 +205,22 @@ own status: **read that file's § Status for what to build next.**
   — the shared `HomeFeedList` (wordmark, Home, Saved, folders, loose feeds — see Feeds list v1,
   below), then two standing rows, **Add feed** (→ `/add`) and **Settings** (→ `/settings`); a
   posts pane (24rem, `FeedPostList`); and a post pane (flexible, capped at a 42rem reading
-  measure, a `FeedPostActions` bar — Open source + Save — right-aligned above `FeedPostView`
-  once a post is loaded, or a dimmed "Select a post" placeholder — **no auto-select**).
+  measure, a `FeedPostActions` bar — Copy link, Open source and Save — right-aligned above
+  `FeedPostView` once a post is loaded, or a dimmed "Select a post" placeholder —
+  **no auto-select**).
   `Shell.vue` reads `useRouter().currentRoute` rather than Nuxt's `useRoute()` (Nuxt's route
   object only resyncs when a `NuxtPage` resolves, and the shell renders none), syncing the
   feeds store's `readerFeedUid`/`readerPostUid`/`readerQuery`/`readerPath` on reader routes only
   — they stay frozen while a content route is open (which is what keeps a search alive across a
   trip into Settings).
+  **The three columns share a pinned top-row axis** _(2026-09-24)_: the sidebar wordmark, the
+  posts pane's title/search row, and the post pane's actions row all sit in one 48px row at the
+  top inset, and all three are `sticky` at `-top-lg` (not `top-0` — Chrome measures a sticky
+  offset from the scroll container's *padding* edge, not its border box) so each stays reachable
+  while its own column scrolls under it. Each pinned row folds its column's `page-inset` into an
+  opaque strip in the column's own surface — `bg-sunken` for the sidebar, `bg-default` for the
+  two reading panes — rather than a divider. Mobile is unchanged: the feed page's title still
+  clears the navbar with `mt-lg`, and mobile navbars aren't pinned.
   Settings, Add, and Edit present as a **content area** (`ContentOverlay.vue`) laid over the two
   reading panes; the sidebar stays interactive and the reading panes stay mounted underneath
   throughout (feed, selected post, search, and pane scroll all survive a round-trip). **Nothing
@@ -310,7 +321,9 @@ own status: **read that file's § Status for what to build next.**
   highlight). It leads with a stand-in **FEEDME wordmark** (`text-logo`, FEED in `text-primary`,
   ME in body ink — a placeholder until a designer supplies a real mark; see
   [design-system.md](./design-system.md) § Type scale; the mark itself links to `/feed/all`, the
-  link sized to the text so the row's dead space isn't a target), then **Home** as an ordinary list row —
+  link sized to the text so the row's dead space isn't a target; on desktop the row is pinned to
+  the top of the sidebar, on the top-row axis it shares with the posts pane's title row and the
+  post pane's actions — see Desktop shell v1), then **Home** as an ordinary list row —
   same height and surface as every other row, inline `Home` + an `All feeds` caption — linking
   to `/feed/all` (the merged all-feeds read), then a pinned **Saved** row (links to
   `/feed/saved`; chevron expands to the three saved groups — Bookmarks / Favorites / Later from
@@ -319,7 +332,9 @@ own status: **read that file's § Status for what to build next.**
   count, expand/collapse chevron with auto-animate and an accent tap flash, sitting **inside**
   the row's tap-flash card surface at IconButton size on the navbar buttons' vertical axis;
   members indented and greyed when muted), then loose feeds; every row links to `/feed/[uid]`.
-  Chevrons point **right** when collapsed and rotate to down when expanded. Home's trailing
+  Chevrons point **right** when collapsed and rotate to down when expanded, and light `primary`
+  on hover the same way an `IconButton`'s icon does (see [design-system.md](./design-system.md)
+  § Color roles → Hover state). Home's trailing
   3-dot — sitting where folder rows keep their chevron, directly below the navbar **+** — opens
   a **half-height options sheet** (`app/components/home/OptionsDrawer.vue`, local-state drawer —
   not route-driven — with placeholder rows: New folder / Edit feeds / Reorder feeds). Names only
@@ -344,18 +359,22 @@ own status: **read that file's § Status for what to build next.**
   appending. The list says "No posts here yet" when a stream is genuinely empty and "Couldn't
   load posts." when a page request failed (paging stops rather than retrying into a refusing
   server).
-  **Search** lives on the title row: a magnifying-glass `IconButton` swaps the title for a
-  `SearchInput` (placeholder "Search *{title}*", so the list being searched is named without a
-  noun that would be wrong for a folder or Saved; no submit arrow — the field is live) and back
-  to an X that closes it. Typing is debounced 300ms into `?q=` on the route via `router.replace`
-  (never `push` — Back must leave the page, not walk the term backwards), and the list pages
+  **Search** lives on the title row: a magnifying-glass `IconButton` — the standard `md`
+  elevated style, matching the post actions, not the smaller quiet one it used to be — swaps
+  the title for a `SearchInput` (placeholder "Search *{title}*", so the list being searched is
+  named without a noun that would be wrong for a folder or Saved; no submit arrow — the field is
+  live) and back to an X that closes it. Typing is debounced 300ms into `?q=` on the route via
+  `router.replace` (never `push` — Back must leave the page, not walk the term backwards), and
+  the list pages
   `GET /search` scoped to the same uid, ordered by recency; an empty result says *No posts match
   "…"* with the term. The host owns the query the way it owns the uid: the mobile page reads `route.query.q`
   (frozen the moment the page starts leaving, so results don't blank mid-slide), the desktop
   shell the store's `readerQuery` mirror. A result's link carries the query, so Back from a post
   lands on the results, and a deep link with `?q=` opens the box filled. Closing is immediate; a
   uid change clears it. The mobile navbar's magnifying glass is gone — this row is the entry on
-  both viewports, since the desktop pane has no navbar.
+  both viewports, since the desktop pane has no navbar; on desktop the row is pinned to the top
+  of the pane, on the same top-row axis as the sidebar wordmark and the post actions (see
+  Desktop shell v1).
   `feed/[uid].vue` stays a `<NuxtPage/>` passthrough on
   mobile; on desktop the shell bypasses it (and every route's `<NuxtPage/>`) entirely, composing
   the posts/post panes itself from the feeds store.
@@ -374,12 +393,17 @@ own status: **read that file's § Status for what to build next.**
   through one delegated click handler (the sanitiser keeps `<a href>` but no `target`; this is
   also the hook a future Capacitor Browser plugin replaces). Reading styles live in
   `app/assets/css/article.css` — an `@utility article`, element rules for exactly the allowlisted
-  tags, tokens only — imported by `main.css` beside `typography.css`. **Open source and Save are
-  now one component**: `app/components/feed/PostActions.vue` (`FeedPostActions`, props `post` +
-  `saved`, emits `toggle-save`) renders the Open source (`post_url`, new tab) + Save `IconButton`
-  pair. The mobile post page's navbar uses it; **the desktop post pane now has one too** — the
-  shell renders it right-aligned above `FeedPostView` within `max-w-post`, height reserved so the
-  title doesn't drop when the post arrives — so **saving is no longer mobile-only**. The mobile
+  tags, tokens only — imported by `main.css` beside `typography.css`. **Copy link, Open source
+  and Save are one component**: `app/components/feed/PostActions.vue` (`FeedPostActions`, props
+  `post` + `saved`, emits `toggle-save`) renders three `IconButton`s — **Copy link** _(2026-09-24)_
+  (copies `post.post_url` — the source's own URL, not a FeedMe one, since opening a FeedMe link
+  needs an account — via VueUse `useClipboard({ legacy: true })`, whose `legacy` `execCommand`
+  fallback covers plain-http LAN dev where `navigator.clipboard` is missing; the icon swaps to a
+  checkmark for 1.5s), **Open source** (`post_url`, new tab), and **Save**. The mobile post page's
+  navbar uses it; **the desktop post pane now has one too** — right-aligned within `max-w-post`,
+  and, as of the same date, pinned to the top of the pane on the shared top-row axis (see Desktop
+  shell v1) rather than sitting above the scrolling content, height still reserved so the title
+  doesn't drop when the post arrives — so **saving is no longer mobile-only**. The mobile
   navbar's bookmark toggle underneath is unchanged: `PUT`/`DELETE /posts/{uid}/save` into
   **Bookmarks** (Save is a toggle, not a group chooser), reflected in the icon and
   `aria-pressed`.
@@ -420,8 +444,9 @@ own status: **read that file's § Status for what to build next.**
   type cue is still T15b, see Not started → Images (rest).
 - **Context-aware navbar** — both slots swap per page: home = menu + add, feed page =
   sidebar icon (→ home) alone (search sits on the list's title row instead — see Feed page v1),
-  post page = back (→ its feed, carrying the search it was opened from) + Open source + Save
-  (`FeedPostActions` — see Post page v1). Navigation is hierarchical, not history-based.
+  post page = back (→ its feed, carrying the search it was opened from) + Copy link + Open
+  source + Save (`FeedPostActions` — see Post page v1). Navigation is hierarchical, not
+  history-based.
 - **Reader slide transitions** — **mobile only** (the desktop shell renders no `<NuxtPage/>`,
   so this machinery never runs there — see Desktop shell v1). home → feed → post slide like a
   navigation stack (deeper pushes in from the right, back pops out to the right). Direction is

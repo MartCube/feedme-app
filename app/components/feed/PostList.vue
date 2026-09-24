@@ -115,8 +115,12 @@ const { selectedUid, select } = useTapSelection()
 
 <template>
   <div class="flex flex-col">
-    <!-- Fixed height so opening the box doesn't shift the list under it. -->
-    <div class="mt-lg flex h-12 items-center gap-sm">
+    <!-- Fixed height so opening the box doesn't shift the list under it.
+         Mobile clears its navbar with mt-lg. Desktop has no navbar here, so the
+         row sits on the top-row axis with the sidebar wordmark and the post
+         actions, pinned the same way (see HomeFeedList's wordmark): the pane's
+         inset folds into an opaque strip so posts scroll away under it. -->
+    <div class="mt-lg flex h-12 items-center gap-sm lg:sticky lg:-top-lg lg:z-10 lg:-mx-lg lg:-mt-lg lg:box-content lg:bg-default lg:px-lg lg:pt-lg">
       <h1
         v-if="!open"
         class="min-w-0 flex-1 truncate text-title tracking-tight"
@@ -136,8 +140,6 @@ const { selectedUid, select } = useTapSelection()
       />
       <IconButton
         :icon="open ? 'i-ph-x-bold' : 'i-ph-magnifying-glass-bold'"
-        size="sm"
-        variant="quiet"
         :aria-label="open ? 'Close search' : 'Search posts'"
         :aria-expanded="open"
         @click="toggle"

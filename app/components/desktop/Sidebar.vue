@@ -14,7 +14,13 @@ const { readerFeedUid } = storeToRefs(useFeedsStore())
 
 <template>
   <aside class="flex h-full flex-col scroll-host bg-sunken page-inset">
-    <HomeFeedList :active-uid="readerFeedUid" />
+    <!-- contents: the list's rows join the aside directly, so the pinned
+         wordmark's sticky range is the whole sidebar — inside the list's own
+         box it would scroll off as Add feed and Settings come into view. -->
+    <HomeFeedList
+      :active-uid="readerFeedUid"
+      class="contents!"
+    />
 
     <NuxtLink
       to="/add"

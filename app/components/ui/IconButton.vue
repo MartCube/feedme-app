@@ -34,12 +34,16 @@ const surface = computed(() => {
     :to="to"
     variant="ghost"
     color="neutral"
-    :ui="{ base: `rounded-full justify-center ${buttonSize} transition-colors duration-300 ease-out ${surface}` }"
+    :ui="{ base: `group/icon rounded-full justify-center ${buttonSize} transition-colors duration-300 ease-out ${surface}` }"
     @pointerdown="handlePress"
   >
+    <!-- Hover lights the icon primary, the same cue hover-accent gives a list
+         row's label (themes.css) — gated to hover-capable pointers for the
+         same reason: :hover sticks after a tap, and the flash already covers
+         touch. -->
     <UIcon
       :name="icon"
-      :class="[iconSize, 'transition-colors duration-300 ease-out', flashing ? 'text-primary' : 'text-default']"
+      :class="[iconSize, 'transition-colors duration-300 ease-out [@media(hover:hover)]:group-hover/icon:text-primary', flashing ? 'text-primary' : 'text-default']"
     />
   </UButton>
 </template>

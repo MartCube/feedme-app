@@ -77,17 +77,21 @@ useHead({
 
         <section class="min-w-0 basis-3/5 scroll-host page-inset">
           <template v-if="readerPostUid">
-            <!-- Sits on the posts pane's title-row axis; right-aligned within
-                 the reading measure so it stays beside the text, not the pane.
-                 Height reserved (an IconButton's) so the title doesn't drop
-                 when the post arrives and the pair appears. -->
-            <div class="flex min-h-12 max-w-post justify-end">
-              <FeedPostActions
-                v-if="readerPost"
-                :post="readerPost"
-                :saved="readerPostSaved"
-                @toggle-save="toggleReaderSave"
-              />
+            <!-- Sits on the top-row axis with the sidebar wordmark and the posts
+                 pane's title row, pinned the same way so the actions stay in
+                 reach through a long read. Right-aligned within the reading
+                 measure so it stays beside the text, not the pane. Height
+                 reserved (an IconButton's) so the title doesn't drop when the
+                 post arrives and the actions appear. -->
+            <div class="sticky -top-lg z-10 -mx-lg -mt-lg bg-default px-lg pt-lg">
+              <div class="flex h-12 max-w-post items-center justify-end">
+                <FeedPostActions
+                  v-if="readerPost"
+                  :post="readerPost"
+                  :saved="readerPostSaved"
+                  @toggle-save="toggleReaderSave"
+                />
+              </div>
             </div>
             <FeedPostView
               :post="readerPost"

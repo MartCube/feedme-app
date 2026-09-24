@@ -7,8 +7,9 @@ theme decides what those roles look like.
 The two rules:
 
 > **9 color roles, 4 text sizes.** If you need something outside them, that's a design
-> discussion, not a new class. (One standing exception: `text-logo`, the wordmark's own
-> size — see § Type scale.)
+> discussion, not a new class. (Standing exceptions: `text-logo`, the wordmark's own
+> size — see § Type scale — and `bg-sunken`, the desktop sidebar's surface — see § Color
+> roles.)
 
 ## Color roles
 
@@ -39,6 +40,11 @@ Notes:
   (`--ui-text-highlighted`, `--ui-text-toned`, `--ui-bg-accented`, …) as **aliases** of
   the roles above, so Nuxt UI internals never render an unmapped color. Aliases are not
   app vocabulary.
+- **One standing exception: `bg-sunken`** (`--ui-bg-sunken`, utility `bg-sunken`) — a surface
+  one step *below* `bg`, themed in `themes.css` alongside the 9 roles above but not one of
+  them, since Nuxt UI has no semantic slot for it and defines no built-in class — ours is a
+  hand-written `@utility`. Used in exactly one place: the desktop sidebar, which is what
+  separates it from the reading panes beside it without a divider line.
 
 **`shadow-elevated`** (the one shadow token) — a soft lift for elevated surfaces: a
 same-color 1px edge (the theme's `bg-elevated`) that extends the shape plus a soft drop
@@ -61,6 +67,12 @@ same gate (`group-hover`), or the label would light beside a muted icon. The `ho
 utility (`app/assets/css/themes.css`) carries this, wrapped in `@media (hover: hover)` so touch
 pointers — where `:hover` sticks after a tap — get nothing. Used across the feed list, the
 sidebar's Add feed/Settings entries, settings' section rows, and the edit-folder member rows.
+
+The same cue reaches standalone icons that have no row label to carry it: every `IconButton`
+(`app/components/ui/IconButton.vue`) and the folder/Saved expand chevrons
+(`home/FeedList.vue`) light the icon itself `primary` on hover, gated the same way
+(`@media (hover: hover)`, via `group-hover/icon` rather than `hover-accent`, since there's no
+label doing the work).
 
 **Selected** is the same cue made to stand: the row's label goes `primary` *and* the row takes
 `bg-elevated` + `shadow-elevated` — the tap flash on the way out on mobile, the persistent

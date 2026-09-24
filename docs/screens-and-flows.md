@@ -20,7 +20,7 @@ navigates. File references point at `app/pages/` and `app/components/`.
             tap a post
                     ▼
         ┌──────────────────────────────┐
-        │  Post page  (detail)         │   actions: Save · Open source
+        │  Post page  (detail)         │   actions: Copy link · Open source · Save
         │  /feed/[uid]/post/[postUid]  │
         │  full readable post          │
         └──────────────────────────────┘
@@ -49,7 +49,9 @@ navigates. File references point at `app/pages/` and `app/components/`.
 >   drawer (no slide — nothing on desktop animates, see [current-state.md](./current-state.md)
 >   § Resolved decisions → Desktop motion) — as a master–detail pair where there's a list to
 >   sit beside (Settings, folder editing) and single-pane where there isn't (Add, loose-feed
->   editing). **The routes and
+>   editing). The sidebar's wordmark, the posts pane's title/search row, and the post pane's
+>   actions row each stay pinned to the top of their own column, reachable while that column
+>   scrolls beneath them. **The routes and
 >   `pages:extend` records are identical on both viewports** — layout is purely a presentation
 >   concern, nothing about navigation or the route tree changes. (This settles the layout half
 >   of the routing decision toward layout-composed panes rather than a nested-`<NuxtPage/>`
@@ -177,7 +179,8 @@ reached and offers **Try again** — an unreachable app must never be mistaken f
 account. Neither appears while the request is still in flight.
 
 **Desktop:** this same list renders in the sidebar, persistent beside the posts/post panes
-(not behind a drawer) — see the Routing note.
+(not behind a drawer); the wordmark leading it stays pinned to the top of the sidebar while
+the list scrolls beneath it — see the Routing note.
 
 ---
 
@@ -222,7 +225,9 @@ API's `post.image` (a proxied, resized `src`/`srcset` — [images.md](./images.m
 from the parent feed is still to come. Tapping the card opens the Post page.
 
 **Desktop:** the posts pane is fixed-width and always visible beside the post pane; there is
-no back navigation for it (nothing to go back to — the sidebar is always there instead).
+no back navigation for it (nothing to go back to — the sidebar is always there instead). Its
+title/search row stays pinned to the top of the pane while the list scrolls beneath it — see
+the Routing note.
 
 ---
 
@@ -238,10 +243,11 @@ it renders beside the feed list on desktop and full-screen on mobile.
   field the screen renders as markup; when extraction can't produce one the screen falls back to
   what RSS gave us (`summary`) as plain text — untrusted third-party markup, never rendered as
   HTML — plus **Open source**.
+- **Copy link** — copies `post.post_url` (the original article / YouTube watch page, not a
+  FeedMe link — opening one of those needs an account) to the clipboard.
+- **Open source** — opens `post.post_url` in a new tab.
 - **Save** the post (toggle) — it lands in **Bookmarks**; toggling again unsaves it. See
   [data-model.md](./data-model.md#saved-state).
-- **Open source** — opens `post.post_url` (the original article / YouTube watch page) in a
-  new tab.
 - Go **back** → the Feed page (the `[uid]` it was opened from — a real feed, or `saved` — and,
   if it was opened from search results, those same results).
 
@@ -250,7 +256,9 @@ the article text (`status: ok | unavailable` — `unavailable` is the fallback a
 error); the route `uid` is the feed context it was opened in.
 
 **Desktop:** until a post is tapped, the post pane shows a placeholder ("Select a post")
-instead of this screen — there is no auto-selected first or last-read post.
+instead of this screen — there is no auto-selected first or last-read post. The actions row
+(Copy link · Open source · Save) stays pinned to the top of the pane the same way — see the
+Routing note.
 
 ---
 
