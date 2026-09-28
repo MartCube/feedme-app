@@ -5,11 +5,13 @@ metadata:
   node_type: memory
   type: reference
   originSessionId: 6c51f4e2-caf5-4166-9dfc-39ef82cc03c2
-  modified: 2026-09-15T21:35:18.386Z
+  modified: 2026-09-28T20:55:05.544Z
 ---
 
-**crowdfeed** (https://crowdfeed.com, Nuxt on nginx) is the user's earlier aggregator and the
-mental model they compare FeedMe's infrastructure against. Observed from outside on
+**crowdfeed** (https://crowdfeed.com, Nuxt on nginx) is the user's earlier aggregator and,
+alongside Reeder, a named **product/UI inspiration** for FeedMe (recorded in
+docs/product-overview.md) — look at it when designing post cards and layouts, not only infra.
+It is also the mental model they compare FeedMe's infrastructure against. Observed from outside on
 2026-09-15: images pre-rendered at ingest into two 16:9 JPEGs (`md` 576×324, `lg` 1000×563)
 on S3 behind CloudFront at `media.crowdfeed.com`, 120-day cache, no srcset/WebP, avatars
 stored unresized. FeedMe's images strategy (docs/images.md) keeps its media-domain + CDN +

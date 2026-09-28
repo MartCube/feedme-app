@@ -29,6 +29,11 @@ People who follow content across several platforms and want **one quiet place** 
 — without recommendation feeds, autoplay, or notifications competing for attention. The
 mental model is closer to an email inbox or a reading app (Reeder) than a social app.
 
+Two products inspire it: **Reeder** for the calm, typography-first reading experience, and
+**[crowdfeed](https://crowdfeed.com)** — the author's earlier aggregator, still live — for how
+an aggregator presents posts from many platforms side by side, and for the infrastructure
+baseline (images, media domain, CDN — see [images.md](./images.md)).
+
 ## Platforms & layout
 
 FeedMe is built mobile-first today, but it targets **multiple platforms**: a web app, a desktop
