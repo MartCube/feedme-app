@@ -17,6 +17,7 @@ from django.db.models import Count, Max, Prefetch
 from ninja import Field, Router, Schema, Status
 from ninja.errors import HttpError
 
+from .. import images
 from ..models import Feed, Folder, FolderMember, SavedPost
 from .errors import ErrorSchema
 
@@ -34,7 +35,12 @@ class HomeFeedSchema(Schema):
     type: Literal['website', 'youtube', 'reddit'] = Field(alias='source.type')
     site_url: str = Field(alias='source.site_url')
     feed_url: str = Field(alias='source.feed_url')
-    icon_url: str = Field(alias='source.icon_url')
+    # a signed proxy URL, or null — the app renders initials then (docs/images.md)
+    icon: str | None
+
+    @staticmethod
+    def resolve_icon(obj):
+        return images.icon(obj.source.icon_url)
 
 
 class HomeFolderSchema(Schema):

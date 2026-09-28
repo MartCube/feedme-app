@@ -26,7 +26,7 @@ from urllib.parse import urljoin, urlsplit, urlunsplit
 import feedparser
 import requests
 
-from . import youtube
+from . import icons, youtube
 from .fetch import PageUnavailable, fetch_url
 from .ingest import feed_metadata
 from .models import Source
@@ -209,7 +209,7 @@ def _resolve(url):
     for page, page_body in _pages_upward(url, body):
         links, page_title = feed_links(page_body, page)
         if links:
-            return _candidates(links, page, page_title)
+            return _candidates(links, page, page_title, page_body)
 
     return _guess_paths(url)
 
@@ -258,7 +258,7 @@ def _try_fetch(url):
         return None
 
 
-def _candidates(links, page, page_title):
+def _candidates(links, page, page_title, page_body):
     """The declared feeds, named as well as a page allows.
 
     Returned unprobed: subscribing fetches for real and takes the true title from the feed,
@@ -270,12 +270,15 @@ def _candidates(links, page, page_title):
     only thing separating a site's posts feed from its comments feed.
     """
     prefer_link_title = len(links) > 1
+    # read off the page we already hold, so the icon costs no request of its own
+    icon_url = icons.page_icon(page_body, page) or icons.fallback_icon(page)
     return _dedupe(
         Candidate(
             name=(title or page_title if prefer_link_title else page_title or title) or _host(page),
             type=infer_type(href),
             feed_url=href[:FEED_URL_MAX],
             site_url=_origin(page),
+            icon_url=icon_url,
         )
         for href, title in links
     )
@@ -308,12 +311,15 @@ def _from_feed(body, feed_url):
         return None
 
     metadata = feed_metadata(parsed.feed)
+    site_url = metadata['site_url'] or _origin(feed_url)
     return Candidate(
         name=metadata['title'].strip() or _host(feed_url),
         type=infer_type(feed_url),
         feed_url=feed_url[:FEED_URL_MAX],
-        site_url=metadata['site_url'] or _origin(feed_url),
-        icon_url=metadata['icon_url'],
+        site_url=site_url,
+        # no page in hand here, so a feed with no <icon> of its own gets the free guess;
+        # subscribing looks the page up properly (core/icons.py)
+        icon_url=metadata['icon_url'] or icons.fallback_icon(site_url),
     )
 
 

@@ -34,8 +34,8 @@ interface Feed {
   name: string      // display name, e.g. 'Vue.js on Medium' — the only editable field
   feed_url: string  // the RSS endpoint we pull items from (read-only: it's the Source's)
   site_url: string  // human-facing site; where "visit source" for the feed points
-  icon_url: string  // the source's icon, when the feed advertised one — becomes `icon: string | null`
-                    // (a 64px proxied square) in T15b, see images.md
+  icon: string | null  // the source's icon: a 64px proxied square, null when it has none —
+                       // see images.md § Feed icons
   type: FeedType    // drives icon / small rendering differences
 }
 ```

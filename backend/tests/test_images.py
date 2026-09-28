@@ -113,6 +113,23 @@ def test_no_key_means_no_article_images_either():
 
 
 @proxy_on
+def test_an_icon_is_a_square_crop_that_never_enlarges():
+    encoded = base64.urlsafe_b64encode(IMAGE.encode()).rstrip(b'=').decode()
+
+    assert images.icon(IMAGE).endswith(f'/rs:fill-down:64:64/g:ce/{encoded}.webp')
+
+
+@proxy_on
+def test_a_blank_icon_is_no_icon():
+    assert images.icon('') is None
+
+
+@override_settings(IMGPROXY_KEY='', IMGPROXY_SALT='', IMGPROXY_PUBLIC_URL='')
+def test_no_key_means_no_icons_either():
+    assert images.icon(IMAGE) is None
+
+
+@proxy_on
 def test_the_signature_covers_the_whole_path():
     """One character of difference must change the stamp, or the signature guards nothing."""
     mine = images.post_image(IMAGE)['src'].rsplit('/rs:', 1)[0]

@@ -23,6 +23,8 @@ WIDTHS = (480, 960, 1440, 1920)
 DEFAULT_WIDTH = 960
 # an article image, fitted to the 2x reading measure (docs/images.md § Sizes and formats)
 ARTICLE_WIDTH = 1920
+# a feed icon, square — 2x the 32px slot (docs/images.md § Sizes and formats)
+ICON_SIZE = 64
 
 
 def post_image(url):
@@ -56,6 +58,19 @@ def article_image(url):
     if not settings.IMGPROXY_KEY:
         return None
     return _signed(url, f'rs:fit:{ARTICLE_WIDTH}:0')
+
+
+def icon(url):
+    """A signed `src` for a feed's icon, or None when there is none or images are off.
+
+    64 × 64, which is 2x the largest slot an icon sits in. The same fill-down crop as the
+    cards: a favicon smaller than that comes back at its own size and still square, rather
+    than enlarged here — the browser scales a 32px icon into its slot as well as we would.
+    imgproxy reads ICO and SVG, which is what favicons are.
+    """
+    if not url or not settings.IMGPROXY_KEY:
+        return None
+    return _signed(url, f'rs:fill-down:{ICON_SIZE}:{ICON_SIZE}/g:ce')
 
 
 def _declared_too_small(url):

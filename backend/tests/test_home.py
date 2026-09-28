@@ -5,6 +5,7 @@ from typing import get_args
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 
+from core import images
 from core.api.home import HomeFeedSchema, SavedCountsSchema
 from core.models import Feed, Folder, SavedPost, Source
 
@@ -52,7 +53,9 @@ def test_a_feed_carries_its_own_name_and_its_sources_metadata(
     assert feed['name'] == 'Fireship (renamed)'  # the user's name, never the Source title
     assert feed['type'] == 'youtube'
     assert feed['site_url'] == 'https://www.youtube.com/@fireship'
-    assert feed['icon_url'] == 'https://cdn.example.com/fireship.png'
+    # through the proxy, never the stored URL itself (docs/images.md)
+    assert feed['icon'] == images.icon('https://cdn.example.com/fireship.png')
+    assert 'icon_url' not in feed
     # Source is backend-only: its uid must not leak into the public contract
     assert 'source_uid' not in feed
 

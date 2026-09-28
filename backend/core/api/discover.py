@@ -15,6 +15,7 @@ from typing import Literal
 from ninja import Router, Schema
 from ninja.errors import HttpError
 
+from .. import images
 from ..discover import discover
 from ..models import Feed
 from ..youtube import YouTubeUnavailable
@@ -38,7 +39,8 @@ class DiscoverResultSchema(Schema):
     type: SourceType
     site_url: str
     feed_url: str
-    icon_url: str
+    # a signed proxy URL, or null — the app renders initials then (docs/images.md)
+    icon: str | None
     # you can already follow something you searched for, and the wizard says so rather than
     # letting it be picked for a subscribe that answers 422
     already_subscribed: bool
@@ -77,6 +79,11 @@ def discover_feeds(request, type: SourceType, q: str = ''):
         ).values_list('source__feed_url', flat=True)
     )
     return [
-        DiscoverResultSchema(**asdict(candidate), already_subscribed=candidate.feed_url in followed)
+        DiscoverResultSchema(
+            # the stored-form icon_url stays behind: the wire carries the signed `icon`
+            **{k: v for k, v in asdict(candidate).items() if k != 'icon_url'},
+            icon=images.icon(candidate.icon_url),
+            already_subscribed=candidate.feed_url in followed,
+        )
         for candidate in candidates
     ]

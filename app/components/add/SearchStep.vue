@@ -12,6 +12,18 @@ const typeMeta = computed(() => feedTypes.find(option => option.type === type.va
 function displayUrl(url: string) {
   return url.replace(/^https?:\/\//, '')
 }
+
+// The fallback when a feed has no icon. UAvatar's own takes the first letter of
+// the first two words, which turns "Vue.js - The progressive…" into "V-" — so
+// only words that start with a letter or digit count.
+function initials(name: string) {
+  return name
+    .split(/\s+/)
+    .filter(word => /^[\p{L}\p{N}]/u.test(word))
+    .slice(0, 2)
+    .map(word => word[0])
+    .join('')
+}
 </script>
 
 <template>
@@ -90,22 +102,20 @@ function displayUrl(url: string) {
           :aria-label="result.already_subscribed ? `${result.name}, already following` : `Select ${result.name}`"
           @click="wizard.toggleFeed(result)"
         >
-          <!-- YouTube only: five channels named "One Piece" are told apart by their
-               avatars, and those are always square. A website's icon_url is as often a
-               wide banner, which a circle would crop badly — that gets its own pass.
+          <!-- Every type has a face: five channels named "One Piece" are told apart by
+               their avatars, and a site by its icon. `icon` is a square proxied crop, or
+               null — then, and when the image fails to load, UAvatar shows the name's
+               initials. alt="" because the button's aria-label already names the feed.
                Not loading="lazy": at most five rows, all on screen, and inside the
-               drawer Chrome never got round to fetching a lazy one at all.
-               no-referrer: Google's image CDN throttles hotlinks that carry a foreign
-               Referer — five avatars at once meant one loaded and four 429'd (measured
-               in Chromium, not a Brave quirk); with no Referer all five load. Interim
-               until T15b serves icons through our own proxy. -->
-          <img
-            v-if="result.type === 'youtube' && result.icon_url"
-            :src="result.icon_url"
+               drawer Chrome never got round to fetching a lazy one at all. -->
+          <UAvatar
+            :src="result.icon ?? undefined"
             alt=""
-            referrerpolicy="no-referrer"
-            class="size-10 shrink-0 rounded-full bg-muted object-cover"
-          >
+            :text="initials(result.name)"
+            size="xl"
+            class="shrink-0"
+            :ui="{ root: 'bg-muted', fallback: 'text-caption font-semibold text-muted uppercase' }"
+          />
           <span class="min-w-0 flex-1">
             <span class="block truncate text-body">{{ result.name }}</span>
             <!-- The feed URL, not the site: one page can declare several feeds, and this

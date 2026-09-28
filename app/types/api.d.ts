@@ -274,6 +274,9 @@ export interface paths {
          *     empty once (a bot-challenge page served as 200, a site mid-deploy) is not evidence about
          *     the article, and one bounded fetch per open is cheap next to a post that is wrong for
          *     everyone forever.
+         *
+         *     Images come back pointed at the image proxy (T15c), so the reader never loads anything
+         *     from the article's host.
          */
         get: operations["get_post_article"];
         put?: never;
@@ -397,8 +400,8 @@ export interface components {
             site_url: string;
             /** Feed Url */
             feed_url: string;
-            /** Icon Url */
-            icon_url: string;
+            /** Icon */
+            icon: string | null;
         };
         /** HomeFolderSchema */
         HomeFolderSchema: {
@@ -498,8 +501,8 @@ export interface components {
             site_url: string;
             /** Feed Url */
             feed_url: string;
-            /** Icon Url */
-            icon_url: string;
+            /** Icon */
+            icon: string | null;
             /** Already Subscribed */
             already_subscribed: boolean;
         };

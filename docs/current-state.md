@@ -38,9 +38,9 @@ no image or a failed load, is date + title alone), and the post page shows the s
 hero above the title. **The pictures inside an extracted article are proxied too**
 _(2026-09-23)_: the reader's `<img src>` is rewritten to the same proxy at read time, fit to
 the reading width with no crop, and dropped along with an image that can't be proxied rather
-than left hotlinked. Feed icons are still unproxied — only the add wizard hotlinks YouTube
-avatars — which is the rest of the strategy specced in [images.md](./images.md)
-_(2026-09-15)_.
+than left hotlinked. **Feed icons are proxied too** _(2026-09-28)_: the add wizard shows one
+for every type, with the name's initials when a feed has none. Nothing else consumes them yet.
+The rest of the strategy is specced in [images.md](./images.md) _(2026-09-15)_.
 Backend work is sequenced in [backend-roadmap.md](./backend-roadmap.md), which tracks its
 own status: **read that file's § Status for what to build next.**
 
@@ -135,9 +135,9 @@ own status: **read that file's § Status for what to build next.**
   can't be picked, and each row is captioned with its **feed URL**, since one page can declare
   several feeds and that is what tells them apart. A **keyword under the YouTube card** searches
   YouTube by channel name _(T11b, 2026-09-11)_: up to five channels, each row leading with the
-  channel's avatar (hotlinked with `referrerpolicy="no-referrer"` since _2026-09-18_ — Google's
-  image CDN 429s a hotlink carrying a foreign referrer, measured loading five at once in
-  Chromium; interim until T15b serves it through the proxy), and the same `videos.xml` feed URL
+  channel's avatar (through the image proxy since T15b, _2026-09-28_ — before that a hotlink
+  with `referrerpolicy="no-referrer"`, since Google's image CDN 429s a hotlink carrying a
+  foreign referrer), and the same `videos.xml` feed URL
   a pasted channel resolves to, so subscribing
   is the same `POST /feeds` either way. YouTube refusing to answer (quota spent, key rejected) is
   a **503** the step shows as an error — not "nothing found", which would be a lie. A keyword
@@ -437,11 +437,25 @@ own status: **read that file's § Status for what to build next.**
   rotation can't break every cached article. An image that can't be proxied (a relative or
   scheme-relative `src`, or every image when there's no proxy key) is dropped with its tag
   rather than left srcless for the browser to draw as broken. See [images.md](./images.md).
+- **Feed icons (T15b)** _(2026-09-28)_ — every feed has a face in the add wizard: each
+  `SearchStep.vue` row leads with a `UAvatar` for every type, showing the proxied icon or, when
+  there is none or it fails to load, the name's initials (only words that start with a letter
+  or digit count, so "Vue.js - The progressive…" is "VT", not "V-"). Which picture stands for a
+  feed is `backend/core/icons.py`'s rule: Atom's `<icon>` only (RSS `<image>` and Atom `<logo>`
+  are banners, and a square crop of one reads worse than initials), then the site's declared
+  icons largest-first, then an unverified `/favicon.ico` guess. A YouTube channel's face is its
+  page's `og:image` avatar — never YouTube's own icons or favicon, which are identical for every
+  channel. Discovery reads the icon off the page it already fetched, at no extra request;
+  ingest looks it up once per source when the icon is blank, and never again. `images.icon()`
+  serves it as a signed 64 × 64 centre crop. Wire: `icon_url` became `icon: string | null` on
+  `/home` feeds and `/discover` results. **Not consumed anywhere else yet** — home rows and the
+  PostCard show no feed icon (the coming post-card redesign uses a type icon instead). See
+  [images.md](./images.md).
 - **PostCard v1** — `app/components/feed/PostCard.vue`: whole card links to the post. The
   **Image** style (the account's default, Settings → Appearance → *Post cards*) renders
   `FeedPostImage` above the date + title; **Compact** — and any post with no image, under either
   style — is date + title alone. Rows separated by spacing (no divider lines); the source-feed
-  type cue is still T15b, see Not started → Images (rest).
+  type cue is not built (see Not started → PostCard (rest)).
 - **Context-aware navbar** — both slots swap per page: home = menu + add, feed page =
   sidebar icon (→ home) alone (search sits on the list's title row instead — see Feed page v1),
   post page = back (→ its feed, carrying the search it was opened from) + Copy link + Open
@@ -486,8 +500,9 @@ own status: **read that file's § Status for what to build next.**
 - **Settings content** — the drawer, its four subpages, and transitions are built, and
   Appearance and Account are real, including the Post cards switch (see Built); About's version
   string is hardcoded and Report still needs real content and a way to actually send anything.
-- **PostCard (rest)** — the source-feed type cue (T15b's icon); the image version shipped in
-  T15a — see Built → Post images.
+- **PostCard (rest)** — the source-feed type cue. It will be a type icon from the coming
+  post-card redesign, not the feed's own icon; the image version shipped in T15a — see Built →
+  Post images.
 - **Add feed (rest)** — keyword search for subreddits and our own catalog (T11c, T11d), a
   candidate's latest posts before subscribing (T14, planned — `GET /discover/posts`), putting the
   wizard's type and query on the URL so a reload doesn't lose them (decided 2026-09-18, deferred
@@ -512,11 +527,11 @@ own status: **read that file's § Status for what to build next.**
   exists yet. Noted for a deploy: `ux_mode: 'popup'` needs a
   `Cross-Origin-Opener-Policy: same-origin-allow-popups` header if one is ever set.
 - **Images (rest)** — T15a shipped post images on cards and the post page (see Built → Post
-  images), and T15c the pictures inside an extracted article (see Built → Article images);
-  still raw on the wire is `Source.icon_url` (feed icons, T15b). Stage 2 (originals in a bucket,
+  images), T15c the pictures inside an extracted article (see Built → Article images), and
+  T15b feed icons in the add wizard (see Built → Feed icons). Stage 2 (originals in a bucket,
   for permanence, T15d) and stage 3 (a CDN and a paid transformer at deploy, T15e) come after.
   The whole strategy, staged, is [images.md](./images.md); task entries in
-  [backend-roadmap.md](./backend-roadmap.md) § Tasks → T15b, T15d, T15e.
+  [backend-roadmap.md](./backend-roadmap.md) § Tasks → T15d, T15e.
 - **Home reorder** — `PUT /home/order` exists and is strict, but **nothing drives it**: the home
   list has no drag-and-drop, and the options sheet's Reorder feeds row is a placeholder. The
   `order` from `/home` is applied as a sort at load and not retained, so the UI, when it lands,
@@ -644,7 +659,7 @@ _None currently._
   `/settings`.
   **T4 landed _(2026-08-25)_:** the app's cold-start round-trip and account-level preferences
   are real. `backend/core/api/home.py`'s `GET /home` returns one aggregate — folders, every
-  feed (with `Source`'s `type`/`site_url`/`feed_url`/`icon_url` flattened onto it, `type` typed
+  feed (with `Source`'s `type`/`site_url`/`feed_url`/`icon` flattened onto it, `type` typed
   as a `Literal` matching `app/assets/types.ts`'s hand-written `FeedType` union, so `source_uid`
   never leaks), the shared top-level order, and saved counts — in a constant 5
   queries no matter how many feeds an account has; `PUT /home/order` writes the one shared
@@ -904,7 +919,7 @@ _None currently._
   **T11b _(2026-09-11)_ — YouTube by name.** A bare name under the YouTube card is a Data API
   `search.list` (`backend/core/youtube.py`, the one module that spends quota; `fetch_search` is
   its one network call), mapped to the same `videos.xml` candidate a pasted channel resolves to,
-  with the channel avatar as `icon_url`. Shaped by the quota — 10k units a day, 100 per search:
+  with the channel avatar as its icon. Shaped by the quota — 10k units a day, 100 per search:
   every answer is **cached for a day** under a hashed, whitespace-and-case-normalised key, a
   failed search is not cached (an error would otherwise be served for a day), and at most five
   channels come back even when YouTube overshoots `maxResults` (seen live). Django's cache is
@@ -914,8 +929,7 @@ _None currently._
   client id: without it a name finds nothing and a URL or `@handle` still resolves through the
   channel page, spending no quota either way. YouTube refusing to answer is a **503** ("YouTube
   search is unavailable right now."), never an empty list. Frontend: `SearchStep.vue` leads a
-  YouTube row with its avatar (square by nature — a website's `icon_url` is as often a wide
-  banner, so that gets its own pass) and shows the 503 as an error rather than "Nothing found".
+  YouTube row with its avatar (websites followed with T15b) and shows the 503 as an error rather than "Nothing found".
   The card decides what a bare name means — `one piece` is a channel search under YouTube and
   nothing under Website — and a keyword under the other two cards is unchanged (T11c, T11d).
 

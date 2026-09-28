@@ -7,7 +7,7 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.utils import timezone
 
-from core import ingest
+from core import icons, ingest
 from core.ingest import (
     ERROR,
     MAX_FAILURES,
@@ -239,7 +239,67 @@ def test_blank_source_metadata_is_backfilled_from_the_feed(source, monkeypatch):
     source.refresh_from_db()
     assert source.title == 'Vuejs on Medium'
     assert source.site_url == 'https://medium.com/tag/vuejs'
-    assert source.icon_url == 'https://cdn.example.com/icon.png'
+    # not the feed's RSS <image>, which is a logo — the site's favicon, guessed because the
+    # test's site page is unreachable (conftest.no_icon_lookups)
+    assert source.icon_url == 'https://medium.com/favicon.ico'
+
+
+def test_a_feeds_own_atom_icon_is_kept_and_no_page_is_fetched(source, monkeypatch):
+    """Atom's <icon> is square by definition — the one thing a feed says about its own
+    picture that is safe to crop into a circle."""
+    serve(monkeypatch, ok(feeds.ATOM_REDDIT))
+    fetched = []
+    monkeypatch.setattr(icons, 'fetch_page', fetched.append)
+
+    ingest_source(source)
+
+    source.refresh_from_db()
+    assert source.icon_url == 'https://www.redditstatic.com/icon.png'
+    assert fetched == []
+
+
+def test_a_source_without_an_icon_gets_the_one_its_site_declares(source, monkeypatch):
+    serve(monkeypatch, ok(feeds.RSS_BLOG))
+    fetched = []
+
+    def fetch_page(url):
+        fetched.append(url)
+        return b'<html><head><link rel="icon" href="/brand.svg" sizes="any"></head></html>'
+
+    monkeypatch.setattr(icons, 'fetch_page', fetch_page)
+
+    ingest_source(source)
+
+    source.refresh_from_db()
+    assert source.icon_url == 'https://medium.com/brand.svg'
+    # the site the feed names, not the feed itself
+    assert fetched == ['https://medium.com/tag/vuejs']
+
+
+def test_a_youtube_source_gets_its_channels_avatar(source, monkeypatch):
+    serve(monkeypatch, ok(feeds.ATOM_YOUTUBE))
+    monkeypatch.setattr(
+        icons,
+        'fetch_page',
+        lambda url: b'<meta property="og:image" content="https://yt3.googleusercontent.com/a">',
+    )
+
+    ingest_source(source)
+
+    source.refresh_from_db()
+    assert source.icon_url == 'https://yt3.googleusercontent.com/a'
+
+
+def test_an_icon_is_looked_up_once_and_never_again(source, monkeypatch):
+    """Whatever the first lookup stores — here the guess — ends the lookups for good."""
+    serve(monkeypatch, ok(feeds.RSS_BLOG))
+    ingest_source(source)
+
+    fetched = []
+    monkeypatch.setattr(icons, 'fetch_page', fetched.append)
+    ingest_source(source)
+
+    assert fetched == []
 
 
 def test_backfill_truncates_to_each_columns_limit(source, monkeypatch):

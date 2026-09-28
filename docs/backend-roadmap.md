@@ -14,10 +14,11 @@ deliberate checkpoint that wires the real frontend before the backlog grows furt
 
 ## Status
 
-**Last completed:** T15c — Images: article images _(2026-09-23)_, after T15a — Images: proxy,
-post images, card toggle _(2026-09-22, amended 2026-09-23 with the declared-width floor)_
-**Next up:** **T14 — Feed preview** _(planned 2026-09-15)_, ungated. **T15b — Images: feed
-icons** is unblocked now the proxy is real; **T15d — the bucket** builds on T15a too, and is
+**Last completed:** T15b — Images: feed icons _(2026-09-28)_, after T15c — Images: article
+images _(2026-09-23)_ and T15a — Images: proxy, post images, card toggle _(2026-09-22, amended
+2026-09-23 with the declared-width floor)_
+**Next up:** **T14 — Feed preview** _(planned 2026-09-15)_, ungated. **T15d — the bucket**
+builds on T15a, and is
 the one that makes `image: null` truthful and retires T15a's two stand-in floors; **T15f — the
 loading placeholder** is a small frontend task that came out of using T15a for real — build
 whichever the frontend needs first. T11c (Reddit app credentials) and T11d (a catalog worth
@@ -60,7 +61,7 @@ reading order.
 | T13 | Retention | ✅ done _(2026-09-07)_ |
 | T14 | Feed preview — a candidate's latest posts | ⬜ ungated, beside T15a |
 | T15a | Images — proxy, post images, card toggle | ✅ done _(2026-09-22)_ |
-| T15b | Images — feed icons | ⬜ after T15a |
+| T15b | Images — feed icons | ✅ done _(2026-09-28)_ |
 | T15c | Images — article images | ✅ done _(2026-09-23)_ |
 | T15d | Images — the bucket (stage 2) | ⬜ after T15a |
 | T15e | Images — CDN, then paid (stage 3) | ⬜ needs a deploy target |
@@ -276,7 +277,7 @@ an entry already in the table is still updated. No endpoint changed. 285 backend
 T11b made the YouTube card search. A bare name under it is a Data API `search.list`
 (`backend/core/youtube.py` — the one module that spends quota, `fetch_search` its one network
 call), each hit mapped to the same `videos.xml` candidate a pasted channel resolves to, with the
-channel avatar as `icon_url`. The quota shaped it: answers are cached for a day under a hashed,
+channel avatar as its icon. The quota shaped it: answers are cached for a day under a hashed,
 normalised key, failures are not cached, and the list is capped at five even when YouTube
 overshoots `maxResults`. Django's cache is the broker's Redis (`CACHES` in `settings.py`; tests
 swap in locmem, and `cache.clear()` is never called against the real one — it is `FLUSHDB`). No
@@ -296,10 +297,9 @@ source the account was the last subscriber of; and a cursor with a naive timesta
 as committed**, `ruff check .` clean.
 
 **Not built.** Everything else: keyword discovery outside YouTube (T11c, T11d — gated on
-credentials and on a catalog worth searching), T14's preview, every image the app should show
-(T15b–e — [images.md](./images.md); T15a shipped post images, so what's left unproxied is
-`Source.icon_url` — feed icons, still only the wizard's hotlinked YouTube avatars — and the
-pictures inside an article), and the endpoints stop at
+credentials and on a catalog worth searching), T14's preview, every image the app should still
+show (T15d–e — [images.md](./images.md); T15a–c shipped post images, feed icons and article
+images through the proxy, so what's left is permanence and the CDN), and the endpoints stop at
 `/health`, `/me`, `/auth/google`, `/auth/logout`, `/home`, `/home/order`, `/settings`, `/feeds`,
 `/feeds/{uid}`, `/feeds/{uid}/posts`, `/folders`, `/folders/{uid}`, `/posts/{uid}`,
 `/posts/{uid}/article`, `/posts/{uid}/save`, `/search` and `/discover`.
@@ -469,7 +469,7 @@ Decided 2026-08-25 while building T4:
   separate columns that both default to 0, so a tie across the two tables would otherwise let
   the list flicker between reads.
 - **Feed metadata is flattened from `Source` into the feed object** — `Source` is backend-only
-  per the vocabulary table, so `type` / `site_url` / `feed_url` / `icon_url` appear as fields on
+  per the vocabulary table, so `type` / `site_url` / `feed_url` / `icon` appear as fields on
   the feed and `source_uid` never appears at all.
 
 Decided 2026-08-26 while building T5:
@@ -1112,7 +1112,7 @@ dedupe on re-poll, the 304 no-op, a malformed feed not raising, and backoff grow
 **Build.**
 
 - `GET /home` — one aggregate response: folders (uid, name, ordered `feed_uids`,
-  `muted_feed_uids`), feeds (uid, name, type, site_url, feed_url, icon_url), the top-level
+  `muted_feed_uids`), feeds (uid, name, type, site_url, feed_url, icon), the top-level
   order, and saved counts per group. Prefetch aggressively; this is the request every app
   launch waits on.
 - `PUT /home/order` — the shared 0..n-1 sequence across folders and loose feeds (§ Contract
@@ -1478,9 +1478,8 @@ share the database; `conftest.py` swaps every test onto locmem and clears that i
 YouTube only when `youtube.is_configured()`, and nothing under Website or Reddit, which wait for
 T11d / T11c unchanged. Each hit becomes the same `videos.xml?channel_id=` candidate a pasted
 channel resolves to, so subscribing is the same `POST /feeds` either way, with the channel's
-default thumbnail as `icon_url`. Frontend: `SearchStep.vue` leads a YouTube row with that
-avatar in a circle (square by nature; a website's `icon_url` is as often a wide banner, so
-websites get no avatar yet), and `useAddFeedWizard().search()` shows a failed request's
+default thumbnail as its icon. Frontend: `SearchStep.vue` leads a YouTube row with that
+avatar in a circle (websites followed with T15b), and `useAddFeedWizard().search()` shows a failed request's
 `detail` — the 503 included — as an error rather than "Nothing found". `.env.example` gained
 `YOUTUBE_API_KEY`. 12 tests in `backend/tests/test_youtube.py` against a real `search.list`
 body trimmed to the fields read; 316 backend tests green in the tree as committed.
@@ -1830,29 +1829,32 @@ source → 200; a dead URL → 404 from the proxy, and the card collapses; a tam
 post-page hero, and mobile/desktop hasn't run — it needs a dev token the model can't materialise
 — so `design-reviewer`'s review of it is still outstanding.
 
-### T15b — Images: feed icons
+### T15b — Images: feed icons ✅
 
-**Goal.** Every feed has a face. The add wizard's rows show an icon for every type — today only
-YouTube's avatars are shown, hotlinked with `referrerpolicy="no-referrer"` as an interim fix for
-Google's CDN 429ing foreign-referrer hotlinks (measured 2026-09-18) — with initials when a
-source has none; home rows and the card's type cue pick the same icon up when the design says
-so.
+**Goal.** Every feed has a face. The add wizard's rows show an icon for every type — before
+this, only YouTube's avatars, hotlinked with `referrerpolicy="no-referrer"` as an interim fix
+for Google's CDN 429ing foreign-referrer hotlinks (measured 2026-09-18) — with initials when a
+source has none. Other consumers (home rows) pick the same `icon` up when the design says so;
+the card's cue will be a type icon from the post-card redesign, not this.
 
 **Depends on:** T15a (the proxy and `core/images.py`).
 
-**Build.** `images.icon(url) -> str | None` (64 × 64 fill; imgproxy reads ICO and SVG, which is
-what favicons are). `HomeFeedSchema.icon_url` and `DiscoverResultSchema.icon_url` become
-`icon: str | None` (the rename finds every consumer). A **favicon backfill** for sources that
-declare no icon: `core/discover.py` already parses a page's `<link>` tags for feeds — add
-`rel="icon"` (largest declared size wins), fall back to `/favicon.ico`, and let
-`ingest._backfill_source_metadata` store it under the never-overwrite rule. Frontend: the
-wizard rows render `UAvatar` with the feed name as the initials fallback, for every type
-(`librarian` for the component's fallback and `src` props first). Optional in the same slice,
-if small: store Google's `picture` claim on `User` at sign-in, `Me.avatar` through the same
-`images.icon`, an avatar on Settings → Account.
+**Build.** `images.icon(url) -> str | None` (`rs:fill-down` 64 × 64, centre crop; imgproxy
+reads ICO and SVG, which is what favicons are). `HomeFeedSchema.icon_url` and
+`DiscoverResultSchema.icon_url` became `icon: str | None` (the rename finds every consumer).
+**Which picture** is `backend/core/icons.py`'s rule, shared by discovery and ingest: Atom's
+`<icon>` only (`feed_metadata` no longer takes RSS `<image>` or Atom `<logo>` — banners, not
+squares), then the page's declared icons (`rel="icon"`, `apple-touch-icon`) largest first, then
+an unverified `/favicon.ico` guess. YouTube is its own case: the channel page's `og:image`
+avatar, never YouTube's own icons or a favicon guess. Discovery reads the icon off the page it
+already fetched, at no extra request; `ingest_source` looks it up once per source when the icon
+is blank, before the transaction (a network call), and the result is stored under the
+never-overwrite rule. Frontend: `SearchStep.vue` rows render `UAvatar` for every type with the
+name's initials as fallback (words starting with a letter or digit only), and the no-referrer
+workaround is gone.
 
-**Done when.** The five dev sources show an icon or initials in the wizard; an ICO and an SVG
-favicon both render through the proxy against live sites; the containment test still passes.
+**Not built.** The optional `Me.avatar` (Google's `picture` claim) was left out. No screen but
+the wizard reads `icon` yet.
 
 ### T15c — Images: article images ✅
 

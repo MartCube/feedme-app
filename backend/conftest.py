@@ -9,7 +9,9 @@ from django.utils import timezone
 from dramatiq.brokers.stub import StubBroker
 from dramatiq.worker import Worker
 
+from core import icons
 from core.auth import issue_token
+from core.fetch import PageUnavailable
 from core.models import Feed, Folder, FolderMember, Post, Source
 
 # The whole suite runs against Dramatiq's in-memory broker, and the order of the next three
@@ -47,6 +49,20 @@ def local_cache(settings):
     """
     settings.CACHES = {'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'}}
     cache.clear()
+
+
+@pytest.fixture(autouse=True)
+def no_icon_lookups(monkeypatch):
+    """Ingest looks a source's icon up on its site the first time it polls (core/icons.py),
+    and every test source starts without one — so without this, any ingest test would reach
+    the real internet. The tests about icons replace `fetch_page` again with what they need;
+    everywhere else the page is simply unreachable and the favicon guess is stored.
+    """
+
+    def fetch_page(url):
+        raise PageUnavailable(f'no network in tests: {url}')
+
+    monkeypatch.setattr(icons, 'fetch_page', fetch_page)
 
 
 @pytest.fixture

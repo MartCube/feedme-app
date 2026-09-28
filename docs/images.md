@@ -6,7 +6,7 @@ user's avatar. Peer to [backend.md](./backend.md) (which owns the tables and end
 ride on); the build order is [backend-roadmap.md](./backend-roadmap.md) T15a–T15e.
 
 _Decided 2026-09-15. **T15a — the proxy, post images, the card toggle — shipped 2026-09-22.
-T15c — article images — shipped 2026-09-23.** T15b, T15d and T15e are still ahead._
+T15c — article images — shipped 2026-09-23. T15b — feed icons — shipped 2026-09-28.** T15d and T15e are still ahead._
 
 ## The one rule
 
@@ -32,8 +32,8 @@ and a retina screen the sizes they need — that takes something that resizes.
 Measured, not just theorised: the add wizard's YouTube avatars hit hotlink protection directly
 _(2026-09-18)_ — Google's image CDN (`yt3.ggpht.com`) throttled five concurrent hotlinked
 requests carrying a foreign referer to one success and four 429s.
-`referrerpolicy="no-referrer"` is the interim fix on that one `<img>` until T15b serves it
-through the proxy.
+`referrerpolicy="no-referrer"` was the interim fix on that one `<img>`; T15b replaced it by
+serving icons through the proxy.
 
 ## Three stages
 
@@ -81,7 +81,7 @@ with global sources it grows with the source count, not the reader count.
 | --- | --- | --- | --- | --- | --- |
 | **Post image, card** | `Post.image_url` — ingest's `media:thumbnail` → image enclosure pick | the *image* style of PostCard, 16:9 on top | 16:9 fill, widths 480 / 960 / 1440 / 1920, WebP | the card is *compact* | T15a |
 | **Post image, hero** | same | the post page, above the title | same family, `sizes` for the reading measure | no hero | T15a |
-| **Feed icon** | `Source.icon_url` — the feed's `icon` / `logo` / `image`, a YouTube channel's avatar; a favicon backfill at subscribe for sites that declare none | add-wizard rows for every type; home rows and the card's type cue when the design says so | 64 × 64 fill (ICO and SVG in) | `UAvatar` initials | T15b |
+| **Feed icon** | `Source.icon_url` — see § Feed icons below | add-wizard rows for every type; other surfaces when the design says so | 64 × 64 fill-down, centre crop (ICO and SVG in) | `UAvatar` initials | T15b |
 | **Article images** | `<img src>` inside `article_html` (T10) | the reader | fit to the reading width, no crop, rewritten at read time | dropped from the markup (no key, an unproxiable `src`); a proxy fetch failure at render time is the browser's own broken image | T15c |
 | **User avatar** | Google's `picture` claim | Settings → Account | 64 × 64 | initials | T15b, optional |
 
@@ -99,7 +99,7 @@ image: { src: string, srcset: string } | null
 //   srcset = "…480w, …960w, …1440w, …1920w" — the attribute, ready
 //   null   = the post has no image, or images are off (no IMGPROXY_KEY)
 
-// Feed and FeedCandidate (T15b) — replaces icon_url on the wire
+// Feed and FeedCandidate (T15b, shipped) — replaces icon_url on the wire
 icon: string | null                   // 64 × 64
 
 // ArticleSchema — article_html arrives with its <img src> already rewritten
@@ -171,7 +171,34 @@ types:api` plus typecheck finds every consumer — `PostCard.vue` and `PostView.
   with no image renders compact under either setting. The default is *Image* — the card
   [screens-and-flows.md](./screens-and-flows.md) § 2 describes has always shown one.
 - Feed icons render through Nuxt UI's `UAvatar`, whose initials fallback covers the sources
-  that have none (two of the five in the dev database).
+  that have none, or whose icon fails to load. The wizard passes its own initials (the first
+  letter of the first two words that start with a letter or digit), since UAvatar's default
+  turns "Vue.js - The progressive…" into "V-".
+
+## Feed icons
+
+_Shipped 2026-09-28 (T15b)._ The rule lives in `core/icons.py`, in this order:
+
+1. **Atom `<icon>`** — square by definition. RSS `<image>` and Atom `<logo>` are **not** used:
+   they are logos and banners (RSS caps the image at 144 × 400, Atom asks for 2:1), and a
+   64 × 64 crop of one reads worse than initials.
+2. **The site's declared icons**, largest first (`rel="icon"`, `apple-touch-icon`; an SVG's
+   `sizes="any"` wins; an undeclared size ranks below every declared one, a touch icon at its
+   180px default).
+3. **`/favicon.ico` at the site's origin**, unverified — a guess that 404s ends as the same
+   initials.
+
+A **YouTube channel** is its own case: its face is the avatar in the channel page's `og:image`.
+YouTube's declared icons and favicon are the same for every channel, so a YouTube page never
+falls back to them; a channel with no avatar found gets initials, not the YouTube logo.
+
+**When it's looked up.** Discovery reads the icon off the page it already fetched, so the
+wizard costs no extra request (a feed URL pasted directly, with no page in hand, gets the
+favicon guess). At subscribe time ingest looks the icon up once per source when it is blank —
+one request before the poll's transaction — and stores the answer under the never-overwrite
+rule; a stored icon is never looked up again. Icons only render through `images.icon()`, a
+signed `rs:fill-down` 64 × 64 centre crop; imgproxy never enlarges, so a smaller favicon comes
+back at its own size, still square.
 
 ## Operations
 
@@ -290,3 +317,14 @@ Decided 2026-09-23, verified while building T15c:
   simonwillison.net stood in as the live case.
 - **Not fixed here, noted for later:** imgproxy's default `IMGPROXY_MAX_ANIMATION_FRAMES=1`
   means an animated GIF inside an article arrives as its still first frame.
+
+Decided 2026-09-28, while building T15b:
+
+- **Atom `<icon>` only; RSS `<image>` and Atom `<logo>` dropped.** The earlier ingest took the
+  first of `icon` / `logo` / `image`, but the latter two are banners and logos, not squares —
+  centre-cropped to 64 × 64 they read worse than initials. The site's own declared icons come
+  next instead.
+- **YouTube uses the channel's `og:image`, never YouTube's own icons.** Its declared icons and
+  favicon are identical for every channel, which would make every YouTube feed look the same.
+- **The `/favicon.ico` guess is unverified.** It costs nothing, and a 404 ends as the same
+  initials the feed would have shown anyway.

@@ -8,7 +8,7 @@ reads pages rather than feeds.
 
 import pytest
 
-from core import discover
+from core import discover, images
 from core.fetch import PageUnavailable
 from core.models import Feed
 from tests import feeds as bodies
@@ -109,7 +109,9 @@ def test_a_pasted_feed_url_comes_back_as_one_candidate(authed_client, monkeypatc
             'type': 'website',
             'site_url': 'https://medium.com/tag/vuejs',
             'feed_url': MEDIUM,
-            'icon_url': 'https://cdn.example.com/icon.png',
+            # the feed's RSS <image> is a logo, not an icon, and there's no page in hand to
+            # read one from — so the free guess at the site's favicon (core/icons.py)
+            'icon': images.icon('https://medium.com/favicon.ico'),
             'already_subscribed': False,
         }
     ]
@@ -135,6 +137,27 @@ def test_declared_feeds_are_not_fetched_to_be_listed(authed_client, monkeypatch)
     search(authed_client, 'https://css-tricks.com')
 
     assert requested == ['https://css-tricks.com']
+
+
+def test_candidates_from_a_page_carry_the_icon_that_page_declares(authed_client, monkeypatch):
+    """Read off the page discovery already fetched for its feed links — no extra request."""
+    page = HTML_WITH_FEEDS.replace(
+        b'<title>', b'<link rel="apple-touch-icon" href="/touch.png"><title>'
+    )
+    requested = serve(monkeypatch, {'https://css-tricks.com': page})
+
+    body = search(authed_client, 'https://css-tricks.com').json()
+
+    assert {result['icon'] for result in body} == {images.icon('https://css-tricks.com/touch.png')}
+    assert requested == ['https://css-tricks.com']
+
+
+def test_a_page_that_declares_no_icon_gets_the_favicon_guess(authed_client, monkeypatch):
+    serve(monkeypatch, {'https://css-tricks.com': HTML_WITH_FEEDS})
+
+    body = search(authed_client, 'https://css-tricks.com').json()
+
+    assert body[0]['icon'] == images.icon('https://css-tricks.com/favicon.ico')
 
 
 def test_a_page_declaring_nothing_falls_back_to_the_common_paths(authed_client, monkeypatch):

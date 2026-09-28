@@ -8,7 +8,7 @@ answer trimmed to the fields we read, so what's parsed here is the shape Google 
 import pytest
 import requests
 
-from core import youtube
+from core import images, youtube
 
 CHANNEL_ID = 'UCgijLHTEP5FLGY0V-vpNjXg'
 VIDEOS = f'https://www.youtube.com/feeds/videos.xml?channel_id={CHANNEL_ID}'
@@ -80,7 +80,7 @@ def test_a_channel_name_finds_channels(authed_client, monkeypatch):
             # the same videos.xml a pasted channel URL resolves to, so subscribing is the
             # same POST /feeds either way
             'feed_url': VIDEOS,
-            'icon_url': THUMBNAIL,
+            'icon': images.icon(THUMBNAIL),
             'already_subscribed': False,
         }
     ]

@@ -22,6 +22,7 @@ from django.db import DataError, transaction
 from django.db.models import Q
 from django.utils import timezone
 
+from . import icons
 from .fetch import ALLOWED_SCHEMES, USER_AGENT, PageUnavailable, check_public, read_capped
 from .models import Post, Source
 from .retention import age_cutoff
@@ -140,13 +141,20 @@ def ingest_source(source):
     if not parsed.entries:
         return _record_failure(source, now, _describe_empty(parsed))
 
+    metadata = feed_metadata(parsed.feed)
+    if not source.icon_url and not metadata['icon_url']:
+        # Before the transaction, since it is a network call. Once per source in practice:
+        # whatever comes back is stored, and a stored icon is never looked up again.
+        site_url = _http_or_blank(metadata['site_url'] or source.site_url)
+        metadata['icon_url'] = icons.site_icon(site_url)
+
     # One transaction, so a worker killed mid-poll leaves nothing half-written: either the
     # whole batch and the new timestamps land, or none of it does and the next poll redoes
     # the work. The network call is already finished, so no lock is held across I/O.
     try:
         with transaction.atomic():
             created, updated = _upsert_posts(source, parsed.entries)
-            _backfill_source_metadata(source, parsed.feed)
+            _backfill_source_metadata(source, metadata)
             _record_success(source, now, fetched)
     except DataError as exc:
         # Content Postgres refuses — a NUL byte, a tsvector past its 1 MB cap. _entry_to_post
@@ -280,19 +288,20 @@ def feed_metadata(feed):
     return {
         'title': feed.get('title') or '',
         'site_url': feed.get('link') or '',
-        'icon_url': (
-            feed.get('icon') or feed.get('logo') or (feed.get('image') or {}).get('href') or ''
-        ),
+        # Atom's <icon> only, which is square by definition. RSS's <image> and Atom's <logo>
+        # are logos and banners, and a square crop of one reads worse than the site's own
+        # icon, which core/icons.py finds instead (docs/images.md).
+        'icon_url': feed.get('icon') or '',
     }
 
 
-def _backfill_source_metadata(source, feed):
+def _backfill_source_metadata(source, metadata):
     """Fill blank source fields from the feed itself — never overwrite what's set.
 
     Sources created by hand in admin (and, from T7, by subscribing to a bare URL) have
     only a feed_url; the feed knows its own title, site and icon.
     """
-    for field, value in feed_metadata(feed).items():
+    for field, value in metadata.items():
         value = _text(value)
         if field != 'title':
             # site_url and icon_url end up in an href and an <img src> on the home screen
