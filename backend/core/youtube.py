@@ -103,3 +103,70 @@ def _channels(body):
 def _normalise(query):
     """One cache entry for `Ski Essentials` and ` ski   essentials `."""
     return re.sub(r'\s+', ' ', query.strip()).casefold()
+
+
+# --- Posts: the poster and the player -------------------------------------------------------
+
+# A video id is 11 characters of the URL-safe base64 alphabet
+VIDEO_ID = r'[A-Za-z0-9_-]{11}'
+# What videos.xml hands every entry as its media:thumbnail
+HQDEFAULT = re.compile(rf'^https://i\d?\.ytimg\.com/vi/({VIDEO_ID})/hqdefault\.jpg$')
+# The two links videos.xml gives an entry: a Short is /shorts/<id>, anything else /watch?v=<id>
+POST_URL = re.compile(rf'^https://(?:www\.)?youtube\.com/(?:watch\?v=|(shorts)/)({VIDEO_ID})')
+# A lookup result is a fact about the video that doesn't change; a month keeps re-polls free
+POSTER_CACHE_TTL = 30 * 24 * 60 * 60
+# (connect, read) — the worker's call, before the ingest transaction
+POSTER_TIMEOUT = (5, 5)
+
+
+def poster(url):
+    """The 1280 × 720 poster for a video, when it has one; otherwise the url unchanged.
+
+    videos.xml only offers `hqdefault.jpg`: 480 × 360 with black bars, which leaves 480 × 270
+    of picture — blurry on any card at 2x. `hq720.jpg` is the same frame at 1280 × 720 with no
+    bars, and nearly every video has one (37 of 38 in the dev database; `maxresdefault` was
+    missing on more). Nearly isn't all, and a 404 would cost the post its image, so it is
+    checked before it is stored.
+    """
+    match = HQDEFAULT.match(url)
+    if not match:
+        return url
+    video_id = match[1]
+    key = f'youtube:hq720:{video_id}'
+    exists = cache.get(key)
+    if exists is None:
+        try:
+            exists = has_hq720(video_id)
+        except requests.RequestException:
+            # not cached: a network blip says nothing about the video
+            return url
+        cache.set(key, exists, POSTER_CACHE_TTL)
+    return f'https://i.ytimg.com/vi/{video_id}/hq720.jpg' if exists else url
+
+
+def has_hq720(video_id):
+    """The one network call behind `poster`, so a test replaces exactly this."""
+    response = requests.head(
+        f'https://i.ytimg.com/vi/{video_id}/hq720.jpg',
+        timeout=POSTER_TIMEOUT,
+        headers={'User-Agent': USER_AGENT},
+    )
+    return response.status_code == 200
+
+
+def video(post_url):
+    """The player for a YouTube post: `{src, vertical}`, or None for anything else.
+
+    Built from the post's own link, so it needs no column: the id is in it, and so is whether
+    it's a Short. youtube-nocookie is YouTube's privacy-enhanced host — no cookies until the
+    reader presses play. `playsinline` keeps iOS from forcing fullscreen; `rel=0` limits the
+    end screen to the same channel.
+    """
+    match = POST_URL.match(post_url or '')
+    if not match:
+        return None
+    shorts, video_id = match.groups()
+    return {
+        'src': f'https://www.youtube-nocookie.com/embed/{video_id}?playsinline=1&rel=0',
+        'vertical': bool(shorts),
+    }

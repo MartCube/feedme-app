@@ -536,6 +536,7 @@ export interface components {
             /** Post Url */
             post_url: string;
             image: components["schemas"]["ImageSchema"] | null;
+            video: components["schemas"]["VideoSchema"] | null;
             /** Summary */
             summary: string;
             /**
@@ -545,6 +546,17 @@ export interface components {
             published_at: string;
             /** Saved Group */
             saved_group: ("bookmarks" | "favorites" | "later") | null;
+        };
+        /**
+         * VideoSchema
+         * @description A YouTube post's player: the ready embed `src`, and whether it is a vertical Short.
+         *     Built by the backend like the image attributes, so the app never assembles a URL.
+         */
+        VideoSchema: {
+            /** Src */
+            src: string;
+            /** Vertical */
+            vertical: boolean;
         };
         /** ArticleSchema */
         ArticleSchema: {

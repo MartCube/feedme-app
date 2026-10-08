@@ -192,3 +192,76 @@ def test_a_search_with_no_hits_is_an_empty_list(authed_client, monkeypatch):
 
     assert response.status_code == 200
     assert response.json() == []
+
+
+# --- posts: the poster and the player -------------------------------------------------------
+
+
+def test_a_video_with_an_hq720_poster_gets_it(monkeypatch):
+    monkeypatch.setattr(youtube, 'has_hq720', lambda video_id: True)
+
+    assert youtube.poster('https://i1.ytimg.com/vi/H14_F7bGgzg/hqdefault.jpg') == (
+        'https://i.ytimg.com/vi/H14_F7bGgzg/hq720.jpg'
+    )
+
+
+def test_a_video_without_one_keeps_hqdefault():
+    # the conftest stub answers "no hq720"
+    url = 'https://i1.ytimg.com/vi/H14_F7bGgzg/hqdefault.jpg'
+
+    assert youtube.poster(url) == url
+
+
+def test_the_poster_lookup_is_made_once_per_video(monkeypatch):
+    calls = []
+    monkeypatch.setattr(youtube, 'has_hq720', lambda video_id: calls.append(video_id) or True)
+
+    youtube.poster('https://i1.ytimg.com/vi/H14_F7bGgzg/hqdefault.jpg')
+    youtube.poster('https://i4.ytimg.com/vi/H14_F7bGgzg/hqdefault.jpg')
+
+    assert calls == ['H14_F7bGgzg']
+
+
+def test_a_failed_poster_lookup_is_not_remembered(monkeypatch):
+    def down(video_id):
+        raise requests.ConnectionError
+
+    monkeypatch.setattr(youtube, 'has_hq720', down)
+    url = 'https://i1.ytimg.com/vi/H14_F7bGgzg/hqdefault.jpg'
+    assert youtube.poster(url) == url
+
+    monkeypatch.setattr(youtube, 'has_hq720', lambda video_id: True)
+    assert youtube.poster(url).endswith('/hq720.jpg')
+
+
+def test_a_non_youtube_image_is_left_alone(monkeypatch):
+    monkeypatch.setattr(youtube, 'has_hq720', lambda video_id: pytest.fail('looked up'))
+
+    assert youtube.poster('https://i.redd.it/abc.jpeg') == 'https://i.redd.it/abc.jpeg'
+
+
+def test_a_watch_link_plays_as_a_landscape_video():
+    assert youtube.video('https://www.youtube.com/watch?v=v9QtM6qnG50') == {
+        'src': 'https://www.youtube-nocookie.com/embed/v9QtM6qnG50?playsinline=1&rel=0',
+        'vertical': False,
+    }
+
+
+def test_a_shorts_link_plays_as_a_vertical_video():
+    assert youtube.video('https://www.youtube.com/shorts/CEJXqm2eiJ0') == {
+        'src': 'https://www.youtube-nocookie.com/embed/CEJXqm2eiJ0?playsinline=1&rel=0',
+        'vertical': True,
+    }
+
+
+@pytest.mark.parametrize(
+    'post_url',
+    [
+        'https://www.reddit.com/r/OnePiece/comments/1vw9fff/chapter/',
+        'https://www.youtube.com/channel/UCX6OQ3DkcsbYNE6H8uQQuVA',
+        'https://evil.example/https://www.youtube.com/watch?v=v9QtM6qnG50',
+        '',
+    ],
+)
+def test_anything_else_has_no_player(post_url):
+    assert youtube.video(post_url) is None

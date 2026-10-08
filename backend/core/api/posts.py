@@ -12,7 +12,7 @@ from typing import Literal
 from ninja import Query, Router, Schema, Status
 from ninja.errors import HttpError
 
-from .. import images
+from .. import images, youtube
 from ..extract import extract_article, proxy_images
 from ..models import SavedPost
 from ..postlist import page, resolve_stream, visible_posts
@@ -44,6 +44,14 @@ class ImageSchema(Schema):
     srcset: str
 
 
+class VideoSchema(Schema):
+    """A YouTube post's player: the ready embed `src`, and whether it is a vertical Short.
+    Built by the backend like the image attributes, so the app never assembles a URL."""
+
+    src: str
+    vertical: bool
+
+
 class PostSchema(Schema):
     uid: str
     # null when the caller has no feed for this post's source: a saved post outlives
@@ -55,6 +63,8 @@ class PostSchema(Schema):
     # `image` rather than reusing `image_url` with a new meaning: it is no longer a URL, and
     # the rename is what makes `pnpm types:api` plus typecheck find every consumer.
     image: ImageSchema | None
+    # null on anything that isn't a YouTube video (core/youtube.py)
+    video: VideoSchema | None
     summary: str
     published_at: datetime
     # null when the caller hasn't saved it — cards render the save state without a second
@@ -64,6 +74,10 @@ class PostSchema(Schema):
     @staticmethod
     def resolve_image(obj):
         return images.post_image(obj.image_url)
+
+    @staticmethod
+    def resolve_video(obj):
+        return youtube.video(obj.post_url)
 
 
 class PostPageSchema(Schema):

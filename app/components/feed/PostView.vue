@@ -29,19 +29,28 @@ function openLink(event: MouseEvent) {
 <template>
   <div class="flex flex-col">
     <template v-if="post">
+      <!-- A video post is its video: the player takes the image's slot. -->
+      <FeedPostVideo
+        v-if="post.video"
+        :video="post.video"
+        class="mt-lg"
+      />
       <!-- 56rem is --container-post, the measure the pane caps the body at.
            Eager and high priority: it is the largest thing on the screen, and
-           lazy loading inside a drawer has bitten this repo before. -->
+           lazy loading inside a drawer has bitten this repo before.
+           no-upscale: a small source sits at its own size instead of blurring
+           across the pane. -->
       <FeedPostImage
-        v-if="post.image"
+        v-else-if="post.image"
         :image="post.image"
         sizes="(min-width: 1024px) 56rem, 100vw"
         eager
+        no-upscale
         class="mt-lg"
       />
       <h1
         class="text-title tracking-tight"
-        :class="post.image ? 'mt-md' : 'mt-lg'"
+        :class="post.video || post.image ? 'mt-md' : 'mt-lg'"
       >
         {{ post.title }}
       </h1>
@@ -72,11 +81,19 @@ function openLink(event: MouseEvent) {
       <!-- eslint-enable vue/no-v-html -->
       <template v-else>
         <!-- What RSS gave us, as text (see utils/stripHtml) — untrusted
-             third-party markup, never rendered as HTML. -->
-        <p class="mt-md text-body">
-          {{ stripHtml(post.summary) }}
+             third-party markup, never rendered as HTML. A video's description
+             is plain text already and its line breaks are its layout, so it
+             skips the stripping, which collapses them. -->
+        <p
+          class="mt-md text-body"
+          :class="post.video && 'whitespace-pre-line'"
+        >
+          {{ post.video ? post.summary : stripHtml(post.summary) }}
         </p>
+        <!-- The video is the post; Open source in the action bar still
+             reaches YouTube. -->
         <a
+          v-if="!post.video"
           :href="post.post_url"
           target="_blank"
           rel="noopener noreferrer"

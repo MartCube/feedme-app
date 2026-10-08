@@ -22,7 +22,7 @@ from django.db import DataError, transaction
 from django.db.models import Q
 from django.utils import timezone
 
-from . import icons
+from . import icons, youtube
 from .fetch import ALLOWED_SCHEMES, USER_AGENT, PageUnavailable, check_public, read_capped
 from .models import Post, Source
 from .retention import age_cutoff
@@ -147,6 +147,14 @@ def ingest_source(source):
         # whatever comes back is stored, and a stored icon is never looked up again.
         site_url = _http_or_blank(metadata['site_url'] or source.site_url)
         metadata['icon_url'] = icons.site_icon(site_url)
+
+    if source.type == Source.Type.YOUTUBE:
+        # Also before the transaction: swapping in the bigger poster may take a request
+        # per video, and each answer is cached, so a re-poll costs none (core/youtube.py).
+        for entry in parsed.entries:
+            for thumbnail in entry.get('media_thumbnail') or ():
+                if thumbnail.get('url'):
+                    thumbnail['url'] = youtube.poster(thumbnail['url'])
 
     # One transaction, so a worker killed mid-poll leaves nothing half-written: either the
     # whole batch and the new timestamps land, or none of it does and the next poll redoes

@@ -36,6 +36,11 @@ export type SavedGroupName = NonNullable<Post['saved_group']>
 // no image, or a deployment with no proxy key — the card renders compact.
 export type PostImage = NonNullable<Post['image']>
 
+// A YouTube post's player: the ready embed src, and whether it's a vertical
+// Short. Built by the backend like the image attributes; null on a Post that
+// isn't a video.
+export type PostVideo = NonNullable<Post['video']>
+
 // GET /posts/{uid}/article: the extracted article, sanitised server-side
 // against the backend's own allowlist (core/extract.py) — the one field the
 // app renders as markup. `unavailable` is a fallback, not an error: the reader

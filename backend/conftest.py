@@ -9,7 +9,7 @@ from django.utils import timezone
 from dramatiq.brokers.stub import StubBroker
 from dramatiq.worker import Worker
 
-from core import icons
+from core import icons, youtube
 from core.auth import issue_token
 from core.fetch import PageUnavailable
 from core.models import Feed, Folder, FolderMember, Post, Source
@@ -63,6 +63,12 @@ def no_icon_lookups(monkeypatch):
         raise PageUnavailable(f'no network in tests: {url}')
 
     monkeypatch.setattr(icons, 'fetch_page', fetch_page)
+
+
+@pytest.fixture(autouse=True)
+def no_poster_lookups(monkeypatch):
+    """No test reaches i.ytimg.com: every video has no hq720 unless a test says it does."""
+    monkeypatch.setattr(youtube, 'has_hq720', lambda video_id: False)
 
 
 @pytest.fixture

@@ -16,3 +16,13 @@
      renderButton can fix. */
   --container-signin: calc(400px + 2 * var(--spacing-lg));
 }
+
+/* A Short's player box (feed/PostVideo.vue). A Short is a vertical video, so
+   its box is sized by the screen's height rather than the pane's width: 9:16
+   at 70% of the small viewport keeps the whole player on one phone screen,
+   under the navbar, with the title still in view. The width follows from the
+   ratio, so the box needs mx-auto to sit centred. */
+@utility video-short {
+  aspect-ratio: 9 / 16;
+  height: 70svh;
+}
