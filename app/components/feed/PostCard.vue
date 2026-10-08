@@ -11,11 +11,6 @@ const props = defineProps<{
 // card is the only thing that acts on it, and both hosts render this component.
 const settings = useSettingsStore()
 
-// The feed the post came from, for the meta row's link. Null once the feed is
-// deleted (a saved post outlives it) — then the row is the date alone.
-const { feeds } = storeToRefs(useFeedsStore())
-const feed = computed(() => feeds.value.find(candidate => candidate.uid === props.post.feed_uid))
-
 // A few lines of the summary under the title, as text. Feeds pad it with
 // their own footers, which say nothing on a card: Reddit's "submitted by /u/…
 // [link] [comments]", and Hacker News's "Article URL: … Comments URL: …
@@ -23,48 +18,21 @@ const feed = computed(() => feeds.value.find(candidate => candidate.uid === prop
 const excerpt = computed(() => stripHtml(props.post.summary)
   .replace(/\s*submitted by \/u\/\S+\s*\[link\]\s*\[comments\]\s*$/, '')
   .replace(/\s*Article URL: \S+\s*Comments URL: \S+\s*Points: \d+\s*# Comments: \d+\s*$/, ''))
-
-// A channel or subreddit carries its platform's mark; a website's link is
-// marked as leaving the app.
-const feedIcon = computed(() => feed.value?.type === 'website'
-  ? 'i-ph-arrow-square-out-bold'
-  : feedTypes.find(option => option.type === feed.value?.type)?.icon)
 </script>
 
 <template>
   <!-- Not one big link: the feed link inside it would be a link in a link. The
        title's link stretches over the whole card instead (after:inset-0), and
-       the feed link sits above that layer. -->
+       the feed link sits above that layer. isolate keeps that z-10 inside the
+       card, so it can't paint over the desktop pane's sticky title row.
+       Two surfaces: bg-elevated at rest, bg-muted when selected or hovered
+       (hover-lift, themes.css). -->
   <article
-    class="relative -mx-sm flex gap-sm rounded-2xl p-sm transition-colors"
-    :class="selected && 'bg-elevated shadow-elevated'"
+    class="relative isolate -mx-sm flex gap-sm rounded-2xl p-sm transition-colors"
+    :class="selected ? 'bg-muted' : 'bg-elevated hover-lift'"
   >
     <div class="flex min-w-0 flex-1 flex-col gap-2xs">
-      <div class="flex min-w-0 items-center gap-2xs text-caption text-muted">
-        <a
-          v-if="feed"
-          :href="feed.site_url"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="relative z-10 flex min-w-0 items-center gap-2xs text-primary hover:underline"
-        >
-          <!-- 1px down: flex centres the icon on the capitals, but a name is
-               mostly lowercase, whose middle sits ~1.2px lower at this size. -->
-          <UIcon
-            :name="feedIcon!"
-            class="size-4 shrink-0 translate-y-px"
-          />
-          <span class="truncate">{{ feed.name }}</span>
-        </a>
-        <span
-          v-if="feed"
-          aria-hidden="true"
-        >·</span>
-        <time
-          :datetime="post.published_at"
-          class="shrink-0"
-        >{{ formatDate(post.published_at) }}</time>
-      </div>
+      <FeedPostMeta :post="post" />
       <NuxtLink
         :to="to"
         class="text-subtitle after:absolute after:inset-0 after:rounded-2xl"

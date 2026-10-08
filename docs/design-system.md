@@ -20,12 +20,12 @@ layer, no color ramps — so Nuxt UI components and our own re-color together.
 |---|---|---|
 | `bg` | `bg-default` | The page. Everything sits on this. |
 | `bg-elevated` | `bg-elevated` | One step up: cards, drawers, navbar buttons. |
-| `bg-muted` | `bg-muted` | One more step: inputs, hover/pressed states, avatar placeholders. |
+| `bg-muted` | `bg-muted` | One more step: inputs, a post card's selected and hovered surface, pressed states, avatar placeholders. |
 | `text` | `text-default` / `text-highlighted` | Titles and body content. |
 | `text-muted` | `text-muted` | Secondary info: dates, counts, descriptions. |
 | `text-dimmed` | `text-dimmed` | Placeholders and disabled states **only** — never real content. |
 | `border` | `border-default` | Translucent hairline: input outlines, focus rings, dividers. |
-| `primary` | `text-primary`, `bg-primary`, … | Accent: active states, links, key actions. |
+| `primary` | `text-primary`, `bg-primary`, … | Accent: active states, links (a post's feed name is one, always underlined), key actions. |
 | `error` | `text-error`, … | Validation and destructive actions. |
 
 Notes:
@@ -49,12 +49,14 @@ Notes:
 **`shadow-elevated`** (the one shadow token) — a soft lift for elevated surfaces: a
 same-color 1px edge (the theme's `bg-elevated`) that extends the shape plus a soft drop
 shadow — no visible ring or highlight. Icon buttons use it today; cards and drawers can
-adopt it as they gain elevation.
+adopt it as they gain elevation. It belongs on `bg-elevated` surfaces only: the edge is drawn
+in `bg-elevated`, so on a `bg-muted` surface (a selected or hovered post card) it would read as
+a darker outline instead of extending the shape — those take no shadow.
 
 ### Hover state (desktop)
 
 A hovered list row (desktop pointers only) lights its **label** `primary` — and nothing else
-moves. No surface step, no wash: `bg-muted` reads *brighter* than `bg-elevated` in both themes,
+moves (the post card is the one carve-out, below). No surface step, no wash: `bg-muted` reads *brighter* than `bg-elevated` in both themes,
 so stepping a hover to `bg-muted` would make a hovered row louder than a selected one, and a
 10% `primary` wash (the first attempt) barely registered — there is no alpha of the accent
 that is both visible over `bg-default` and quieter than `bg-elevated`, so it landed as haze.
@@ -74,10 +76,19 @@ The same cue reaches standalone icons that have no row label to carry it: every 
 (`@media (hover: hover)`, via `group-hover/icon` rather than `hover-accent`, since there's no
 label doing the work).
 
+**The post card is the carve-out from "label only."** Unlike a list row, a card already rests
+on a surface (`bg-elevated`), so stepping that surface is the cue that reads: on hover it goes
+to `bg-muted` — the selected surface, so **hovered equals selected, on purpose** — with no
+shadow (see `shadow-elevated` above). The `hover-lift` utility (`app/assets/css/themes.css`)
+carries it, wrapped in `@media (hover: hover)` like `hover-accent`, and a selected card, already
+on `bg-muted`, doesn't take it.
+
 **Selected** is the same cue made to stand: the row's label goes `primary` *and* the row takes
 `bg-elevated` + `shadow-elevated` — the tap flash on the way out on mobile, the persistent
 master–detail selection on desktop. The name carries the selection rather than the surface
-alone because in cards mode every top-level row already has a surface.
+alone because in cards mode every top-level row already has a surface. A post card selects the
+other way round: it rests on `bg-elevated`, so selected steps up to `bg-muted` with no shadow
+and no label change.
 
 ### Separation
 
@@ -144,7 +155,7 @@ not a new class.
 
 | Step | Size | Utilities | Use for |
 |---|---|---|---|
-| `2xs` | 0.25rem (4px) | `gap-2xs`, `mt-2xs` | Intra-element stack: title-over-meta, name-over-URL, date-over-title |
+| `2xs` | 0.25rem (4px) | `gap-2xs`, `mt-2xs` | Intra-element stack: card meta-over-title, post title-over-meta, name-over-URL |
 | `xs` | 0.5rem (8px) | `gap-xs`, `mt-xs` | Bound pairs: inline label + trailing meta, section-label → its group, note below a group |
 | `sm` | 1rem (16px) | `p-sm`, `gap-sm`, `py-sm` | Workhorse: list-row & card padding, icon/back-button → label gap, block-to-block |
 | `md` | 1.5rem (24px) | `mt-md` | Heading → first content (screen title _or_ header row), list-container top |
@@ -169,8 +180,34 @@ Canonical value per recurring slot — reach for these before inventing spacing:
 | Icon/back-button + label gap (incl. header rows) | `gap-sm` |
 | Inline label + trailing meta gap | `gap-xs` |
 | Intra-element stack gap | `gap-2xs` |
+| Post title → its meta row | `mt-2xs` |
+| Post meta row → image or video → body | `mt-md` |
 | Section-label → group / note below group | `mt-xs` |
 | Between page sections | `gap-lg` |
+| Desktop sticky pane-top row → its content | the row ends in `pb-sm`; the content takes the remainder so the total matches mobile: `lg:mt-xs` under the posts list's title/search row (sm + xs = `md`), `lg:mt-sm` under the post pane's action strip (sm + sm = `lg`) |
+
+A sticky pane-top row ends in `sm` of its own so content never scrolls flush against its
+buttons; the content below gives that `sm` back rather than stacking on it.
+
+## Motion
+
+Two timings, defined as theme tokens in `app/assets/css/motion.css` (imported by `main.css`) —
+the same pattern as spacing and the type scale.
+
+| Timing | Value | Used for |
+|---|---|---|
+| Feedback | 300ms, ease-out | Every colour or surface change: hover, selection, the tap flash, the toggle thumb, the chevron turn |
+| Slide | `--duration-slide` 350ms, `--ease-slide` (iOS's curve, `cubic-bezier(0.32, 0.72, 0, 1)`) | Page and drawer-panel slides — mobile only |
+
+Feedback is Tailwind's own transition default (`--default-transition-duration` and
+`--default-transition-timing-function`), so a bare `transition` or `transition-colors` gets it —
+and so does every Nuxt UI component, which is the point: one feel across the app. Slides read
+the two `--*-slide` variables directly (`transitions.css`, `app/utils/panel-slide.ts`).
+
+**App code never writes `duration-*` or `ease-*`.** Timing comes from `motion.css`; a
+component that wants a transition says `transition-colors` and nothing more. A new timing is a
+design discussion, like a new spacing step. Nothing slides on desktop
+([current-state.md](./current-state.md) § Resolved decisions → Desktop motion).
 
 ## Layout (desktop shell)
 

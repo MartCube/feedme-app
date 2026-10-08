@@ -3,7 +3,7 @@
 A snapshot of what's actually built vs. what the spec (these docs) describes. The goal is to
 make the gap visible so implementation has a clear backlog. Update this as work lands.
 
-_Last reviewed: 2026-09-28._
+_Last reviewed: 2026-10-08._
 
 ## Summary
 
@@ -35,7 +35,7 @@ Resolved decisions → Backend stack & API. **Posts carry real images** _(2026-0
 `imgproxy` proxy resizes every post image into a 16:9 WebP family, PostCards show it beside the text (a 16:9 family, cropped square there) when
 Settings → Appearance → *Post cards* is **Image** (the default — **Compact**, and any post with
 no image or a failed load, is date + title alone), and the post page shows the same image as a
-hero above the title. **The pictures inside an extracted article are proxied too**
+hero below the title and its meta row. **The pictures inside an extracted article are proxied too**
 _(2026-09-23)_: the reader's `<img src>` is rewritten to the same proxy at read time, fit to
 the reading width with no crop, and dropped along with an image that can't be proxied rather
 than left hotlinked. **Feed icons are proxied too** _(2026-09-28)_: the add wizard shows one
@@ -55,8 +55,8 @@ own status: **read that file's § Status for what to build next.**
   type scale (`text-title/subtitle/body/caption`, plus a brand-only `text-logo` for the wordmark
   — see [design-system.md](./design-system.md) § Type scale) and `shadow-elevated`. The same
   file defines a desktop-only `hover-accent` utility (the row's label goes `primary` on `:hover`,
-  nothing else moves) used across list rows — see [design-system.md](./design-system.md) § Color
-  roles → Hover state. The
+  nothing else moves) used across list rows, and `hover-lift` (the post card steps to `bg-muted`)
+  — see [design-system.md](./design-system.md) § Color roles → Hover state. The
   font family and type scale live in their own `app/assets/css/typography.css` (imported by
   `main.css`, alongside `app/assets/css/article.css` — the sanitised article body's reading
   styles, an `@utility article` with element rules for exactly the allowlisted tags, tokens
@@ -381,8 +381,10 @@ own status: **read that file's § Status for what to build next.**
   `feed/[uid].vue` stays a `<NuxtPage/>` passthrough on
   mobile; on desktop the shell bypasses it (and every route's `<NuxtPage/>`) entirely, composing
   the posts/post panes itself from the feeds store.
-- **Post page v1** — `app/components/feed/PostView.vue` (`FeedPostView`) renders title, date and
-  the post body; it is **presentational** — the host that owns the uid (the mobile post page, or
+- **Post page v1** — `app/components/feed/PostView.vue` (`FeedPostView`) renders, in order, the
+  title, the **meta row** (`feed/PostMeta.vue`, shared with the PostCard — see PostCard v2), the
+  image or video, and the post body _(reordered 2026-10-08: the image used to come before the
+  title)_; it is **presentational** — the host that owns the uid (the mobile post page, or
   the desktop shell for its post pane) fetches through `usePost(uid)` and passes the post and
   article down, because the host also needs the title and the save state. **The reader is wired
   to `/posts/{uid}/article`** _(2026-09-18)_: `usePost` fires it concurrently with
@@ -457,13 +459,18 @@ own status: **read that file's § Status for what to build next.**
 - **PostCard v2** _(2026-09-28)_ — `app/components/feed/PostCard.vue`, redesigned. The
   **Image** style (the account's default, Settings → Appearance → *Post cards*) is a **square
   thumbnail beside the text** (`FeedPostImage` with its `square` prop; 128px, then 160 / 176 /
-  192 at `md` / `lg` / `xl`) with a **meta row** above the title — the feed's name as a link to
-  its `site_url`, a type icon (YouTube, Reddit; a website gets an external-link icon), then `·`
-  and the date — and a **3-line excerpt** of `summary`, with Reddit's "submitted by" footer and
-  Hacker News's footer stripped. **Compact** — and any post with no image, under either style —
-  is date + title alone. The card is no longer one big link: the title link is stretched over
-  the whole card and the feed link sits above it, so each is its own target. Rows are separated
-  by spacing (no divider lines). Closes the old "source-feed type cue" item.
+  192 at `md` / `lg` / `xl`) with a **meta row** above the title — a type icon (YouTube, Reddit;
+  a website gets an external-link icon) and the feed's name as a link to its `site_url`, then
+  `·` and the date — and a **3-line excerpt** of `summary`, with Reddit's "submitted by" footer
+  and Hacker News's footer stripped. **Compact** — and any post with no image, under either
+  style — is date + title alone. The card is no longer one big link: the title link is stretched
+  over the whole card and the feed link sits above it, so each is its own target; the card is
+  `isolate`, which keeps that link's `z-10` from painting over the desktop pane's sticky title
+  row. Rows are separated by spacing (no divider lines). Closes the old "source-feed type cue"
+  item. **Surfaces** _(2026-10-08)_: the card rests on `bg-elevated`; selected and hovered
+  (desktop pointers only, `hover-lift`) both go to `bg-muted` with no shadow — hover equals
+  selected on purpose. The meta row's feed link is always underlined, here and on the post
+  page.
 - **Reading-pane split (desktop)** _(2026-09-28)_ — `UserSettings.pane_split`
   (`posts` / `equal` / `post`, default `equal`) gives the posts and post panes 60/40, 50/50 or
   40/60. It rides `GET` / `PUT /settings` and the settings store; Settings → Appearance has a
@@ -483,6 +490,19 @@ own status: **read that file's § Status for what to build next.**
   the post page, capping the box at the image's natural width.
 - **Sidebar auto-expand** _(2026-09-28)_ — the feeds store expands any folder holding the
   selected feed, so the selection is never hidden. Expansion state itself is not persisted.
+- **Polish pass** _(2026-10-08)_ — frontend only; no new feature. Post card surfaces, the shared
+  meta row and the post page order are under PostCard v2 and Post page v1 above. **Desktop sticky
+  pane-top rows** (the posts list's title/search row, the post pane's action strip) end in
+  `pb-sm`, so content never scrolls flush against the buttons; the content below takes the
+  remainder (`lg:mt-xs` on the list, `lg:mt-sm` on the post title). **Motion has one home**,
+  `app/assets/css/motion.css`: Tailwind's transition defaults set to 300ms ease-out (Nuxt UI's
+  transitions included) and `--duration-slide` / `--ease-slide` for the slides, read by
+  `transitions.css` and `utils/panel-slide.ts`; every `duration-*` / `ease-*` class is gone from
+  app code, which now never writes them (the old mix of 200 and 300ms became 300) — see
+  [design-system.md](./design-system.md) § Motion. **Add wizard**: `.slide-panels` is now
+  `position: relative; overflow: hidden`, so a leaving step no longer escapes to the whole
+  desktop overlay for a frame, and the desktop wizard renders its step swap with `:css="false"`
+  (no transition phase at all).
 - **Context-aware navbar** — both slots swap per page: home = menu + add, feed page =
   sidebar icon (→ home) alone (search sits on the list's title row instead — see Feed page v1),
   post page = back (→ its feed, carrying the search it was opened from) + Copy link + Open

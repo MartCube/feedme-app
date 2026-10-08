@@ -48,7 +48,7 @@ function isActive(to: string) {
                would light up beside a muted icon. -->
           <UIcon
             :name="section.icon"
-            class="size-6 transition-colors duration-300 ease-out"
+            class="size-6 transition-colors"
             :class="isActive(section.to) ? 'text-primary' : 'text-muted [@media(hover:hover)]:group-hover:text-primary'"
           />
           {{ section.label }}

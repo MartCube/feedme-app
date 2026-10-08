@@ -29,11 +29,22 @@ function openLink(event: MouseEvent) {
 <template>
   <div class="flex flex-col">
     <template v-if="post">
+      <!-- Title and meta first, then the picture: what it is and where it's
+           from read before the largest thing on the screen. mt-lg clears the
+           mobile navbar; on desktop the pinned action strip above already ends
+           in sm of its own (desktop/Shell.vue), so it takes the rest. -->
+      <h1 class="mt-lg text-title tracking-tight lg:mt-sm">
+        {{ post.title }}
+      </h1>
+      <FeedPostMeta
+        :post="post"
+        class="mt-2xs"
+      />
       <!-- A video post is its video: the player takes the image's slot. -->
       <FeedPostVideo
         v-if="post.video"
         :video="post.video"
-        class="mt-lg"
+        class="mt-md"
       />
       <!-- 56rem is --container-post, the measure the pane caps the body at.
            Eager and high priority: it is the largest thing on the screen, and
@@ -46,18 +57,8 @@ function openLink(event: MouseEvent) {
         sizes="(min-width: 1024px) 56rem, 100vw"
         eager
         no-upscale
-        class="mt-lg"
+        class="mt-md"
       />
-      <h1
-        class="text-title tracking-tight"
-        :class="post.video || post.image ? 'mt-md' : 'mt-lg'"
-      >
-        {{ post.title }}
-      </h1>
-      <time
-        :datetime="post.published_at"
-        class="mt-2xs text-caption text-muted"
-      >{{ formatDate(post.published_at) }}</time>
 
       <div
         v-if="articleState === 'loading'"

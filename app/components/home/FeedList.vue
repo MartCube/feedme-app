@@ -147,7 +147,7 @@ onScopeDispose(() => clearTimeout(flashTimer))
         </NuxtLink>
         <button
           type="button"
-          class="group/icon mr-sm flex size-12 shrink-0 items-center justify-center rounded-full transition-transform duration-200"
+          class="group/icon mr-sm flex size-12 shrink-0 items-center justify-center rounded-full transition-transform"
           :class="isExpanded('saved') && 'rotate-90'"
           :aria-expanded="isExpanded('saved')"
           :aria-label="isExpanded('saved') ? 'Collapse Saved' : 'Expand Saved'"
@@ -156,7 +156,7 @@ onScopeDispose(() => clearTimeout(flashTimer))
         >
           <UIcon
             name="i-ph-caret-right-bold"
-            class="size-6 transition-colors duration-300 ease-out [@media(hover:hover)]:group-hover/icon:text-primary"
+            class="size-6 transition-colors [@media(hover:hover)]:group-hover/icon:text-primary"
             :class="flashingIcon === 'saved' ? 'text-primary' : 'text-default'"
           />
         </button>
@@ -219,7 +219,7 @@ onScopeDispose(() => clearTimeout(flashTimer))
                navbar buttons' vertical axis despite the li's -mx-sm bleed. -->
           <button
             type="button"
-            class="group/icon mr-sm flex size-12 shrink-0 items-center justify-center rounded-full transition-transform duration-200"
+            class="group/icon mr-sm flex size-12 shrink-0 items-center justify-center rounded-full transition-transform"
             :class="isExpanded(folder.uid) && 'rotate-90'"
             :aria-expanded="isExpanded(folder.uid)"
             :aria-label="isExpanded(folder.uid) ? `Collapse ${folder.name}` : `Expand ${folder.name}`"
@@ -228,7 +228,7 @@ onScopeDispose(() => clearTimeout(flashTimer))
           >
             <UIcon
               name="i-ph-caret-right-bold"
-              class="size-6 transition-colors duration-300 ease-out [@media(hover:hover)]:group-hover/icon:text-primary"
+              class="size-6 transition-colors [@media(hover:hover)]:group-hover/icon:text-primary"
               :class="flashingIcon === folder.uid ? 'text-primary' : 'text-default'"
             />
           </button>

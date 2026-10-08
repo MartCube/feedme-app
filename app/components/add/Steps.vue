@@ -38,7 +38,12 @@ async function onChoose(destination: Destination) {
     class="slide-panels h-full"
     :style="slideVars"
   >
-    <Transition name="panel-slide">
+    <!-- css off when not sliding (the desktop page): the steps swap in one
+         frame with no leave-active phase, so there is nothing to glitch. -->
+    <Transition
+      name="panel-slide"
+      :css="props.slide"
+    >
       <AddTypeStep
         v-if="step === 'type'"
         key="type"

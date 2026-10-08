@@ -34,7 +34,7 @@ const surface = computed(() => {
     :to="to"
     variant="ghost"
     color="neutral"
-    :ui="{ base: `group/icon rounded-full justify-center ${buttonSize} transition-colors duration-300 ease-out ${surface}` }"
+    :ui="{ base: `group/icon rounded-full justify-center ${buttonSize} transition-colors ${surface}` }"
     @pointerdown="handlePress"
   >
     <!-- Hover lights the icon primary, the same cue hover-accent gives a list
@@ -43,7 +43,7 @@ const surface = computed(() => {
          touch. -->
     <UIcon
       :name="icon"
-      :class="[iconSize, 'transition-colors duration-300 ease-out [@media(hover:hover)]:group-hover/icon:text-primary', flashing ? 'text-primary' : 'text-default']"
+      :class="[iconSize, 'transition-colors [@media(hover:hover)]:group-hover/icon:text-primary', flashing ? 'text-primary' : 'text-default']"
     />
   </UButton>
 </template>

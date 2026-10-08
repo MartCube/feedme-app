@@ -25,10 +25,10 @@ export function panelSlideDirection(to: string, from: string): PanelSlide {
 // actually runs.
 export function panelSlideVars(slide: PanelSlide) {
   if (slide === 'pop') {
-    return { '--panel-duration': '0.35s', '--panel-enter-from': '-25%', '--panel-leave-to': '100%', '--panel-leave-z': '1' }
+    return { '--panel-duration': 'var(--duration-slide)', '--panel-enter-from': '-25%', '--panel-leave-to': '100%', '--panel-leave-z': '1' }
   }
   if (slide === 'push') {
-    return { '--panel-duration': '0.35s', '--panel-enter-from': '100%', '--panel-leave-to': '-25%', '--panel-enter-z': '1' }
+    return { '--panel-duration': 'var(--duration-slide)', '--panel-enter-from': '100%', '--panel-leave-to': '-25%', '--panel-enter-z': '1' }
   }
   return {}
 }

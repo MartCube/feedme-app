@@ -87,3 +87,17 @@ html[data-theme='claude'] {
     }
   }
 }
+
+/* Post card hover, desktop only: the card steps up to its selected surface,
+   bg-muted. Unlike a list row, a post card already rests on bg-elevated, so a
+   surface step is the cue that reads — hovered and selected look the same on
+   purpose. No shadow-elevated: its 1px edge is drawn in bg-elevated, which
+   on a bg-muted card is a darker outline, not an extension of the shape.
+   Same touch gate as hover-accent. */
+@utility hover-lift {
+  @media (hover: hover) {
+    &:hover {
+      background-color: var(--ui-bg-muted);
+    }
+  }
+}

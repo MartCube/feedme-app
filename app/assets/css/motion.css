@@ -1,0 +1,16 @@
+/* Motion — the app's two timings, in one place like spacing.css and
+   typography.css.
+
+   1. Feedback: every colour/surface change (hover, selection, the tap flash)
+      runs 300ms ease-out. Set as Tailwind's transition defaults, so a bare
+      `transition` / `transition-colors` gets it — app code never writes a
+      duration-* or ease-* class. This reaches Nuxt UI's own transitions too,
+      which is the point: one feel across the app.
+   2. Slide: pages and drawer panels move 350ms on iOS's curve
+      (transitions.css reads these). */
+@theme static {
+  --default-transition-duration: 300ms;
+  --default-transition-timing-function: cubic-bezier(0, 0, 0.2, 1); /* ease-out */
+  --ease-slide: cubic-bezier(0.32, 0.72, 0, 1);
+  --duration-slide: 350ms;
+}

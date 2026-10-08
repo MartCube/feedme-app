@@ -119,8 +119,10 @@ const { selectedUid, select } = useTapSelection()
          Mobile clears its navbar with mt-lg. Desktop has no navbar here, so the
          row sits on the top-row axis with the sidebar wordmark and the post
          actions, pinned the same way (see HomeFeedList's wordmark): the pane's
-         inset folds into an opaque strip so posts scroll away under it. -->
-    <div class="mt-lg flex h-12 items-center gap-sm lg:sticky lg:-top-lg lg:z-10 lg:-mx-lg lg:-mt-lg lg:box-content lg:bg-default lg:px-lg lg:pt-lg">
+         inset folds into an opaque strip so posts scroll away under it. The
+         strip runs sm past the row too, so a card never scrolls flush against
+         the search button; the list's top margin gives that sm back. -->
+    <div class="mt-lg flex h-12 items-center gap-sm lg:sticky lg:-top-lg lg:z-10 lg:-mx-lg lg:-mt-lg lg:box-content lg:bg-default lg:px-lg lg:pt-lg lg:pb-sm">
       <h1
         v-if="!open"
         class="min-w-0 flex-1 truncate text-title tracking-tight"
@@ -146,7 +148,7 @@ const { selectedUid, select } = useTapSelection()
       />
     </div>
 
-    <ul class="mt-md flex flex-col space-y-sm">
+    <ul class="mt-md flex flex-col space-y-sm lg:mt-xs">
       <li
         v-for="post in items"
         :key="post.uid"

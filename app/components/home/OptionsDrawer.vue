@@ -42,7 +42,7 @@ const { selectedUid, select } = useTapSelection()
             >
               <UIcon
                 :name="option.icon"
-                class="size-6 transition-colors duration-300 ease-out"
+                class="size-6 transition-colors"
                 :class="selectedUid === option.label ? 'text-primary' : 'text-muted'"
               />
               {{ option.label }}

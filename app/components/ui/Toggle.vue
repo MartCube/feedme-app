@@ -14,7 +14,7 @@ const model = defineModel<boolean>({ default: false })
     @click="model = !model"
   >
     <span
-      class="absolute left-1 size-6 rounded-full shadow-sm transition-all duration-200 ease-out"
+      class="absolute left-1 size-6 rounded-full shadow-sm transition-all"
       :class="model ? 'translate-x-6 bg-primary' : 'translate-x-0 bg-muted'"
     />
   </button>

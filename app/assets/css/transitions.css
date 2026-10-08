@@ -6,7 +6,7 @@
 .page-slide-left-leave-active,
 .page-slide-right-enter-active,
 .page-slide-right-leave-active {
-  transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+  transition: transform var(--duration-slide) var(--ease-slide);
   background-color: var(--ui-bg);
   /* A page shorter than the viewport must still cover the full screen while
      sliding, or the page behind it shows through below its content. */
@@ -59,14 +59,20 @@
   /* 0s is what makes a directionless swap instant, and it is load-bearing: a
      leaving panel goes position:absolute over the entering one, so holding it
      for 350ms while neither moves just freezes stale content on screen. Push
-     and pop raise this to 0.35s (utils/panel-slide.ts). Switching the
+     and pop raise this to --duration-slide (motion.css, via utils/panel-slide.ts). Switching the
      transition NAME instead does not work — see the note below. */
   --panel-duration: 0s;
+  /* The leaving panel's inset:0 must resolve against this box. Without it the
+     panel escapes to the nearest positioned ancestor — on desktop the whole
+     content overlay — and for a frame the step spans the screen to its right
+     edge. overflow clips the slide to the host, not the page. */
+  position: relative;
+  overflow: hidden;
 }
 
 .panel-slide-enter-active,
 .panel-slide-leave-active {
-  transition: transform var(--panel-duration) cubic-bezier(0.32, 0.72, 0, 1);
+  transition: transform var(--panel-duration) var(--ease-slide);
   background-color: var(--ui-bg);
 }
 

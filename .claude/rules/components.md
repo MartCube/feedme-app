@@ -33,6 +33,9 @@ design discussion — stop and ask. Stock sizes are fine *inside* Nuxt UI `:ui` 
   heading→content · `lg` screen inset and section gaps · `xl` bottom runway. Canonical slots:
   `page-inset` wraps every screen · `mt-lg` navbar→title · `mt-md` heading→content · `py-sm`
   rows · `p-sm` cards · `gap-sm` icon+label · `gap-xs` label+meta · `gap-2xs` intra-stack.
+- **Motion:** never write `duration-*` / `ease-*` — timing comes from `app/assets/css/motion.css`
+  (a bare `transition-colors` gets 300ms ease-out; slides use `--duration-slide` / `--ease-slide`).
+  A new timing is a design discussion.
 - A new spacing/type token must also be taught to tailwind-merge in `app.config.ts`
   (`ui.tv.twMergeConfig`) or `:ui` overrides silently lose.
 

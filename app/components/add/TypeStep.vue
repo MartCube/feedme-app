@@ -54,7 +54,7 @@ onScopeDispose(() => clearTimeout(flashTimer))
           </span>
           <UIcon
             name="i-ph-caret-right-bold"
-            class="size-5 shrink-0 transition-colors duration-300 ease-out"
+            class="size-5 shrink-0 transition-colors"
             :class="flashingType === option.type ? 'text-primary' : 'text-muted'"
           />
         </button>

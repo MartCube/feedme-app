@@ -80,7 +80,7 @@ with global sources it grows with the source count, not the reader count.
 | Image | Where the URL comes from | Shown | Recipe | When it can't | Task |
 | --- | --- | --- | --- | --- | --- |
 | **Post image, card** | `Post.image_url` — ingest's `media:thumbnail` → image enclosure pick | the *image* style of PostCard, a square beside the text | 16:9 fill, widths 480 / 960 / 1440 / 1920, WebP — the box crops it square | the card is *compact* | T15a |
-| **Post image, hero** | same | the post page, above the title | same family, `sizes` for the reading measure | no hero | T15a |
+| **Post image, hero** | same | the post page, below the title and meta row | same family, `sizes` for the reading measure | no hero | T15a |
 | **Feed icon** | `Source.icon_url` — see § Feed icons below | add-wizard rows for every type; other surfaces when the design says so | 64 × 64 fill-down, centre crop (ICO and SVG in) | `UAvatar` initials | T15b |
 | **Article images** | `<img src>` inside `article_html` (T10) | the reader | fit to the reading width, no crop, rewritten at read time | dropped from the markup (no key, an unproxiable `src`); a proxy fetch failure at render time is the browser's own broken image | T15c |
 | **User avatar** | Google's `picture` claim | Settings → Account | 64 × 64 | initials | T15b, optional |

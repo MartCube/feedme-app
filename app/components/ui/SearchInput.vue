@@ -45,7 +45,7 @@ const canTrail = computed(() => props.submit || props.paste)
 // vertical padding follows `size` rather than sitting at the hero step for all
 // of them.
 const box = computed(() => [
-  'px-sm text-body rounded-2xl transition duration-300 ease-out',
+  'px-sm text-body rounded-2xl transition',
   props.size === 'xl' ? 'py-sm' : 'py-xs',
   canTrail.value ? '' : 'pe-sm!',
 ].join(' '))

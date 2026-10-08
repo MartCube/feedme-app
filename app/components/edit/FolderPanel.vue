@@ -98,7 +98,7 @@ const deletePath = computed(() => `/edit/${props.folder.uid}/delete`)
       <UInput
         v-model="name"
         class="mt-xs w-full"
-        :ui="{ base: 'px-sm py-sm text-body rounded-2xl transition duration-300 ease-out' }"
+        :ui="{ base: 'px-sm py-sm text-body rounded-2xl transition' }"
         @keydown.enter="save"
       />
     </section>

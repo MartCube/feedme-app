@@ -90,8 +90,9 @@ useHead({
                  reach through a long read. Right-aligned within the reading
                  measure so it stays beside the text, not the pane. Height
                  reserved (an IconButton's) so the title doesn't drop when the
-                 post arrives and the actions appear. -->
-            <div class="sticky -top-lg z-10 -mx-lg -mt-lg bg-default px-lg pt-lg">
+                 post arrives and the actions appear. The strip runs sm past the
+                 row, so text never scrolls flush against the buttons. -->
+            <div class="sticky -top-lg z-10 -mx-lg -mt-lg bg-default px-lg pt-lg pb-sm">
               <div class="flex h-12 max-w-post items-center justify-end">
                 <FeedPostActions
                   v-if="readerPost"

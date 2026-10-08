@@ -46,7 +46,7 @@ function initials(name: string) {
       >
         <UIcon
           name="i-ph-caret-right-bold"
-          class="size-6 transition-colors duration-300 ease-out"
+          class="size-6 transition-colors"
           :class="selectedFeeds.length ? 'text-default' : 'text-dimmed'"
         />
       </button>

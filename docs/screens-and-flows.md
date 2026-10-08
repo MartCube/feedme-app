@@ -218,12 +218,15 @@ empty search says which query matched nothing; a failed page says the posts coul
 and stops asking, rather than retrying into a server that just refused.
 
 **PostCard** comes in **two versions**, chosen in Settings → Appearance → *Post cards*: **Image**
-(default) — a square thumbnail beside the text: a meta row (the feed's name, linking to its
-`site_url`, a type icon, `·`, `published_at`), the `title`, and a three-line excerpt of the
-`summary` — and **Compact** — the date and title alone. The title link covers the whole card; the
-feed link sits above it. A post with no image is compact under either setting, and an image that
-fails to load collapses the card to compact rather than leaving a broken box. The image is the
-API's `post.image` (a proxied, resized `src`/`srcset` — [images.md](./images.md)); tapping the card opens the Post page.
+(default) — a square thumbnail beside the text: a meta row (a type icon and the feed's name,
+linking to its `site_url` and always underlined, then `·` and `published_at`), the `title`, and a
+three-line excerpt of the `summary` — and **Compact** — the date and title alone. The title link
+covers the whole card; the feed link sits above it. A post with no image is compact under either
+setting, and an image that fails to load collapses the card to compact rather than leaving a
+broken box. The image is the API's `post.image` (a proxied, resized `src`/`srcset` —
+[images.md](./images.md)); tapping the card opens the Post page. A card rests on the elevated
+surface; the selected card — and, on desktop, the hovered one — steps up to the muted surface
+(see [design-system.md](./design-system.md) § Color roles → Hover state).
 
 **Desktop:** the posts pane is always visible (50% by default; 60% or 40% per Settings → Appearance → *Reading panes*) beside the post pane; there is
 no back navigation for it (nothing to go back to — the sidebar is always there instead). Its
@@ -238,12 +241,13 @@ the Routing note.
 it renders beside the feed list on desktop and full-screen on mobile.
 
 **The user can:**
-- Read the post: a 16:9 **hero** (`post.image`, above the title, never enlarged past its own
-  width; absent when the post has none or it fails to load — [images.md](./images.md) §
-  Rendering) — or, for a YouTube post, the **video player** in its place (a Short gets a tall
-  9:16 box), with the description's line breaks kept and no inline **Open source** (the action
-  bar has it), `title`, formatted `published_at`,
-  and its text. The **article text** — extracted and sanitised server-side — is the one text
+- Read the post, top to bottom: the `title`; the same **meta row** the card has (the feed's
+  name, linking to its `site_url`, then `·` and the formatted `published_at` — the date alone
+  once the feed is deleted); a 16:9 **hero** (`post.image`, never enlarged past its own width;
+  absent when the post has none or it fails to load — [images.md](./images.md) § Rendering) —
+  or, for a YouTube post, the **video player** in its place (a Short gets a tall 9:16 box), with
+  the description's line breaks kept and no inline **Open source** (the action bar has it); and
+  the text. The **article text** — extracted and sanitised server-side — is the one text
   field the screen renders as markup; when extraction can't produce one the screen falls back to
   what RSS gave us (`summary`) as plain text — untrusted third-party markup, never rendered as
   HTML — plus **Open source**.
