@@ -149,7 +149,9 @@ own status: **read that file's § Status for what to build next.**
   bare name. A result already in one of the user's feeds **stays pickable** _(changed
   2026-10-08; it used to be dimmed and locked as "Following")_ with an **"In your feeds ·"**
   caption in front of its feed URL, and each row is captioned with that **feed URL**, since one
-  page can declare several feeds and that is what tells them apart. A **keyword under the YouTube card** searches
+  page can declare several feeds and that is what tells them apart. _(2026-10-08)_ A YouTube
+  search hit shows its **subscriber count** instead of the URL, and every result carries an
+  open-in-new-tab link to its channel or site (`site_url`). A **keyword under the YouTube card** searches
   YouTube by channel name _(T11b, 2026-09-11)_: up to five channels, each row leading with the
   channel's avatar (through the image proxy since T15b, _2026-09-28_ — before that a hotlink
   with `referrerpolicy="no-referrer"`, since Google's image CDN 429s a hotlink carrying a

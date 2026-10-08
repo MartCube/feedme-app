@@ -112,6 +112,8 @@ def test_a_pasted_feed_url_comes_back_as_one_candidate(authed_client, monkeypatc
             # the feed's RSS <image> is a logo, not an icon, and there's no page in hand to
             # read one from — so the free guess at the site's favicon (core/icons.py)
             'icon': images.icon('https://medium.com/favicon.ico'),
+            # a count only a YouTube search hit carries
+            'subscribers': None,
             'already_subscribed': False,
         }
     ]

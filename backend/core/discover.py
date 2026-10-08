@@ -89,6 +89,8 @@ class Candidate:
     feed_url: str
     site_url: str = ''
     icon_url: str = ''
+    # YouTube search hits only (core/youtube.py); a pasted URL resolves without the Data API
+    subscribers: int | None = None
 
 
 def discover(source_type, query):
@@ -135,6 +137,7 @@ def _from_channel(channel):
         feed_url=YOUTUBE_FEED.format(channel.id),
         site_url=YOUTUBE_CHANNEL.format(channel.id),
         icon_url=channel.thumbnail,
+        subscribers=channel.subscribers,
     )
 
 

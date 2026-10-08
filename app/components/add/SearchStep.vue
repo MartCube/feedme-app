@@ -13,6 +13,12 @@ function displayUrl(url: string) {
   return url.replace(/^https?:\/\//, '')
 }
 
+// "412K subscribers" — compact, the way YouTube itself shows it.
+const compact = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 })
+function subscriberLabel(count: number) {
+  return `${compact.format(count)} ${count === 1 ? 'subscriber' : 'subscribers'}`
+}
+
 // The fallback when a feed has no icon. UAvatar's own takes the first letter of
 // the first two words, which turns "Vue.js - The progressive…" into "V-" — so
 // only words that start with a letter or digit count.
@@ -84,7 +90,11 @@ function initials(name: string) {
     </ul>
 
     <!-- Tapping anywhere on a card toggles its checkbox — multi-select, the
-         header's forward button advances once at least one feed is picked. -->
+         header's forward button advances once at least one feed is picked. The
+         card isn't the button itself: its link out would be interactive inside
+         interactive. The select button stretches over the whole card instead
+         (absolute inset-0), and the link sits above it (relative z-10) — the
+         post card's pattern; isolate keeps that z-10 inside the card. -->
     <ul
       v-else-if="results.length"
       class="mt-md flex flex-col gap-sm"
@@ -92,54 +102,74 @@ function initials(name: string) {
       <li
         v-for="result in results"
         :key="result.feed_url"
+        class="relative isolate flex items-center gap-sm rounded-2xl bg-elevated p-sm shadow-elevated"
       >
         <button
           type="button"
-          class="flex w-full items-center gap-sm rounded-2xl bg-elevated p-sm text-left shadow-elevated transition-colors"
+          class="absolute inset-0 rounded-2xl"
           :aria-pressed="wizard.isSelected(result)"
           :aria-label="`Select ${result.name}`"
           @click="wizard.toggleFeed(result)"
-        >
-          <!-- Every type has a face: five channels named "One Piece" are told apart by
-               their avatars, and a site by its icon. `icon` is a square proxied crop, or
-               null — then, and when the image fails to load, UAvatar shows the name's
-               initials. alt="" because the button's aria-label already names the feed.
-               Not loading="lazy": at most five rows, all on screen, and inside the
-               drawer Chrome never got round to fetching a lazy one at all. -->
-          <UAvatar
-            :src="result.icon ?? undefined"
-            alt=""
-            :text="initials(result.name)"
-            size="xl"
-            class="shrink-0"
-            :ui="{ root: 'bg-muted', fallback: 'text-caption font-semibold text-muted uppercase' }"
-          />
-          <span class="min-w-0 flex-1">
-            <span class="block truncate text-body">{{ result.name }}</span>
-            <!-- The feed URL, not the site: one page can declare several feeds, and this
-                 is the only thing that tells them apart — same reason the edit panel keeps
-                 it on screen. It is also what actually gets subscribed. -->
-            <!-- A source can sit in several feeds, so one you follow stays
-                 pickable — the caption just says it's already in one. -->
-            <span class="block truncate text-caption text-muted">
+        />
+        <!-- Every type has a face: five channels named "One Piece" are told apart by
+             their avatars, and a site by its icon. `icon` is a square proxied crop, or
+             null — then, and when the image fails to load, UAvatar shows the name's
+             initials. alt="" because the button's aria-label already names the feed.
+             Not loading="lazy": at most five rows, all on screen, and inside the
+             drawer Chrome never got round to fetching a lazy one at all. -->
+        <UAvatar
+          :src="result.icon ?? undefined"
+          alt=""
+          :text="initials(result.name)"
+          size="xl"
+          class="shrink-0"
+          :ui="{ root: 'bg-muted', fallback: 'text-caption font-semibold text-muted uppercase' }"
+        />
+        <span class="min-w-0 flex-1">
+          <span class="block truncate text-body">{{ result.name }}</span>
+          <!-- A YouTube search hit says how big the channel is; anything else shows its
+               feed URL, not the site: one page can declare several feeds, and this is the
+               only thing that tells them apart. A source can sit in several feeds, so one
+               you follow stays pickable — the caption just says it's already in one,
+               after the short count but before a URL that truncates anyway. -->
+          <span class="block truncate text-caption text-muted">
+            <template v-if="result.subscribers !== null">
+              {{ subscriberLabel(result.subscribers) }}<template v-if="result.already_subscribed"> · In your feeds</template>
+            </template>
+            <template v-else>
               <template v-if="result.already_subscribed">In your feeds · </template>{{ displayUrl(result.feed_url) }}
-            </span>
+            </template>
           </span>
-          <!-- Page-bg circle reads as a well punched into the card; checking
-               only drops a primary checkmark in, nothing else changes. -->
-          <span
-            class="flex size-10 shrink-0 items-center justify-center"
-            aria-hidden="true"
-          >
-            <span class="flex size-8 items-center justify-center rounded-full bg-default">
-              <UIcon
-                v-if="wizard.isSelected(result)"
-                name="i-ph-check-bold"
-                class="size-5 text-primary"
-              />
-            </span>
+        </span>
+        <!-- The channel or site itself, in a new tab — to judge it before
+             picking it. -->
+        <a
+          v-if="result.site_url"
+          :href="result.site_url"
+          target="_blank"
+          rel="noopener noreferrer"
+          :aria-label="`Open ${result.name} in a new tab`"
+          class="group/icon relative z-10 flex size-10 shrink-0 items-center justify-center rounded-full"
+        >
+          <UIcon
+            name="i-ph-arrow-square-out-bold"
+            class="size-5 text-muted transition-colors [@media(hover:hover)]:group-hover/icon:text-primary"
+          />
+        </a>
+        <!-- Page-bg circle reads as a well punched into the card; checking
+             only drops a primary checkmark in, nothing else changes. -->
+        <span
+          class="flex size-10 shrink-0 items-center justify-center"
+          aria-hidden="true"
+        >
+          <span class="flex size-8 items-center justify-center rounded-full bg-default">
+            <UIcon
+              v-if="wizard.isSelected(result)"
+              name="i-ph-check-bold"
+              class="size-5 text-primary"
+            />
           </span>
-        </button>
+        </span>
       </li>
     </ul>
 

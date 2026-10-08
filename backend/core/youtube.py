@@ -5,16 +5,18 @@ pasted channel URL or @handle resolves through the channel page (core/discover.p
 neither spends any quota. This module is only the keyword case, and it is shaped by the
 quota: 10,000 units a day per key, and `search.list` costs 100 of them, so roughly a
 hundred searches. Every answer is cached, and a search that fails is not — an error would
-otherwise be served for a day.
+otherwise be served for a day. Each search also asks `channels.list` for the hits'
+subscriber counts — one call for all of them, 1 unit — so the wizard can show how big a
+channel is before it's picked.
 
-`fetch_search` is the one function that touches the network, so a test replaces exactly
-that, the way test_discover.py replaces `discover.fetch_page`.
+`fetch_search` and `fetch_statistics` are the only functions that touch the network, so a
+test replaces exactly those, the way test_discover.py replaces `discover.fetch_page`.
 """
 
 import hashlib
 import logging
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import requests
 from django.conf import settings
@@ -25,6 +27,7 @@ from .fetch import USER_AGENT
 logger = logging.getLogger(__name__)
 
 SEARCH_URL = 'https://www.googleapis.com/youtube/v3/search'
+CHANNELS_URL = 'https://www.googleapis.com/youtube/v3/channels'
 # (connect, read). The add wizard is waiting on this.
 TIMEOUT = (5, 10)
 # What fits the wizard's list; more channels named alike would not help anyone choose
@@ -44,6 +47,8 @@ class Channel:
     id: str
     title: str
     thumbnail: str
+    # None when the channel hides its count, or when the statistics call didn't answer
+    subscribers: int | None = None
 
 
 def is_configured():
@@ -65,7 +70,11 @@ def search_channels(query):
             logger.warning('youtube: search failed — %s', type(exc).__name__)
             raise YouTubeUnavailable() from exc
         channels = _channels(body)
-        cache.set(key, channels, CACHE_TTL)
+        counted = _with_subscribers(channels)
+        # cached only with its counts: a statistics blip would otherwise hide them for a day
+        if counted is not None:
+            channels = counted
+            cache.set(key, channels, CACHE_TTL)
     return channels
 
 
@@ -85,6 +94,49 @@ def fetch_search(query):
     )
     response.raise_for_status()
     return response.json()
+
+
+def fetch_statistics(channel_ids):
+    """channels.list?part=statistics for every id at once, as the parsed JSON body."""
+    response = requests.get(
+        CHANNELS_URL,
+        params={
+            'part': 'statistics',
+            'id': ','.join(channel_ids),
+            'maxResults': MAX_RESULTS,
+            'key': settings.YOUTUBE_API_KEY,
+        },
+        headers={'user-agent': USER_AGENT},
+        timeout=TIMEOUT,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def _with_subscribers(channels):
+    """The channels with their subscriber counts, or None if the call failed.
+
+    A failure doesn't fail the search — the hits are still worth showing — it just isn't
+    cached, so the next search asks again.
+    """
+    if not channels:
+        return channels
+    try:
+        body = fetch_statistics([channel.id for channel in channels])
+    except requests.RequestException as exc:
+        # same rule as the search: the URL carries the key, so only the class is logged
+        logger.warning('youtube: statistics failed — %s', type(exc).__name__)
+        return None
+    counts = {}
+    for item in body.get('items', []):
+        statistics = item.get('statistics', {})
+        if statistics.get('hiddenSubscriberCount') or 'subscriberCount' not in statistics:
+            continue
+        try:
+            counts[item.get('id')] = int(statistics['subscriberCount'])
+        except (TypeError, ValueError):
+            continue
+    return [replace(channel, subscribers=counts.get(channel.id)) for channel in channels]
 
 
 def _channels(body):

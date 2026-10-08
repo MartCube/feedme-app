@@ -41,6 +41,9 @@ class DiscoverResultSchema(Schema):
     feed_url: str
     # a signed proxy URL, or null — the app renders initials then (docs/images.md)
     icon: str | None
+    # a YouTube search hit's subscriber count, so a channel can be judged before it's
+    # picked; null for anything else, or a channel that hides it
+    subscribers: int | None
     # already in one of the caller's feeds — the wizard says so, and still lets it be picked:
     # a source can sit in several feeds
     already_subscribed: bool

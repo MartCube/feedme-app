@@ -1,6 +1,7 @@
 """The YouTube card's keyword search — GET /discover?type=youtube&q=<name>.
 
-Every test replaces `youtube.fetch_search`, the module's one network call, the way
+Every test replaces `youtube.fetch_search` and `youtube.fetch_statistics`, the module's two
+network calls, the way
 test_discover.py replaces `discover.fetch_page`. The canned body is a real `search.list`
 answer trimmed to the fields we read, so what's parsed here is the shape Google sends.
 """
@@ -44,9 +45,46 @@ SEARCH_RESPONSE = {
 }
 
 
+# channels.list?part=statistics for the hit above, trimmed to what we read.
+STATISTICS_RESPONSE = {
+    'kind': 'youtube#channelListResponse',
+    'items': [
+        {
+            'kind': 'youtube#channel',
+            'id': CHANNEL_ID,
+            'statistics': {
+                'viewCount': '98765432',
+                'subscriberCount': '412000',
+                'hiddenSubscriberCount': False,
+                'videoCount': '1234',
+            },
+        }
+    ],
+}
+
+
 @pytest.fixture(autouse=True)
 def api_key(settings):
     settings.YOUTUBE_API_KEY = 'test-key'
+
+
+def serve_statistics(monkeypatch, response=STATISTICS_RESPONSE):
+    """Answer every statistics call with `response` (or raise it). Returns the ids asked."""
+    asked = []
+
+    def fetch_statistics(channel_ids):
+        asked.append(list(channel_ids))
+        if isinstance(response, Exception):
+            raise response
+        return response
+
+    monkeypatch.setattr(youtube, 'fetch_statistics', fetch_statistics)
+    return asked
+
+
+@pytest.fixture(autouse=True)
+def statistics(monkeypatch):
+    return serve_statistics(monkeypatch)
 
 
 def serve(monkeypatch, response=SEARCH_RESPONSE):
@@ -81,9 +119,44 @@ def test_a_channel_name_finds_channels(authed_client, monkeypatch):
             # same POST /feeds either way
             'feed_url': VIDEOS,
             'icon': images.icon(THUMBNAIL),
+            'subscribers': 412000,
             'already_subscribed': False,
         }
     ]
+
+
+def test_one_statistics_call_covers_every_hit(authed_client, monkeypatch, statistics):
+    serve(monkeypatch)
+
+    search(authed_client, 'ski essentials')
+    search(authed_client, 'ski essentials')
+
+    # one call for all the hits, and the cached search spends none
+    assert statistics == [[CHANNEL_ID]]
+
+
+def test_a_hidden_subscriber_count_is_null(authed_client, monkeypatch):
+    serve(monkeypatch)
+    hidden = {'items': [{'id': CHANNEL_ID, 'statistics': {'hiddenSubscriberCount': True}}]}
+    serve_statistics(monkeypatch, hidden)
+
+    assert search(authed_client, 'ski essentials').json()[0]['subscribers'] is None
+
+
+def test_failed_statistics_still_answer_and_are_not_cached(authed_client, monkeypatch):
+    asked = serve(monkeypatch)
+    serve_statistics(monkeypatch, requests.ConnectionError())
+
+    response = search(authed_client, 'ski essentials')
+
+    # the hits are still worth showing; only the count is missing
+    assert response.status_code == 200
+    assert response.json()[0]['subscribers'] is None
+
+    serve_statistics(monkeypatch)
+    assert search(authed_client, 'ski essentials').json()[0]['subscribers'] == 412000
+    # not cached without its counts, so the second search asked again
+    assert len(asked) == 2
 
 
 def test_a_keyword_under_another_card_never_asks_youtube(authed_client, monkeypatch):

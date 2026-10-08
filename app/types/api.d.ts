@@ -487,10 +487,10 @@ export interface components {
         };
         /**
          * DiscoverResultSchema
-         * @description A candidate feed. HomeFeedSchema minus the uid it hasn't earned, plus the flag.
+         * @description A candidate source: what the wizard shows, before it has a uid.
          *
-         *     Field-for-field the same names as a real feed on purpose — the frontend's
-         *     `FeedCandidate` is this schema, and it hands `feed_url` straight to POST /feeds.
+         *     The frontend's `FeedCandidate` is this schema, and it hands `feed_url` straight to
+         *     POST /feeds (a new feed) or POST /feeds/{uid}/sources (an existing one).
          */
         DiscoverResultSchema: {
             /** Name */
@@ -506,6 +506,8 @@ export interface components {
             feed_url: string;
             /** Icon */
             icon: string | null;
+            /** Subscribers */
+            subscribers: number | null;
             /** Already Subscribed */
             already_subscribed: boolean;
         };

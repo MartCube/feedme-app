@@ -302,7 +302,11 @@ loading skeleton while `/discover` answers → a short **results list** (name + 
 which is what tells two feeds off one page apart; a YouTube channel leads with its avatar, and
 there is no type icon since the type is in the header), each a multi-select card. A result
 that is already in one of the user's feeds stays pickable — a source can sit in several — and
-carries an **"In your feeds ·"** caption before its feed URL.
+carries an **"In your feeds ·"** caption before its feed URL. A **YouTube search hit** is
+captioned with its **subscriber count** instead ("61.4K subscribers · In your feeds"), and
+every result has an **open-in-new-tab icon** linking its channel or site, so it can be judged
+before it's picked _(2026-10-08)_. The select button stretches over the card and the link sits
+above it — the post card's pattern, since a link can't live inside a button.
 
 **Phase 3 — choose destination.** The forward button advances here. A quiet "Adding" list of
 the picked sources, then **Add to**: a **New feed** card first (always there, and the common
