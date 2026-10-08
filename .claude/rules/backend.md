@@ -13,10 +13,9 @@ the compose workflow.
 
 | Term | What it is | Public? |
 |---|---|---|
-| **Source** | One RSS endpoint. Global, deduplicated, polled once. | No — never leaks to the frontend |
+| **Source** | One RSS endpoint. Global, deduplicated, polled once. Shown as a feed's sources. | `source_*` |
 | **Post** | One item of a source, deduped per source by guid. | `post_*` |
-| **Feed** | The user↔source link — *their* handle on a source. (`Subscription` was vetoed.) | `feed_*` |
-| **Folder** | A user's named group of feeds; many-to-many, per-folder mute. | `folder_*` |
+| **Feed** | A user's named group of sources — one or many, each on/off and renameable in it (`FeedSource`). (`Subscription` was vetoed; folders were retired 2026-10-08.) | `feed_*` |
 | **Saved** | Per-user post→group map; fixed groups Bookmarks / Favorites / Later. | `saved_*` |
 
 The backend mints every public uid. A new public noun, field, or endpoint name is a discussion,

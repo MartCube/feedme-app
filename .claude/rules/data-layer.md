@@ -19,13 +19,12 @@ paths:
 - **Every call is client-only.** SSR renders the shell; account data loads in `app.vue`'s
   `onMounted`, never in middleware. Each store captures `useNuxtApp()` at setup — actions
   resume past `await` where it has no context to find.
-- Stores are `auth`, `feeds`, `settings`. Writes are optimistic-with-rollback except
-  `addFeed` / `addFolder`, which await server-minted uids. **No wrapper composables around
-  stores** — use them directly.
-- Uids are prefixed and backend-minted: `feed_*`, `folder_*`, `post_*`, the fixed `saved_*`
+- Stores are `auth`, `feeds`, `settings`. Writes are optimistic-with-rollback except the
+  creates (`addFeed`, `addSource`, `relinkSource`), which await the server. **No wrapper
+  composables around stores** — use them directly.
+- Uids are prefixed and backend-minted: `feed_*`, `source_*`, `post_*`, the fixed `saved_*`
   groups (`app/utils/saved.ts`), plus the literals `all` / `saved`. The resolver reads them in
-  that order — one polymorphic `/feeds/{uid}/posts` serves feed, folder, `all` and `saved`. A
+  that order — one polymorphic `/feeds/{uid}/posts` serves a feed, `all` and `saved`. A
   new public noun is a discussion (`docs/backend.md` § Vocabulary), never a unilateral call.
-  `Source` is backend-only and never appears on screen.
 - Justify every new composable or util, or cut it — say which part is moved code and which is
   new.

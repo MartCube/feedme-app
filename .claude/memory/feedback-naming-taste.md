@@ -8,12 +8,13 @@ metadata:
 ---
 
 The user rejects enterprise-flavored entity names ("Subscription" was vetoed hard) and wants
-backend and frontend to use **the same noun for the same concept** — the user↔source entity is
-`Feed` on both sides (2026-07-12 backend spec); only truly backend-internal entities (`Source`)
-may have backend-only names.
+backend and frontend to use **the same noun for the same concept**. Since 2026-10-08 a `Feed` is
+a user's named group of `Source`s (one or many) and `Source` is user-facing; folders were
+retired as a concept, so don't reintroduce a grouping noun above Feed. The join row is
+`FeedSource` in code only.
 
 **Why:** translation layers between API vocabulary and UI vocabulary create permanent
-confusion; naming was important enough to him to open the backend session with it.
+confusion; naming was important enough to the user to open the backend session with it.
 
 **How to apply:** when introducing a new entity, start from what the frontend/docs already
 call it; propose plain product words, not architecture-pattern words. Check

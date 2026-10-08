@@ -38,7 +38,7 @@ Nuxt 4 (Vue 3 + TypeScript), source in `app/`, pnpm. @nuxt/ui v4 bundles Tailwin
   route pages under `app/pages/{settings,add,edit}*`; no new markdown outside `docs/`,
   `.claude/`, `pending_tasks/`; no foreground `pnpm dev` / `docker compose up` (background
   them or use `-d`); pnpm only, never npm/npx/yarn.
-- Vocabulary is shared end to end — `Feed`, `Folder`, `Post`, `Saved`; `Source` is
-  backend-only. No wrapper composables around Pinia stores. Spacing is the default separator;
-  hairline dividers are allowed, never stacked with gap + card edge. No gloss; elevation is
-  `shadow-elevated`.
+- Vocabulary is shared end to end — `Feed` (a user's group of sources), `Source`, `Post`,
+  `Saved`; there are no folders. No wrapper composables around Pinia stores. Spacing is the
+  default separator; hairline dividers are allowed, never stacked with gap + card edge. No
+  gloss; elevation is `shadow-elevated`.

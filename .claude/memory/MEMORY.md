@@ -1,9 +1,9 @@
 # Memory Index
 
-- [Gotchas](project-gotchas.md) — traps learned the hard way: pnpm typescript/vue-tsc/allowBuilds/no-npx, plugin MCP tool naming + session-start loading, Nuxt remount quirks, Nuxt UI/vaul, custom scrollbars + verifying them headlessly, ruff hook eating imports between edits, worker/scheduler no-autoreload, shell probing; check before "fixing" related code
+- [Gotchas](project-gotchas.md) — traps learned the hard way: pnpm typescript/vue-tsc/allowBuilds/no-npx, plugin MCP tool naming + session-start loading, Nuxt remount quirks, Nuxt UI/vaul, custom scrollbars + verifying them headlessly, ruff hook eating imports between edits, worker/scheduler no-autoreload, shell probing, headless verify via puppeteer + throwaway account, git rm staging leaks; check before "fixing" related code
 - [Claude dir layout](project-claude-dir-layout.md) — everything Claude-Code/superpowers-related lives under .claude/ (plans, specs, scratch, memory); never in docs/ or root
 - [Docs are source of truth](project-docs-source-of-truth.md) — docs/ is the agreed product spec, check it before building; current-state.md tracks status/decisions; batch doc edits at session end / pre-commit
-- [Naming taste](feedback-naming-taste.md) — no enterprise-speak entity names (Subscription vetoed → Feed); backend + frontend share the same nouns; check docs/backend.md vocabulary table
+- [Naming taste](feedback-naming-taste.md) — no enterprise-speak entity names (Subscription vetoed); same nouns end to end; Feed = group of Sources, no folders (2026-10-08)
 - [Model policy](feedback-model-policy.md) — Claude Pro era: main loop opus; judgment/prose subagents sonnet; mechanical (git, checker) haiku; tier by failure cost
 - [Full access, direct execution](feedback-full-file-access.md) — blanket read/edit on all project files, no permission asking; no subagent/task ceremony for simple fixes
 - [Discuss before building](feedback-discuss-before-building.md) — for ANY building work: present plan/strategy, discuss, agree, then act; simple concrete fixes exempt
@@ -15,7 +15,6 @@
 - [Verification approach](feedback-verification-approach.md) — split by side: frontend = lint + typecheck + manual review (Vitest for store logic later); backend = pytest + pytest-django from roadmap T1, tests written with the task
 - [Green suites prove little](feedback-network-features-real-urls.md) — fetch/parse features need real messy URLs; jobs/retention need the real dev database with other jobs running (two jobs can undo each other invisibly)
 - [Git workflow](feedback-git-workflow.md) — solo single-branch; commit straight to main, no auto-branching, only push when asked; delegate commits/pushes to the git subagent proactively
-- [Mock data realism](project-mock-data-realism.md) — all uids show ALL mock posts on purpose; usePostList resolver deferred until real data
 - [No incoherent deferrals](feedback-no-incoherent-deferrals.md) — don't defer a visible piece when its architecture must be built anyway; build the coherent slice with the temporary bit swappable inside it
 - [Minimal machinery](feedback-minimal-machinery.md) — justify every new composable/util in detail or cut it; separate "moved code" from "new code" in plans
 - [One integration per task](feedback-one-integration-per-task.md) — a YouTube/Reddit/website task stays inside its own type; don't unify result shapes or justify a field by a future task

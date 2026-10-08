@@ -66,4 +66,5 @@ snapshot will show you:
 - `button[aria-label="Close settings"]`, `button[aria-label="Close add feed"]`
 - `a[aria-label="Back to settings"]` (settings subpage), `button[aria-label="Back"]` (wizard)
 - Wizard result rows: `ul li button[aria-label="Add feed"]`
-- Destination plus: `button[aria-label="Add to <FolderName>"]` / `"Add to top level"`
+- Destination: `button[aria-label="Add to <FeedName>"]`, or the "New feed" row
+- Feed page: `button[aria-label="Hide <Source> in this feed"]` / `"Show …"` toggles, `a[aria-label="Edit feed"]`

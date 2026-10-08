@@ -67,8 +67,8 @@ form under the `verify` skill. Emulate or inject to see the desktop branch.
 
 ## Vocabulary
 
-The UI, the API and the database share **the same nouns** — `Feed`, `Folder`, `Post`,
-`Saved`; `Source` is backend-only and must never appear on screen. Uid prefixes and the
+The UI, the API and the database share **the same nouns** — `Feed` (a user's group of
+sources), `Source`, `Post`, `Saved`; there are no folders. Uid prefixes and the
 resolver order are in `rules/data-layer.md`; the full table is `docs/backend.md`
 § Vocabulary. A new public noun is a discussion, not a unilateral call.
 
