@@ -218,13 +218,14 @@ empty search says which query matched nothing; a failed page says the posts coul
 and stops asking, rather than retrying into a server that just refused.
 
 **PostCard** comes in **two versions**, chosen in Settings → Appearance → *Post cards*: **Image**
-(default) — a fixed 16:9 image on top, then `published_at` and `title` — and **Compact** — the
-date and title alone. A post with no image is compact under either setting, and an image that
+(default) — a square thumbnail beside the text: a meta row (the feed's name, linking to its
+`site_url`, a type icon, `·`, `published_at`), the `title`, and a three-line excerpt of the
+`summary` — and **Compact** — the date and title alone. The title link covers the whole card; the
+feed link sits above it. A post with no image is compact under either setting, and an image that
 fails to load collapses the card to compact rather than leaving a broken box. The image is the
-API's `post.image` (a proxied, resized `src`/`srcset` — [images.md](./images.md)); a type cue
-from the parent feed is still to come. Tapping the card opens the Post page.
+API's `post.image` (a proxied, resized `src`/`srcset` — [images.md](./images.md)); tapping the card opens the Post page.
 
-**Desktop:** the posts pane is fixed-width and always visible beside the post pane; there is
+**Desktop:** the posts pane is always visible (50% by default; 60% or 40% per Settings → Appearance → *Reading panes*) beside the post pane; there is
 no back navigation for it (nothing to go back to — the sidebar is always there instead). Its
 title/search row stays pinned to the top of the pane while the list scrolls beneath it — see
 the Routing note.
@@ -237,8 +238,11 @@ the Routing note.
 it renders beside the feed list on desktop and full-screen on mobile.
 
 **The user can:**
-- Read the post: a 16:9 **hero** (`post.image`, above the title; absent when the post has none or
-  it fails to load — [images.md](./images.md) § Rendering), `title`, formatted `published_at`,
+- Read the post: a 16:9 **hero** (`post.image`, above the title, never enlarged past its own
+  width; absent when the post has none or it fails to load — [images.md](./images.md) §
+  Rendering) — or, for a YouTube post, the **video player** in its place (a Short gets a tall
+  9:16 box), with the description's line breaks kept and no inline **Open source** (the action
+  bar has it), `title`, formatted `published_at`,
   and its text. The **article text** — extracted and sanitised server-side — is the one text
   field the screen renders as markup; when extraction can't produce one the screen falls back to
   what RSS gave us (`summary`) as plain text — untrusted third-party markup, never rendered as
@@ -341,7 +345,8 @@ sidebar carries a single **Settings** link, not a second copy of the section lis
 - **Account** — `/settings/account` — how you're signed in, member since, and **Sign out**
   (which ends the session server-side and returns to screen 0).
 - **Appearance** — `/settings/appearance` — theme, feed-list style, scrollbar style, and
-  **Post cards** (Image / Compact, T15a — [images.md](./images.md) § Rendering); font size is
+  **Post cards** (Image / Compact, T15a — [images.md](./images.md) § Rendering), and on desktop
+  **Reading panes** (posts wider 60/40, equal 50/50, post wider 40/60); font size is
   still planned (see [product-overview.md → Planned](./product-overview.md#planned-not-now)).
 - **About** — `/settings/about` — app info.
 - **Report an issue** — `/settings/report`.

@@ -79,7 +79,7 @@ with global sources it grows with the source count, not the reader count.
 
 | Image | Where the URL comes from | Shown | Recipe | When it can't | Task |
 | --- | --- | --- | --- | --- | --- |
-| **Post image, card** | `Post.image_url` — ingest's `media:thumbnail` → image enclosure pick | the *image* style of PostCard, 16:9 on top | 16:9 fill, widths 480 / 960 / 1440 / 1920, WebP | the card is *compact* | T15a |
+| **Post image, card** | `Post.image_url` — ingest's `media:thumbnail` → image enclosure pick | the *image* style of PostCard, a square beside the text | 16:9 fill, widths 480 / 960 / 1440 / 1920, WebP — the box crops it square | the card is *compact* | T15a |
 | **Post image, hero** | same | the post page, above the title | same family, `sizes` for the reading measure | no hero | T15a |
 | **Feed icon** | `Source.icon_url` — see § Feed icons below | add-wizard rows for every type; other surfaces when the design says so | 64 × 64 fill-down, centre crop (ICO and SVG in) | `UAvatar` initials | T15b |
 | **Article images** | `<img src>` inside `article_html` (T10) | the reader | fit to the reading width, no crop, rewritten at read time | dropped from the markup (no key, an unproxiable `src`); a proxy fetch failure at render time is the browser's own broken image | T15c |
@@ -111,7 +111,7 @@ avatar: string | null
 `srcset` travels as the finished string, not as a list of widths: the backend is the one
 place that knows which sizes exist, so the two sides cannot disagree about them. The frontend
 adds the one thing only it knows — how wide the slot is: `sizes="(min-width: 1024px) 40vw,
-100vw"` on a card (the desktop posts pane is 40% of the viewport), `sizes="(min-width: 1024px)
+100vw"` on a card (the desktop posts pane is 40–60% of the viewport, by the Appearance split), `sizes="(min-width: 1024px)
 56rem, 100vw"` on the hero (`--container-post`).
 
 `image_url` is **renamed** to `image` rather than reused with a new meaning, so that `pnpm
@@ -144,9 +144,18 @@ types:api` plus typecheck finds every consumer — `PostCard.vue` and `PostView.
 
 ## Rendering
 
-- **Fixed 16:9 box** (`aspect-video`), `object-cover`, `rounded-xl`, on a `bg-muted`
-  placeholder — the design system's "avatar placeholders" role. The box is sized before the
-  image arrives, so nothing shifts; there are no dimensions to store.
+- **A fixed box**, `object-cover`, `rounded-xl`, on a `bg-muted` placeholder — the design system's "avatar placeholders" role. The box is sized before the
+  image arrives, so nothing shifts; there are no dimensions to store. The box is **square beside
+  the text on a card** _(2026-09-28; was 16:9 on top)_ — 128px, then 160 / 176 / 192 at `md` /
+  `lg` / `xl` — cropped from the same 16:9 family; and **16:9 on the post page**, where it
+  also takes `noUpscale`: the box is capped at the image's natural width and centred, since a
+  640px Reddit preview stretched across a wide pane is a blur.
+- A **YouTube post's** image slot on the post page is the player, not a still — see
+  [backend.md](./backend.md) § Fetching pipeline.
+- **Sharper sources, at ingest** _(2026-09-28)_: a YouTube `hqdefault.jpg` (480 × 360, bars
+  and all) is swapped for `hq720.jpg` when a `HEAD` request finds it — cached 30 days, a network
+  failure not cached — and a Reddit `preview.redd.it` thumbnail becomes the `i.redd.it`
+  original. `external-preview.redd.it` is left alone.
 - `alt=""` — the image is decoration beside a title that carries the text.
 - Cards `loading="lazy"`; the hero loads eagerly with `fetchpriority="high"`. (Lazy is safe
   on the feed page and the desktop pane; the known trap is images *inside a vaul drawer*, which

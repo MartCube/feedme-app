@@ -183,8 +183,8 @@ six-name `--spacing-*` rule above: defined as `--container-*` in `app/assets/css
 | Token | Size | Use for |
 |---|---|---|
 | `--container-sidebar` | 18rem | Sidebar column: the feed list plus the standing Add feed / Settings rows |
-| `--container-postlist` | 24rem | Posts (master) pane |
-| `--container-reading` | 42rem | Post content measure cap; also the width of the desktop content area's single-pane screens (`/add` — the wizard is linear steps with no list beside them). Settings and edit split the area into two equal panes instead — each the posts pane's 40%, the last fifth left empty, since a form has a natural width and doesn't get better wider the way an article does |
+| `--container-postlist` | 24rem | Posts (master) pane's empty-state measure only — the pane itself takes 40, 50 or 60% of the area right of the sidebar, per the *Reading panes* setting (default 50) |
+| `--container-reading` | 42rem | Post content measure cap; also the width of the desktop content area's single-pane screens (`/add` — the wizard is linear steps with no list beside them). Settings and edit split the area into two equal panes instead — each 40% of the area, the last fifth left empty, since a form has a natural width and doesn't get better wider the way an article does |
 | `--container-post` | 56rem | Post body measure — only bites on wide monitors |
 | `--container-signin` | `calc(400px + 2 * var(--spacing-lg))` | The sign-in column on `/login` — the only measure here that isn't a shell one. It is Google's 400px button cap plus the two page-insets, because that button's width can't be raised and a wider column would leave it short of the field below it (see [screens-and-flows.md](./screens-and-flows.md) § 0) |
 

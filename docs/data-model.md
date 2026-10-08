@@ -99,6 +99,7 @@ interface Post {
   published_at: string    // ISO 8601 timestamp
   post_url: string        // link to the original (or the YouTube watch page)
   summary: string         // what RSS gave us — HTML, from an arbitrary third party
+  video: { src: string, vertical: boolean } | null  // YouTube embed, null for everything else
   saved_group: SavedGroup | null  // which saved pile it's in, null when unsaved
 }
 ```
@@ -107,6 +108,9 @@ interface Post {
   an `<img>`: a signed, resized URL family from the image proxy, never the source's own URL, and
   `null` when the post has none. The frontend adds only `sizes`. How it is built, cached and
   later stored is [images.md](./images.md).
+- `video` _(2026-09-28)_ is built from `post_url` for YouTube posts only: `src` is a
+  privacy-enhanced (`youtube-nocookie.com`) embed, `vertical` is true for a Short (a `/shorts/`
+  link). The post page plays it in place of the image.
 - `summary` is **not trusted markup**: it comes from whatever the feed published (Reddit wraps
   every post in a `<table>`), so the reader strips it to plain text rather than rendering it.
   The article text meant for reading is fetched separately from `/posts/{uid}/article`.

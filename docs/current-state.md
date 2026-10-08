@@ -3,7 +3,7 @@
 A snapshot of what's actually built vs. what the spec (these docs) describes. The goal is to
 make the gap visible so implementation has a clear backlog. Update this as work lands.
 
-_Last reviewed: 2026-09-24._
+_Last reviewed: 2026-09-28._
 
 ## Summary
 
@@ -32,7 +32,7 @@ still finds nothing, and the home reorder has no UI. **The reader is wired to
 `/posts/{uid}/article`** _(2026-09-18)_: the post page renders the extracted article as markup,
 falling back to the RSS summary plus **Open source** when extraction can't produce one. See
 Resolved decisions → Backend stack & API. **Posts carry real images** _(2026-09-22)_: a signed
-`imgproxy` proxy resizes every post image into a 16:9 WebP family, PostCards show it on top when
+`imgproxy` proxy resizes every post image into a 16:9 WebP family, PostCards show it beside the text (a 16:9 family, cropped square there) when
 Settings → Appearance → *Post cards* is **Image** (the default — **Compact**, and any post with
 no image or a failed load, is date + title alone), and the post page shows the same image as a
 hero above the title. **The pictures inside an extracted article are proxied too**
@@ -40,7 +40,11 @@ _(2026-09-23)_: the reader's `<img src>` is rewritten to the same proxy at read 
 the reading width with no crop, and dropped along with an image that can't be proxied rather
 than left hotlinked. **Feed icons are proxied too** _(2026-09-28)_: the add wizard shows one
 for every type, with the name's initials when a feed has none. Nothing else consumes them yet.
-The rest of the strategy is specced in [images.md](./images.md) _(2026-09-15)_.
+**The reader got a rework** _(2026-09-28)_: PostCards are now a square thumbnail beside the text
+with a meta row (feed name, type icon, date) and an excerpt; a **YouTube** post plays in the
+post page instead of showing a still; images are sharper (Reddit originals, YouTube `hq720`, no
+upscaling on the post page); and on desktop an Appearance setting picks the **reading-pane
+split**. The rest of the strategy is specced in [images.md](./images.md) _(2026-09-15)_.
 Backend work is sequenced in [backend-roadmap.md](./backend-roadmap.md), which tracks its
 own status: **read that file's § Status for what to build next.**
 
@@ -204,8 +208,7 @@ own status: **read that file's § Status for what to build next.**
   straight from the route and the `feeds` store, not a nested-route tree: `Sidebar.vue` (18rem)
   — the shared `HomeFeedList` (wordmark, Home, Saved, folders, loose feeds — see Feeds list v1,
   below), then two standing rows, **Add feed** (→ `/add`) and **Settings** (→ `/settings`); a
-  posts pane (24rem, `FeedPostList`); and a post pane (flexible, capped at a 42rem reading
-  measure, a `FeedPostActions` bar — Copy link, Open source and Save — right-aligned above
+  posts pane (`FeedPostList`, 50% by default — the Appearance split); and a post pane (the rest, body capped at 56rem, a `FeedPostActions` bar — Copy link, Open source and Save — right-aligned above
   `FeedPostView` once a post is loaded, or a dimmed "Select a post" placeholder —
   **no auto-select**).
   `Shell.vue` reads `useRouter().currentRoute` rather than Nuxt's `useRoute()` (Nuxt's route
@@ -449,13 +452,37 @@ own status: **read that file's § Status for what to build next.**
   ingest looks it up once per source when the icon is blank, and never again. `images.icon()`
   serves it as a signed 64 × 64 centre crop. Wire: `icon_url` became `icon: string | null` on
   `/home` feeds and `/discover` results. **Not consumed anywhere else yet** — home rows and the
-  PostCard show no feed icon (the coming post-card redesign uses a type icon instead). See
+  PostCard show no feed icon (the card uses a type icon instead). See
   [images.md](./images.md).
-- **PostCard v1** — `app/components/feed/PostCard.vue`: whole card links to the post. The
-  **Image** style (the account's default, Settings → Appearance → *Post cards*) renders
-  `FeedPostImage` above the date + title; **Compact** — and any post with no image, under either
-  style — is date + title alone. Rows separated by spacing (no divider lines); the source-feed
-  type cue is not built (see Not started → PostCard (rest)).
+- **PostCard v2** _(2026-09-28)_ — `app/components/feed/PostCard.vue`, redesigned. The
+  **Image** style (the account's default, Settings → Appearance → *Post cards*) is a **square
+  thumbnail beside the text** (`FeedPostImage` with its `square` prop; 128px, then 160 / 176 /
+  192 at `md` / `lg` / `xl`) with a **meta row** above the title — the feed's name as a link to
+  its `site_url`, a type icon (YouTube, Reddit; a website gets an external-link icon), then `·`
+  and the date — and a **3-line excerpt** of `summary`, with Reddit's "submitted by" footer and
+  Hacker News's footer stripped. **Compact** — and any post with no image, under either style —
+  is date + title alone. The card is no longer one big link: the title link is stretched over
+  the whole card and the feed link sits above it, so each is its own target. Rows are separated
+  by spacing (no divider lines). Closes the old "source-feed type cue" item.
+- **Reading-pane split (desktop)** _(2026-09-28)_ — `UserSettings.pane_split`
+  (`posts` / `equal` / `post`, default `equal`) gives the posts and post panes 60/40, 50/50 or
+  40/60. It rides `GET` / `PUT /settings` and the settings store; Settings → Appearance has a
+  **Reading panes** section (desktop only), and `desktop/Shell.vue` applies `basis-3/5`,
+  `basis-1/2` or `basis-2/5` to the posts pane while the post pane takes the rest. The
+  Settings / Edit content area is unaffected (two fixed 40% panes).
+- **YouTube in the reader** _(2026-09-28)_ — the Post API carries `video: {src, vertical} | null`,
+  built from `post_url` by `core/youtube.video()`: a `youtube-nocookie.com` embed
+  (`playsinline=1`, `rel=0`), `vertical` meaning a `/shorts/` link. `feed/PostVideo.vue`
+  replaces the image slot on the post page; a Short gets a 9:16 box at 70svh (the `video-short`
+  `@utility` in `layout.css`). A video post shows its description with line breaks kept and no
+  inline **Open source** link — the action bar already has one.
+- **Sharper images** _(2026-09-28)_ — at ingest a YouTube `hqdefault` thumbnail is swapped for
+  `hq720.jpg` when a `HEAD` request finds it (answer cached 30 days; a network failure is not
+  cached), and a Reddit `preview.redd.it` thumbnail becomes the `i.redd.it` original
+  (`external-preview.redd.it` is left alone). `FeedPostImage` has a `noUpscale` prop, used on
+  the post page, capping the box at the image's natural width.
+- **Sidebar auto-expand** _(2026-09-28)_ — the feeds store expands any folder holding the
+  selected feed, so the selection is never hidden. Expansion state itself is not persisted.
 - **Context-aware navbar** — both slots swap per page: home = menu + add, feed page =
   sidebar icon (→ home) alone (search sits on the list's title row instead — see Feed page v1),
   post page = back (→ its feed, carrying the search it was opened from) + Copy link + Open
@@ -500,9 +527,6 @@ own status: **read that file's § Status for what to build next.**
 - **Settings content** — the drawer, its four subpages, and transitions are built, and
   Appearance and Account are real, including the Post cards switch (see Built); About's version
   string is hardcoded and Report still needs real content and a way to actually send anything.
-- **PostCard (rest)** — the source-feed type cue. It will be a type icon from the coming
-  post-card redesign, not the feed's own icon; the image version shipped in T15a — see Built →
-  Post images.
 - **Add feed (rest)** — keyword search for subreddits and our own catalog (T11c, T11d), a
   candidate's latest posts before subscribing (T14, planned — `GET /discover/posts`), putting the
   wizard's type and query on the URL so a reload doesn't lose them (decided 2026-09-18, deferred
@@ -552,8 +576,8 @@ _None currently._
   backend signs URLs for; the frontend never builds one. Staged so the first hundred readers
   run on one server and growth is bought, not rewritten: `imgproxy` with nothing stored, then
   originals in a bucket, then a CDN / paid transformer — each a change inside
-  `core/images.py`. Cards come in two versions (16:9 image on top / compact) behind a synced
-  Appearance setting; the post page gets a 16:9 hero. Pre-rendering sizes at ingest — the
+  `core/images.py`. Cards come in two versions (image / compact) behind a synced
+  Appearance setting; the post page gets a 16:9 hero (the card layout was later reshaped to a square beside the text, 2026-09-28). Pre-rendering sizes at ingest — the
   previous project's shape — was rejected because a new size then means a backfill. Full
   reasoning in [images.md](./images.md) § Decision log.
 - **Post search presentation** _(recorded 2026-09-15)_ — the question T12 left open (mobile

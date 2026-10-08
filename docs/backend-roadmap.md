@@ -24,6 +24,10 @@ loading placeholder** is a small frontend task that came out of using T15a for r
 whichever the frontend needs first. T11c (Reddit app credentials) and T11d (a catalog worth
 searching) each wait on something outside the code; T15e waits on a deploy target.
 **Roadmap written:** 2026-08-19
+**Also landed, outside the numbered tasks** _(2026-09-28)_: the reading-pane split
+(`UserSettings.pane_split`, migration 0006), the Post API's `video` field and YouTube player,
+sharper ingest-time thumbnails (YouTube `hq720`, Reddit originals), and the PostCard redesign
+— see [current-state.md](./current-state.md) § Built.
 
 **T15 is five tasks from the start _(2026-09-15)_** — one per stage of the images strategy plus
 one per consumer: the proxy with post images (a), feed icons (b), article images (c), the bucket
@@ -1000,6 +1004,18 @@ Decided 2026-09-23 while building T15c:
   fill — it is sized to sit in the text at whatever size it is, and imgproxy's `fit` never
   enlarges it regardless.
 
+Decided 2026-09-28, with the reader rework (not a numbered task):
+
+- **A video is derived, not stored.** `Post.video` is computed from `post_url` by
+  `core/youtube.video()` on every read — no column, no backfill — so existing posts get a player
+  the day it ships. The embed is `youtube-nocookie.com`; a `/shorts/` link marks it `vertical`.
+- **Thumbnail upgrades happen at ingest, once.** YouTube's `hqdefault` becomes `hq720.jpg` only
+  when a `HEAD` request finds it (30-day cache, a network failure not cached, so a blip never
+  pins the worse picture), and a Reddit `preview.redd.it` URL becomes the `i.redd.it` original
+  by rewriting; `external-preview.redd.it` has no such original and is left alone.
+- **Pane split is a synced setting** (`UserSettings.pane_split`, default `equal`), not a
+  frontend-only preference, like the card style: it follows the account across devices.
+
 ## Tasks
 
 ### T1 — Foundations: CORS, linting, test harness
@@ -1974,7 +1990,3 @@ Non-blocking chores, unowned by any task.
   runs from it.
 - **`db` / `redis` publish no host ports.** Add a port mapping in `docker-compose.yml` if you
   want to reach Postgres with a host `psql` or a GUI client.
-- **Subagent model ids** — the `checker` / `design-reviewer` / `docs` / `git` agents are
-  configured with kimi model ids this environment can't reach, so every launch needs a manual
-  override. Fix `.claude/agents/*.md` frontmatter (and the model-policy memory) or restore kimi
-  access. Unrelated to the backend, but it costs a step on every commit.

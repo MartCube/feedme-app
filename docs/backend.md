@@ -137,7 +137,7 @@ Folder        uid (folder_*), user FK, name, order
 FolderMember  folder FK, feed FK, muted (bool), order — unique (folder, feed)
 SavedPost     user FK, post FK, group (bookmarks|favorites|later), saved_at
               — unique (user, post): a post lives in exactly one group
-UserSettings  user 1:1, theme, feed_list_style, scrollbar_style, … (grows with Appearance options)
+UserSettings  user 1:1, theme, feed_list_style, scrollbar_style, post_card_style, pane_split (posts|equal|post), … (grows with Appearance options)
 ```
 
 **Cascade rules** are exactly [data-model.md](./data-model.md#cascade-rules)'s, enforced
@@ -192,14 +192,14 @@ the per-group descriptions come from `TAGS` in `feedme/api.py`.
 | `PATCH /folders/{uid}` | Rename / set members / set per-folder mute — every field optional, so one call can commit a rename and the mutes together |
 | `DELETE /folders/{uid}` | Cascade delete per the rules above; returns `unsubscribed_count` |
 | `GET /feeds/{uid}/posts` | **The post list, polymorphic uid:** `all` \| `saved` \| `saved_*` \| `folder_*` (members minus muted) \| `feed_*` — same resolution order as the frontend's `usePostList`. Newest-first, cursor-paginated |
-| `GET /posts/{uid}` | Post detail (what RSS gave us). From T15a every post here and in the lists carries `image: {src, srcset} \| null` in place of `image_url` — ready `<img>` attributes built by `core/images.py`, see [images.md](./images.md) § Wire contract |
+| `GET /posts/{uid}` | Post detail (what RSS gave us). From T15a every post here and in the lists carries `image: {src, srcset} \| null` in place of `image_url` — ready `<img>` attributes built by `core/images.py`, see [images.md](./images.md) § Wire contract. Posts also carry `video: {src, vertical} \| null` (YouTube only), built by `core/youtube.video()` |
 | `GET /posts/{uid}/article` | Full article: extract-on-first-request (trafilatura), cached globally in `article_html`, served instantly after. Returns extracted HTML or a "couldn't extract" signal (frontend falls back to summary + Open source). From T15c the `<img src>` inside `article_html` are rewritten to proxied, reading-width URLs at read time — never into the cached column |
 | `PUT /posts/{uid}/save` | Body: `{group}` (bookmarks \| favorites \| later). Upsert — moving groups is the same call |
 | `DELETE /posts/{uid}/save` | Unsave |
 | `GET /discover` | `?type=website|youtube|reddit&q=<url or keyword>` → candidate feeds (`name`, `type`, `site_url`, `feed_url`, `icon`, `already_subscribed`) — `HomeFeedSchema` minus the uid one hasn't earned, plus the flag. Field names follow § Vocabulary (`name`, not `title`). A URL resolves under any card; a bare name is a YouTube channel search under `youtube` (503 when YouTube won't answer) and finds nothing under the other two until T11c/T11d. Backs the add wizard |
 | `GET /discover/posts` | _(T14, planned)_ `?feed_url=<a candidate's feed_url>` → its newest 10 posts, fetched live and never stored — `PostSchema` minus `uid` / `feed_uid` / `saved_group`, with `published_at` nullable. The twin of `GET /feeds/{uid}/posts` for a feed you don't have yet. Unreachable or not a feed → 422 with a message; a real feed with no entries → `[]` |
 | `GET /search` | `?q=&scope=<all \| saved \| saved_* \| folder_* \| feed_*>&cursor=&limit=` (scope defaults to `all`) — **the post list narrowed by `q`**: same polymorphic scope uid, same page shape, same cursor, newest-first. A blank `q` is an empty page, not an error. Engine-neutral contract — no tsquery syntax in, no rank out; see [Search](#search) |
-| `GET /settings` · `PUT /settings` | The persisted `UserSettings` (theme, feed-list style, …) — replaces cookie-only persistence so settings follow the account across devices |
+| `GET /settings` · `PUT /settings` | The persisted `UserSettings` (theme, feed-list style, post-card style, desktop `pane_split`, …) — replaces cookie-only persistence so settings follow the account across devices |
 
 ## Auth
 
@@ -258,7 +258,11 @@ Per source type — everything is RSS under the hood:
   _(built 2026-09-11, T11b — `core/youtube.py`)_: `search.list` costs 100 of the day's 10k
   units (≈ 100 searches), so every answer is cached for a day, a failed one is not, and a
   missing `YOUTUBE_API_KEY` degrades to the paste path rather than erroring. YouTube not
-  answering is a 503, never an empty list.
+  answering is a 503, never an empty list. **In the reader**, a YouTube post's `video`
+  _(built 2026-09-28 — `core/youtube.video()`)_ is `{src, vertical} | null`, derived from
+  `post_url` alone: a `youtube-nocookie.com` embed (`playsinline=1`, `rel=0`), `vertical` for a
+  `/shorts/` link. At ingest the post's `hqdefault` thumbnail is upgraded to `hq720.jpg` when a
+  `HEAD` request finds it (answer cached 30 days; a network failure is not cached).
 - **Reddit** — subreddits expose RSS/JSON; polling uses a single registered **app token**
   (rate limits are generous at our scale: ~100 QPM ≫ thousands of subreddits at 30-min
   intervals). Unauthenticated `.rss` fetches are *not* generous — Reddit answers 429 to repeated
@@ -294,7 +298,7 @@ so the slow path is rare. This fetch also has rules polling doesn't need — a s
 per-hop private-address check and a size cap — because unlike ingest, which only stores what it
 parses, this endpoint hands the fetched body back to the caller. **YouTube posts skip it
 entirely** and answer "couldn't extract": a watch page is a JS shell with no article in it, and
-summary plus Open source is the right treatment for a video anyway. See
+the player plus the description is the right treatment for a video anyway. See
 [backend-roadmap.md](./backend-roadmap.md) § Decision log (2026-09-05, T10), which records the
 reversal of this table's earlier `extract_article` job row.
 
