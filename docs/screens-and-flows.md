@@ -198,11 +198,12 @@ its description and sources — is a different screen, number 6, reached from th
 **The user can:**
 - See a scrollable list of **PostCards** (`components/PostCard.vue`) for this feed, which
   **keeps loading as they scroll** — there is no "load more" button and no page count.
-- **Tap the title** → the feed's own page (screen 6). On a phone it is a page of its own
-  (`/feed/[uid]/info`), pushed with the page slide and dismissed with swipe-back; on desktop
-  the feed page already fills the post pane while no post is open, so the title just links to
-  `/feed/[uid]` — which closes the open post. **All feeds** has no page of its own, so its
-  title is plain text.
+- **Tap the info icon** (an "i" right after the title) → the feed's own page (screen 6). On
+  a phone it is a page of its own (`/feed/[uid]/info`), pushed with the page slide and
+  dismissed with swipe-back; on desktop the feed page already fills the post pane while no
+  post is open, so the icon just links to `/feed/[uid]` — which closes the open post. The
+  title itself is plain text: a visible icon instead of a hidden tap target _(2026-10-08)_.
+  **All feeds** has no page of its own, so it has no icon.
 - **Search** this list: a magnifying glass on the title row swaps the title for a search box
   ("Search *{this list's name}*"), and the list narrows **as they type** to the posts in this
   same `uid` that match — a partial word is enough, newest first. Results page like the list
@@ -392,7 +393,7 @@ sidebar carries a single **Settings** link, not a second copy of the section lis
 
 **Purpose:** what a feed *is* and what is in it — its name, its description and its sources —
 and the way into every edit to them. A feed is a group of sources, and this is the page that
-shows the group. It is reached by tapping the title above a feed's posts (screen 2); the home
+shows the group. It is reached by the info icon beside the title above a feed's posts (screen 2); the home
 list has no menu for it.
 
 **The user can:**

@@ -27,7 +27,7 @@ A **feed** is my own group of sources — one source or several — with a name 
 - As a user, I can **group sources into a feed** so related ones sit together and read as one
   merged, newest-first stream — or keep a feed to **a single source**.
 - As a user, I can **put one source in several feeds**.
-- As a user, I can **open a feed's page** (tap its title above the posts) to see its
+- As a user, I can **open a feed's page** (the info icon beside its title) to see its
   description and its sources.
 - As a user, I can **switch a source on or off inside a feed**, right on the feed's page, so
   it's left out of that feed's read (and of All feeds, unless another feed has it on) while

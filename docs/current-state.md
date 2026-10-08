@@ -20,7 +20,7 @@ falls back to them. **Writes are real too** _(2026-09-01)_: adding, renaming, sw
 off, and deleting all go through the API. **The product model was remade** _(2026-10-08)_:
 **folders are gone and a feed is a group of sources** — a name, a description and one source or
 many. A source can sit in several feeds, with its own name and its own on/off in each; the home
-list is flat, and each feed has a page (tap its title above the posts) where its sources are
+list is flat, and each feed has a page (the info icon beside its title) where its sources are
 switched on or off, renamed, relinked and removed. The edit drawer, long-press and home options
 sheet are deleted. See Resolved decisions → Feeds are groups of sources. **Sign-in is real**
 _(2026-09-03)_: `/login` renders Google's own button and `POST /auth/google` trades its
@@ -200,11 +200,11 @@ own status: **read that file's § Status for what to build next.**
   `action`/`verb`/`subject`/optional `context`/`note`/`backTo`, emits `confirm`; its
   Confirm/Cancel are `ui/BlockButton.vue`. Row content is inset `sm` as real padding on the row
   rather than a `text-inset` margin on the list, so row text lines up with the heading.
-  **Mobile:** the post list's title is a link (`feed/PostList.vue`) to `/feed/:uid/info`; the
+  **Mobile:** an info icon beside the post list's title (`feed/PostList.vue`) links to `/feed/:uid/info`; the
   middleware's depth rule makes that a push with the page slide, and `useSwipeBack` pops it.
-  All feeds keeps a plain-text title. **Desktop:** the post pane renders `FeedInfoPanels` (body
+  All feeds has no icon. **Desktop:** the post pane renders `FeedInfoPanels` (body
   capped at `max-w-reading`) whenever no post is open and the feed isn't All feeds — replacing
-  the "Select a post" placeholder, which All feeds keeps — and the title links to `/feed/:uid`,
+  the "Select a post" placeholder, which All feeds keeps — and the icon links to `/feed/:uid`,
   which closes the post. The store mirrors the view as `readerInfo` (the path tail, or null)
   beside `readerFeedUid`/`readerPostUid`, so it survives Settings or Add opening over the
   reader. **Deleted with it:** `edit/Drawer.vue`, `Panels.vue`, `FolderPanel.vue`,
@@ -362,9 +362,10 @@ own status: **read that file's § Status for what to build next.**
   `activePostUid` props) lists PostCards with the resolved feed name as title — used by
   the mobile page (`app/pages/feed/[uid]/index.vue`) and, on desktop, the shell's posts
   pane. (This is the screen docs called "Feed page" until 2026-10-08; "feed page" now means a
-  feed's own page, above.) The **title is a link** to the feed page — `/feed/:uid/info` on a
-  phone, `/feed/:uid` on desktop, where the page already fills the post pane and the link just
-  closes the open post; All feeds' title stays plain text. Posts come from
+  feed's own page, above.) An **info icon** after the title links to the feed page —
+  `/feed/:uid/info` on a phone, `/feed/:uid` on desktop, where the page already fills the post
+  pane and the link just closes the open post; the title is plain text, and All feeds has no
+  icon. Posts come from
   `usePostList(uid, q, contents)` — the uid resolves **server-side** in the
   frontend's own order (`all` → `saved` → `saved_*` → `feed_*`), so the component
   filters nothing and just renders what pages in; a uid change resets the list rather than

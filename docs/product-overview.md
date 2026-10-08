@@ -46,8 +46,8 @@ is the current focus; the rest come later, off one codebase.
 
 Layout follows the **viewport**, not the platform:
 
-- **Mobile** (< 1024px) — one pane at a time. Tap a feed → its posts; tap the title above them
-  → the feed's own page (its sources, switched on or off right there); tap a post → the post;
+- **Mobile** (< 1024px) — one pane at a time. Tap a feed → its posts; tap the info icon beside
+  their title → the feed's own page (its sources, switched on or off right there); tap a post → the post;
   Settings and Add open as bottom drawers.
 - **Desktop / wide** (≥ 1024px) — **three columns**: a persistent sidebar (the feed list, plus
   standing Add feed / Settings links, always visible), a posts pane, and a post pane — which
@@ -83,7 +83,7 @@ These are non-negotiable constraints that every screen should honor:
   desktop they present as a content area over the reading panes rather than drawers — a
   master–detail pair where there's a list to sit beside (Settings), single-pane where there
   isn't (Add). Editing a feed is not an overlay: a feed's page is a screen in the reader flow,
-  reached by tapping its title.
+  reached by the info icon beside its title.
 
 ## Theme tokens (reference)
 
