@@ -98,6 +98,16 @@ export const useFeedsStore = defineStore('feeds', () => {
   // live route says /settings while the overlay is open, so reading the query
   // off it would drop the search the moment Settings opened.
   const readerQuery = ref('')
+  // The selected feed is never hidden inside a collapsed folder: whenever the
+  // selection lands on a folder's member — a click, or a reload straight onto
+  // /feed/<uid>, where the folder list only arrives with /home — every folder
+  // holding it opens. Expansion itself isn't persisted; the selection is the
+  // URL, so this is what brings the sidebar back to where the reader was.
+  watch([readerFeedUid, folders], ([uid, all]) => {
+    const holding = all.filter(folder => folder.feed_uids.includes(uid) && !isExpanded(folder.uid))
+    if (holding.length) expandedFolderUids.value = [...expandedFolderUids.value, ...holding.map(folder => folder.uid)]
+  }, { immediate: true })
+
   const readerPath = computed(() => {
     const path = readerPostUid.value
       ? `/feed/${readerFeedUid.value}/post/${readerPostUid.value}`
