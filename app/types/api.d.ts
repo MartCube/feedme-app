@@ -599,6 +599,11 @@ export interface components {
              * @enum {string}
              */
             post_card_style: "image" | "compact";
+            /**
+             * Pane Split
+             * @enum {string}
+             */
+            pane_split: "posts" | "equal" | "post";
         };
     };
     responses: never;

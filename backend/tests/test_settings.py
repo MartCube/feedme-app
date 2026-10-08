@@ -13,12 +13,14 @@ DEFAULTS = {
     'feed_list_style': 'list',
     'scrollbar_style': 'thin',
     'post_card_style': 'image',
+    'pane_split': 'equal',
 }
 CHANGED = {
     'theme': 'claude',
     'feed_list_style': 'cards',
     'scrollbar_style': 'auto',
     'post_card_style': 'compact',
+    'pane_split': 'posts',
 }
 
 
@@ -88,6 +90,7 @@ def test_the_schemas_literals_match_the_models_choices():
     assert set(get_args(fields['post_card_style'].annotation)) == set(
         UserSettings.PostCardStyle.values
     )
+    assert set(get_args(fields['pane_split'].annotation)) == set(UserSettings.PaneSplit.values)
 
 
 def test_settings_are_per_account(authed_client, other_user):

@@ -12,6 +12,10 @@ const route = useRouter().currentRoute
 const feedsStore = useFeedsStore()
 const { feeds, folders, hasFeeds, loaded, unreachable, readerFeedUid, readerPostUid, readerQuery } = storeToRefs(feedsStore)
 
+// The posts pane carries the split; the post pane takes the rest.
+const settings = useSettingsStore()
+const postsPaneBasis = computed(() => ({ equal: 'basis-1/2', posts: 'basis-3/5', post: 'basis-2/5' })[settings.paneSplit])
+
 // Sync selection from reader routes only; content routes leave it frozen.
 watch(() => route.value.fullPath, () => {
   if (route.value.path === '/') {
@@ -66,8 +70,12 @@ useHead({
          without unmounting them — relative is its positioning context. -->
     <div class="relative flex min-w-0 flex-1">
       <template v-if="hasFeeds">
-        <!-- 40/60 split of everything left of the sidebar. -->
-        <section class="basis-2/5 shrink-0 scroll-host page-inset">
+        <!-- The split of everything right of the sidebar: 50/50, or 60/40
+             toward whichever pane the account chose (Appearance). -->
+        <section
+          class="shrink-0 scroll-host page-inset"
+          :class="postsPaneBasis"
+        >
           <FeedPostList
             :uid="readerFeedUid"
             :q="readerQuery"
@@ -75,7 +83,7 @@ useHead({
           />
         </section>
 
-        <section class="min-w-0 basis-3/5 scroll-host page-inset">
+        <section class="min-w-0 flex-1 scroll-host page-inset">
           <template v-if="readerPostUid">
             <!-- Sits on the top-row axis with the sidebar wordmark and the posts
                  pane's title row, pinned the same way so the actions stay in

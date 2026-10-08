@@ -29,6 +29,9 @@ class SettingsSchema(Schema):
     # which version of a post card to render: a 16:9 image on top, or date + title alone
     # (docs/images.md § Rendering)
     post_card_style: Literal['image', 'compact']
+    # desktop only: which reading pane is the wider one — the posts list, the post, or
+    # neither (a 50/50 split)
+    pane_split: Literal['posts', 'equal', 'post']
 
 
 @router.get(

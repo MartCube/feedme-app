@@ -220,6 +220,13 @@ class UserSettings(models.Model):
         IMAGE = 'image'
         COMPACT = 'compact'
 
+    class PaneSplit(models.TextChoices):
+        # desktop only: which reading pane gets the larger share, the posts list or the post
+        # (60/40), or neither (50/50)
+        POSTS = 'posts'
+        EQUAL = 'equal'
+        POST = 'post'
+
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='settings')
     theme = models.CharField(max_length=10, choices=Theme.choices, default=Theme.INK)
     feed_list_style = models.CharField(
@@ -231,6 +238,7 @@ class UserSettings(models.Model):
     post_card_style = models.CharField(
         max_length=7, choices=PostCardStyle.choices, default=PostCardStyle.IMAGE
     )
+    pane_split = models.CharField(max_length=5, choices=PaneSplit.choices, default=PaneSplit.EQUAL)
 
     class Meta:
         verbose_name_plural = 'user settings'

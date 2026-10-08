@@ -6,7 +6,7 @@
    tailwind-merge config treatment (see app.config.ts). */
 @theme static {
   --container-sidebar: 18rem; /* feed/settings nav pane */
-  --container-postlist: 24rem; /* empty-state measure (the pane itself is 40%) */
+  --container-postlist: 24rem; /* empty-state measure (the pane itself is 40–60%, by setting) */
   --container-reading: 42rem; /* form measure: settings/add/edit content pages */
   --container-post: 56rem; /* post body measure — only bites on wide monitors */
   /* sign-in column: the width cap Google enforces on its own button, plus the
