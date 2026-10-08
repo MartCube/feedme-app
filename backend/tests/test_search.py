@@ -120,19 +120,19 @@ def test_scopes_to_one_feed(authed_client, user, make_feed, make_post):
     assert found(search(authed_client, 'rout', scope=mine.uid)) == ['router in mine']
 
 
-def test_scopes_to_a_folder_and_skips_its_muted_members(
-    authed_client, user, make_feed, make_folder, make_post
+def test_scopes_to_a_feed_and_skips_its_switched_off_sources(
+    authed_client, user, make_feed, make_source, make_post
 ):
-    """The roadmap's acceptance: mute is applied live, with no re-index anywhere."""
-    loud = make_feed(user, name='Loud')
-    quiet = make_feed(user, name='Quiet')
-    folder = make_folder(user, feeds=[loud, quiet], muted=[quiet])
-    make_post(loud.source, title='router, audible')
-    make_post(quiet.source, title='router, muted')
+    """Off is applied live, with no re-index anywhere."""
+    loud, quiet = make_source(), make_source()
+    feed = make_feed(user, sources=[loud, quiet], disabled=[quiet])
+    elsewhere = make_feed(user, name='Elsewhere', source=quiet)
+    make_post(loud, title='router, audible')
+    make_post(quiet, title='router, switched off')
 
-    assert found(search(authed_client, 'rout', scope=folder.uid)) == ['router, audible']
-    # and the muted feed is still complete on its own page — mute belongs to the folder
-    assert found(search(authed_client, 'rout', scope=quiet.uid)) == ['router, muted']
+    assert found(search(authed_client, 'rout', scope=feed.uid)) == ['router, audible']
+    # and the same source is still complete where it is on — off belongs to the feed
+    assert found(search(authed_client, 'rout', scope=elsewhere.uid)) == ['router, switched off']
 
 
 def test_scopes_to_saved_and_to_one_saved_group(authed_client, user, make_feed, make_post):
@@ -177,12 +177,10 @@ def test_unsubscribed_feeds_are_never_searched(authed_client, user, make_post, m
     assert found(search(authed_client, 'rout')) == []
 
 
-def test_another_users_scope_is_a_404(authed_client, other_user, make_feed, make_folder):
+def test_another_users_scope_is_a_404(authed_client, other_user, make_feed):
     theirs = make_feed(other_user)
-    their_folder = make_folder(other_user, feeds=[theirs])
 
     assert search(authed_client, 'rout', scope=theirs.uid).status_code == 404
-    assert search(authed_client, 'rout', scope=their_folder.uid).status_code == 404
 
 
 def test_an_unknown_scope_is_a_404(authed_client):
@@ -264,7 +262,7 @@ def test_results_carry_the_per_caller_fields(authed_client, user, make_feed, mak
     SavedPost.objects.create(user=user, post=post, group='favorites')
 
     item = search(authed_client, 'rout').json()['items'][0]
-    assert item['feed_uid'] == feed.uid
+    assert item['source']['uid'] == feed.source.uid
     assert item['saved_group'] == 'favorites'
 
 

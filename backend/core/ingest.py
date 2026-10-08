@@ -14,6 +14,7 @@ arguments from `parse()` for feedparser 7 and points callers here anyway.
 import random
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from html import unescape
 from urllib.parse import urlsplit
 
 import feedparser
@@ -21,6 +22,7 @@ import requests
 from django.db import DataError, transaction
 from django.db.models import Q
 from django.utils import timezone
+from django.utils.html import strip_tags
 
 from . import icons, youtube
 from .fetch import ALLOWED_SCHEMES, USER_AGENT, PageUnavailable, check_public, read_capped
@@ -34,6 +36,9 @@ TIMEOUT = (5, 15)
 # every post since 2019 is under 1 MB. Past this the worker is holding a download, not a
 # feed, in memory — and it is the worker, so nobody is watching it go.
 MAX_FEED_BYTES = 10 * 1024 * 1024
+# A feed's own description seeds the user's (core/api/feeds.py), and is shown as a line or two
+MAX_DESCRIPTION = 1000
+
 # Post.summary is a TextField, but Post.search is a tsvector generated from it, and Postgres
 # caps a tsvector at 1 MB — a description with enough distinct words fails the INSERT. The
 # largest summary a real source has served is 15 KB (Reddit, a whole table of markup); this
@@ -301,7 +306,7 @@ def _published_at(entry):
 
 
 def feed_metadata(feed):
-    """A feed's own title, site and icon, as feedparser exposes them.
+    """A feed's own title, description, site and icon, as feedparser exposes them.
 
     Here rather than in core/discover.py, which reads the same three off the same parse to
     label a candidate: where a feed keeps its name is one rule, and a feed described
@@ -309,12 +314,23 @@ def feed_metadata(feed):
     """
     return {
         'title': feed.get('title') or '',
+        'description': _plain(feed.get('subtitle') or ''),
         'site_url': feed.get('link') or '',
         # Atom's <icon> only, which is square by definition. RSS's <image> and Atom's <logo>
         # are logos and banners, and a square crop of one reads worse than the site's own
         # icon, which core/icons.py finds instead (docs/images.md).
         'icon_url': feed.get('icon') or '',
     }
+
+
+def _plain(markup):
+    """A feed's description as one line of text, capped.
+
+    feedparser files RSS's <description> and Atom's <subtitle> both under `subtitle`, and
+    either can carry markup. It seeds a feed's description the user can then edit, so it is
+    flattened here once rather than every reader of it stripping tags.
+    """
+    return ' '.join(unescape(strip_tags(markup)).split())[:MAX_DESCRIPTION]
 
 
 def _backfill_source_metadata(source, metadata):
@@ -325,12 +341,12 @@ def _backfill_source_metadata(source, metadata):
     """
     for field, value in metadata.items():
         value = _text(value)
-        if field != 'title':
+        if field.endswith('_url'):
             # site_url and icon_url end up in an href and an <img src> on the home screen
             value = _http_or_blank(value)
         if not getattr(source, field) and value:
-            # each column has its own limit (title is 300, the URLs are 500) and a feed
-            # is free to hand us something longer
+            # each column has its own limit (title is 300, the URLs are 500, description
+            # none) and a feed is free to hand us something longer
             setattr(source, field, value[: Source._meta.get_field(field).max_length])
 
 
@@ -350,7 +366,7 @@ def _record_success(source, now, fetched=None):
         # written here — on a 304 there was no feed to read it from.
         source.etag = fetched.etag[:200]
         source.last_modified = fetched.last_modified[:100]
-        fields += ['etag', 'last_modified', 'title', 'site_url', 'icon_url']
+        fields += ['etag', 'last_modified', 'title', 'description', 'site_url', 'icon_url']
     source.save(update_fields=fields)
 
 

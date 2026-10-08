@@ -17,7 +17,7 @@ from ninja.errors import HttpError
 
 from .. import images
 from ..discover import discover
-from ..models import Feed
+from ..models import Source
 from ..youtube import YouTubeUnavailable
 from .errors import ErrorSchema
 
@@ -29,10 +29,10 @@ router = Router(tags=['feeds'])
 
 
 class DiscoverResultSchema(Schema):
-    """A candidate feed. HomeFeedSchema minus the uid it hasn't earned, plus the flag.
+    """A candidate source: what the wizard shows, before it has a uid.
 
-    Field-for-field the same names as a real feed on purpose — the frontend's
-    `FeedCandidate` is this schema, and it hands `feed_url` straight to POST /feeds.
+    The frontend's `FeedCandidate` is this schema, and it hands `feed_url` straight to
+    POST /feeds (a new feed) or POST /feeds/{uid}/sources (an existing one).
     """
 
     name: str
@@ -41,8 +41,8 @@ class DiscoverResultSchema(Schema):
     feed_url: str
     # a signed proxy URL, or null — the app renders initials then (docs/images.md)
     icon: str | None
-    # you can already follow something you searched for, and the wizard says so rather than
-    # letting it be picked for a subscribe that answers 422
+    # already in one of the caller's feeds — the wizard says so, and still lets it be picked:
+    # a source can sit in several feeds
     already_subscribed: bool
 
 
@@ -73,10 +73,11 @@ def discover_feeds(request, type: SourceType, q: str = ''):
         candidates = discover(type, q)
     except YouTubeUnavailable:
         raise HttpError(503, 'YouTube search is unavailable right now.') from None
+    # in any of the caller's feeds — the wizard still lets them add it to another one
     followed = set(
-        Feed.objects.filter(
-            user=request.auth, source__feed_url__in=[c.feed_url for c in candidates]
-        ).values_list('source__feed_url', flat=True)
+        Source.objects.filter(
+            feeds__user=request.auth, feed_url__in=[c.feed_url for c in candidates]
+        ).values_list('feed_url', flat=True)
     )
     return [
         DiscoverResultSchema(

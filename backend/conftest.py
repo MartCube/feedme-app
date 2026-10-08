@@ -12,7 +12,7 @@ from dramatiq.worker import Worker
 from core import icons, youtube
 from core.auth import issue_token
 from core.fetch import PageUnavailable
-from core.models import Feed, Folder, FolderMember, Post, Source
+from core.models import Feed, FeedSource, Post, Source
 
 # The whole suite runs against Dramatiq's in-memory broker, and the order of the next three
 # statements is load-bearing — hence the isort fence, which stops a reformat from shuffling
@@ -132,23 +132,22 @@ def make_source(db):
 
 @pytest.fixture
 def make_feed(make_source):
-    def _make(user, name='A feed', source=None, order=0):
-        return Feed.objects.create(
-            user=user, source=source or make_source(), name=name, order=order
-        )
+    """A feed — by default one with a single fresh source, the common case in tests.
 
-    return _make
+    `sources` builds a group in that order; `disabled` names the ones switched off. The
+    returned feed carries `.source`, its first source, so a one-source test can post into it
+    without reading the membership back.
+    """
 
-
-@pytest.fixture
-def make_folder(db):
-    def _make(user, name='A folder', feeds=(), muted=(), order=0):
-        folder = Folder.objects.create(user=user, name=name, order=order)
-        for position, feed in enumerate(feeds):
-            FolderMember.objects.create(
-                folder=folder, feed=feed, order=position, muted=feed in muted
+    def _make(user, name='A feed', source=None, order=0, sources=None, disabled=()):
+        feed = Feed.objects.create(user=user, name=name, order=order)
+        members = list(sources) if sources is not None else [source or make_source()]
+        for position, member in enumerate(members):
+            FeedSource.objects.create(
+                feed=feed, source=member, order=position, enabled=member not in disabled
             )
-        return folder
+        feed.source = members[0] if members else None
+        return feed
 
     return _make
 

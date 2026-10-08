@@ -1,13 +1,14 @@
 """uid → the posts behind it, and the cursor that pages through them.
 
 `/feeds/{uid}/posts` is one polymorphic operation over five kinds of list, and the order it
-tries them in is the frontend's exactly — all → saved → saved_* → folder_* → feed_*
+tries them in is the frontend's exactly — all → saved → saved_* → feed_*
 (`app/utils/feed-title.ts`). Keeping that order in one module per side is what stops the two
 from drifting.
 
 Posts are global rows shared by every subscriber, so three of the fields the API returns
-depend on who is asking: `feed_uid` (the caller's own handle on the post's source),
-`saved_group` and `saved_at`. They arrive as correlated subqueries — see `_annotate`.
+depend on who is asking: `source_name` (the caller's own name for the post's source, if they
+renamed it), `saved_group` and `saved_at`. They arrive as correlated subqueries — see
+`_annotate`.
 
 HttpError is raised from here rather than translated in the API layer: an unknown uid has
 exactly one meaning (404) and a private exception type to carry it across one module
@@ -22,7 +23,7 @@ from datetime import datetime
 from django.db.models import OuterRef, Q, QuerySet, Subquery
 from ninja.errors import HttpError
 
-from .models import Feed, Folder, Post, SavedPost
+from .models import Feed, FeedSource, Post, SavedPost
 
 SAVED_PREFIX = 'saved_'
 
@@ -42,11 +43,11 @@ class Stream:
 def resolve_stream(user, uid):
     """The posts behind a feed-page uid, in the frontend's resolution order.
 
-    Every branch is rooted in the caller's own rows, so another user's folder or feed uid
-    lands on the same 404 as one that never existed.
+    Every branch is rooted in the caller's own rows, so another user's feed uid lands on the
+    same 404 as one that never existed.
     """
     if uid == 'all':
-        return _stream(user, Q(source__in=_subscribed_sources(user)), 'published_at')
+        return _stream(user, Q(source__in=_enabled_sources(user)), 'published_at')
 
     if uid == 'saved':
         return _stream(user, Q(id__in=_saved_post_ids(user)), 'saved_at')
@@ -57,22 +58,14 @@ def resolve_stream(user, uid):
             raise HttpError(404, f'no such feed: {uid}')
         return _stream(user, Q(id__in=_saved_post_ids(user, group)), 'saved_at')
 
-    if uid.startswith('folder_'):
-        folder = Folder.objects.filter(user=user, uid=uid).first()
-        if folder is None:
-            raise HttpError(404, f'no such feed: {uid}')
-        # muted is filtered here, not on the feed: mute belongs to *this* folder's merged
-        # read, so a muted member is absent here and still complete on its own feed page
-        members = Feed.objects.filter(
-            user=user, memberships__folder=folder, memberships__muted=False
-        )
-        return _stream(user, Q(source__in=members.values('source_id')), 'published_at')
-
     if uid.startswith('feed_'):
         feed = Feed.objects.filter(user=user, uid=uid).first()
         if feed is None:
             raise HttpError(404, f'no such feed: {uid}')
-        return _stream(user, Q(source_id=feed.source_id), 'published_at')
+        # a source switched off is filtered here, not on the source: off belongs to *this*
+        # feed, so the same source can stay on in another of the user's feeds
+        members = FeedSource.objects.filter(feed=feed, enabled=True)
+        return _stream(user, Q(source__in=members.values('source_id')), 'published_at')
 
     raise HttpError(404, f'no such feed: {uid}')
 
@@ -81,13 +74,13 @@ def visible_posts(user):
     """The posts a caller may open and save.
 
     Posts are global, so "is it mine" is not a user FK — it is this rule: a post from a
-    source you subscribe to, or one you have already saved. The second half is what keeps a
-    saved post readable after you unsubscribe from the feed it came from.
+    source in any of your feeds (switched on or not), or one you have already saved. The
+    second half is what keeps a saved post readable after its source leaves your feeds.
     """
     return _annotate(
         user,
         Post.objects.filter(
-            Q(source__in=_subscribed_sources(user)) | Q(id__in=_saved_post_ids(user))
+            Q(source__in=_followed_sources(user)) | Q(id__in=_saved_post_ids(user))
         ),
     )
 
@@ -154,25 +147,29 @@ def _stream(user, predicate, order_field):
 def _annotate(user, posts):
     """Attach the three fields that depend on who is asking.
 
-    Subqueries, not joins. Feed is unique per (user, source) and SavedPost per (user, post),
-    so each resolves to exactly one row and none of them can multiply the post rows — which
-    a `.filter(saves__user=…)` join paired with an `F('saves__…')` annotation quietly can,
+    Subqueries, not joins. A source can sit in several of a user's feeds, so the rename is
+    `[:1]` of the renamed ones — the first the user gave, in feed order — and SavedPost is
+    unique per (user, post); none of them can multiply the post rows, which a
+    `.filter(saves__user=…)` join paired with an `F('saves__…')` annotation quietly can,
     because Django's join reuse across filter and annotate is not the one you'd guess.
     """
     saved = SavedPost.objects.filter(user=user, post=OuterRef('pk'))
-    return posts.annotate(
-        feed_uid=Subquery(
-            # order_by() clears Feed.Meta.ordering, which would otherwise sort the one row
-            # this can match, per post
-            Feed.objects.filter(user=user, source=OuterRef('source')).order_by().values('uid')[:1]
-        ),
+    renamed = FeedSource.objects.filter(feed__user=user, source=OuterRef('source')).exclude(name='')
+    return posts.select_related('source').annotate(
+        source_name=Subquery(renamed.order_by('feed__order', 'order').values('name')[:1]),
         saved_group=Subquery(saved.values('group')[:1]),
         saved_at=Subquery(saved.values('saved_at')[:1]),
     )
 
 
-def _subscribed_sources(user):
-    return Feed.objects.filter(user=user).values('source_id')
+def _followed_sources(user):
+    """Every source in any of the user's feeds — what they may open and save from."""
+    return FeedSource.objects.filter(feed__user=user).values('source_id')
+
+
+def _enabled_sources(user):
+    """Sources switched on in at least one of the user's feeds — what All reads."""
+    return FeedSource.objects.filter(feed__user=user, enabled=True).values('source_id')
 
 
 def _saved_post_ids(user, group=None):

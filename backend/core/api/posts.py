@@ -17,11 +17,12 @@ from ..extract import extract_article, proxy_images
 from ..models import SavedPost
 from ..postlist import page, resolve_stream, visible_posts
 from .errors import ErrorSchema
+from .home import SourceType
 
 # tagged `feeds`, not `posts`: from the app's side this whole module is reading a feed —
-# the list endpoint's uid is polymorphic over all / saved / a saved group / a folder / a
-# feed, and detail and save are what you do to something you found there. T7's subscription
-# writes (POST /feeds, PATCH /feeds/{uid}) join this group.
+# the list endpoint's uid is polymorphic over all / saved / a saved group / a feed, and
+# detail and save are what you do to something you found there. The feed writes
+# (core/api/feeds.py) join this group.
 router = Router(tags=['feeds'])
 
 # 10 is the page the frontend's infinite scroll asks for. The cap exists only so a caller
@@ -52,11 +53,21 @@ class VideoSchema(Schema):
     vertical: bool
 
 
+class PostSourceSchema(Schema):
+    """Where a post came from, for the meta row: the source's uid, the caller's name for it
+    (their rename in any feed, else the source's own title), its type and its site."""
+
+    uid: str
+    name: str
+    type: SourceType
+    site_url: str
+
+
 class PostSchema(Schema):
     uid: str
-    # null when the caller has no feed for this post's source: a saved post outlives
-    # unsubscribing, and it is never hidden for want of a feed to point at
-    feed_uid: str | None
+    # always present: a post belongs to exactly one source, and a saved post keeps showing
+    # where it came from after that source leaves every feed
+    source: PostSourceSchema
     title: str
     post_url: str
     # null when the post has no image, or when this deployment has no imgproxy key. Named
@@ -78,6 +89,18 @@ class PostSchema(Schema):
     @staticmethod
     def resolve_video(obj):
         return youtube.video(obj.post_url)
+
+    @staticmethod
+    def resolve_source(obj):
+        source = obj.source
+        return {
+            'uid': source.uid,
+            # source_name is _annotate's (core/postlist.py); a post read without it, like the
+            # save toggle's answer, falls back to the source's own title
+            'name': getattr(obj, 'source_name', None) or source.title or source.feed_url,
+            'type': source.type,
+            'site_url': source.site_url,
+        }
 
 
 class PostPageSchema(Schema):

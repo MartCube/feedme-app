@@ -72,6 +72,9 @@ class Source(models.Model):
     feed_url = models.URLField(max_length=500, unique=True)
     site_url = models.URLField(max_length=500, blank=True)
     title = models.CharField(max_length=300, blank=True)
+    # the feed's own <description> / <subtitle>, backfilled at ingest like the title; seeds
+    # a new Feed's description when a source arrives as its first member
+    description = models.TextField(blank=True)
     icon_url = models.URLField(max_length=500, blank=True)
     active = models.BooleanField(default=True)
     # etag / last_modified are opaque HTTP header values for conditional GETs
@@ -131,51 +134,45 @@ class Post(models.Model):
 
 
 class Feed(models.Model):
+    """A user's named group of sources — one source or many. What the home list shows."""
+
     uid = models.CharField(max_length=32, unique=True, default=partial(make_uid, 'feed_'))
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='feeds')
+    name = models.CharField(max_length=300)
+    description = models.TextField(blank=True)
+    order = models.PositiveIntegerField(default=0)
+    # related_name 'feeds' keeps `source.feeds` meaning "the feeds that follow this source",
+    # which is what orphan cleanup asks (core/api/feeds.py § deactivate_if_orphaned)
+    sources = models.ManyToManyField(Source, through='FeedSource', related_name='feeds')
+
+    class Meta:
+        ordering = ['order']
+
+    def __str__(self):
+        return self.name
+
+
+class FeedSource(models.Model):
+    """One source inside one feed. A source can sit in many of a user's feeds, each with its
+    own name for it and its own on/off."""
+
+    feed = models.ForeignKey(Feed, on_delete=models.CASCADE, related_name='members')
     # sources are only deleted by orphan cleanup, which checks for feeds first
-    source = models.ForeignKey(Source, on_delete=models.PROTECT, related_name='feeds')
-    name = models.CharField(max_length=300)
+    source = models.ForeignKey(Source, on_delete=models.PROTECT, related_name='memberships')
+    # the user's own name for it in this feed; blank means the source's own title
+    name = models.CharField(max_length=300, blank=True)
+    # off: still in the feed, left out of its stream (and of All, unless another feed has it on)
+    enabled = models.BooleanField(default=True)
     order = models.PositiveIntegerField(default=0)
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=['user', 'source'], name='unique_feed_per_user_source'),
+            models.UniqueConstraint(fields=['feed', 'source'], name='unique_source_per_feed'),
         ]
         ordering = ['order']
 
     def __str__(self):
-        return self.name
-
-
-class Folder(models.Model):
-    uid = models.CharField(max_length=32, unique=True, default=partial(make_uid, 'folder_'))
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='folders')
-    name = models.CharField(max_length=300)
-    order = models.PositiveIntegerField(default=0)
-    feeds = models.ManyToManyField(Feed, through='FolderMember', related_name='folders')
-
-    class Meta:
-        ordering = ['order']
-
-    def __str__(self):
-        return self.name
-
-
-class FolderMember(models.Model):
-    folder = models.ForeignKey(Folder, on_delete=models.CASCADE, related_name='members')
-    feed = models.ForeignKey(Feed, on_delete=models.CASCADE, related_name='memberships')
-    muted = models.BooleanField(default=False)
-    order = models.PositiveIntegerField(default=0)
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(fields=['folder', 'feed'], name='unique_member_per_folder'),
-        ]
-        ordering = ['order']
-
-    def __str__(self):
-        return f'{self.folder} · {self.feed}'
+        return f'{self.feed} · {self.name or self.source}'
 
 
 class SavedPost(models.Model):

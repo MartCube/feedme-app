@@ -4,7 +4,6 @@ from core.api.account import router as account_router
 from core.api.discover import router as discover_router
 from core.api.errors import register_error_handlers
 from core.api.feeds import router as feeds_router
-from core.api.folders import router as folders_router
 from core.api.home import router as home_router
 from core.api.posts import router as posts_router
 from core.api.search import router as search_router
@@ -22,9 +21,9 @@ TAGS = [
     {
         'name': 'feeds',
         'description': (
-            'Reading. The post list takes a polymorphic uid — all, saved, a saved group '
-            '(saved_*), a folder (folder_*) or a single feed (feed_*) — plus post detail '
-            'and the save toggle.'
+            'Feeds and their sources: create, edit, delete. Reading: the post list takes a '
+            'polymorphic uid — all, saved, a saved group (saved_*) or a feed (feed_*) — plus '
+            'post detail and the save toggle.'
         ),
     },
     {
@@ -49,7 +48,6 @@ def health(request):
 
 api.add_router('', account_router)
 api.add_router('', home_router)
-api.add_router('', folders_router)
 api.add_router('', feeds_router)
 api.add_router('', discover_router)
 api.add_router('', posts_router)

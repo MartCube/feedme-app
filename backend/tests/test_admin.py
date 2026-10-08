@@ -50,10 +50,10 @@ def user_page(admin_client, user):
 
 
 def test_the_user_page_gathers_everything_the_account_owns(
-    admin_client, user, other_user, make_feed, make_folder
+    admin_client, user, other_user, make_feed
 ):
-    feed = make_feed(user, name='Vue on Medium')
-    make_folder(user, name='Dev', feeds=[feed])
+    make_feed(user, name='Vue on Medium')
+    make_feed(user, name='Dev')
     make_feed(other_user, name='Not yours')
     UserSettings.objects.create(user=user, theme=UserSettings.Theme.CLAUDE)
 
@@ -97,21 +97,18 @@ def test_the_index_lists_only_the_global_tables_and_the_accounts(admin_client, d
 
     for listed in ('/admin/core/user/', '/admin/core/feed/', '/admin/core/source/'):
         assert listed in body
-    for hidden in ('/admin/core/folder/', '/admin/core/savedpost/'):
-        assert hidden not in body
+    assert '/admin/core/savedpost/' not in body
 
 
-def test_folder_membership_is_still_editable_on_the_folders_own_page(
-    admin_client, user, make_feed, make_folder
-):
-    """Dropping folders from the index must not cost the mute UI: Django admin has no nested
-    inlines, so this page is the only place FolderMember can be edited."""
-    folder = make_folder(user, name='Dev', feeds=[make_feed(user)])
+def test_a_feeds_sources_are_editable_on_the_feeds_own_page(admin_client, user, make_feed):
+    """Django admin has no nested inlines, so the feed's page is the only place FeedSource —
+    the rename and the on/off — can be edited."""
+    feed = make_feed(user, name='Dev')
 
-    body = admin_client.get(f'/admin/core/folder/{folder.pk}/change/').content.decode()
+    body = admin_client.get(f'/admin/core/feed/{feed.pk}/change/').content.decode()
 
-    assert 'Folder members' in body
-    assert 'muted' in body
+    assert 'Feed sources' in body
+    assert 'enabled' in body
 
 
 def test_the_saved_changelist_is_still_reachable_by_url(admin_client, user, make_post):
@@ -124,5 +121,5 @@ def test_the_saved_changelist_is_still_reachable_by_url(admin_client, user, make
 
 
 def test_settings_are_edited_on_the_user_not_as_a_table_of_their_own(admin_client, db):
-    """Unregistered outright, unlike folders and saved posts — nothing links to it."""
+    """Unregistered outright, unlike saved posts — nothing links to it."""
     assert admin_client.get('/admin/core/usersettings/').status_code == 404

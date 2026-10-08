@@ -15,7 +15,7 @@ from django.utils import timezone
 
 from core.api.posts import SavedGroup
 from core.auth import issue_token
-from core.models import SavedPost
+from core.models import FeedSource, SavedPost
 
 DAY = timedelta(days=1)
 IMAGE = 'https://example.com/photo.jpg'
@@ -84,27 +84,42 @@ def test_a_feed_page_returns_only_that_feeds_posts(authed_client, user, make_fee
     assert listed(get_posts(authed_client, vue.uid)) == [theirs.uid]
 
 
-def test_a_folder_merges_its_members_and_drops_the_muted_one(
-    authed_client, user, make_feed, make_folder, make_post
+def test_a_feed_merges_its_sources_and_drops_the_switched_off_one(
+    authed_client, user, make_feed, make_source, make_post
 ):
     now = timezone.now()
-    heard, muted, outside = (make_feed(user, name=name) for name in ('Heard', 'Muted', 'Outside'))
-    folder = make_folder(user, name='Frontend', feeds=[heard, muted], muted=[muted])
-    wanted = make_post(source=heard.source, published_at=now)
-    make_post(source=muted.source, published_at=now - DAY)
-    make_post(source=outside.source, published_at=now - 2 * DAY)
+    heard, off, outside = make_source(), make_source(), make_source()
+    feed = make_feed(user, name='Frontend', sources=[heard, off], disabled=[off])
+    make_feed(user, name='Elsewhere', source=outside)
+    wanted = make_post(source=heard, published_at=now)
+    make_post(source=off, published_at=now - DAY)
+    make_post(source=outside, published_at=now - 2 * DAY)
 
-    assert listed(get_posts(authed_client, folder.uid)) == [wanted.uid]
+    assert listed(get_posts(authed_client, feed.uid)) == [wanted.uid]
 
 
-def test_a_muted_feed_is_still_complete_on_its_own_page(
-    authed_client, user, make_feed, make_folder, make_post
+def test_a_source_switched_off_in_one_feed_still_reads_in_another(
+    authed_client, user, make_feed, make_source, make_post
 ):
-    muted = make_feed(user, name='Muted')
-    make_folder(user, name='Frontend', feeds=[muted], muted=[muted])
-    post = make_post(source=muted.source)
+    shared = make_source()
+    make_feed(user, name='Off here', source=shared, disabled=[shared])
+    on = make_feed(user, name='On here', source=shared)
+    post = make_post(source=shared)
 
-    assert listed(get_posts(authed_client, muted.uid)) == [post.uid]
+    assert listed(get_posts(authed_client, on.uid)) == [post.uid]
+
+
+def test_all_leaves_out_a_source_switched_off_everywhere(
+    authed_client, user, make_feed, make_source, make_post
+):
+    on, off = make_source(), make_source()
+    make_feed(user, sources=[on, off], disabled=[off])
+    kept = make_post(source=on)
+    hidden = make_post(source=off)
+
+    assert listed(get_posts(authed_client, 'all')) == [kept.uid]
+    # off is a reading choice, not an unfollow: the post still opens
+    assert authed_client.get(f'/api/v1/posts/{hidden.uid}').status_code == 200
 
 
 def test_saved_returns_every_group_newest_saved_first(authed_client, user, make_feed, make_post):
@@ -148,48 +163,51 @@ def test_an_unknown_uid_is_a_404(authed_client, user, make_feed):
         assert get_posts(authed_client, uid).status_code == 404, uid
 
 
-def test_another_users_folder_and_feed_uids_are_404s(
-    authed_client, user, other_user, make_feed, make_folder
-):
+def test_another_users_feed_uid_is_a_404(authed_client, other_user, make_feed):
     theirs = make_feed(other_user, name='Theirs')
-    their_folder = make_folder(other_user, name='Their folder', feeds=[theirs])
 
     assert get_posts(authed_client, theirs.uid).status_code == 404
-    assert get_posts(authed_client, their_folder.uid).status_code == 404
 
 
 # --- the fields that depend on who is asking ------------------------------------------
 
 
-def test_each_post_carries_the_callers_own_feed_uid(
+def test_each_post_carries_its_source_named_the_callers_way(
     authed_client, user, other_user, make_feed, make_source, make_post
 ):
-    """One global post, two subscribers, two different feed_uids — this is what makes a
-    merged stream renderable (roadmap § Contract resolutions, item 1)."""
-
-    source = make_source()
-    mine = make_feed(user, name='Mine', source=source)
-    theirs = make_feed(other_user, name='Theirs', source=source)
+    """One global post, two followers: the source's uid, type and site are shared, the name
+    is each caller's own rename — or the source's title for one who never renamed it."""
+    source = make_source(title='Hacker News: Front Page', site_url='https://news.ycombinator.com')
+    mine = make_feed(user, source=source)
+    make_feed(other_user, source=source)
+    FeedSource.objects.filter(feed=mine).update(name='HN')
     make_post(source=source)
 
     their_client = Client(headers={'authorization': f'Bearer {issue_token(other_user)}'})
 
-    assert get_posts(authed_client, 'all').json()['items'][0]['feed_uid'] == mine.uid
-    assert get_posts(their_client, 'all').json()['items'][0]['feed_uid'] == theirs.uid
+    assert get_posts(authed_client, 'all').json()['items'][0]['source'] == {
+        'uid': source.uid,
+        'name': 'HN',
+        'type': 'website',
+        'site_url': 'https://news.ycombinator.com',
+    }
+    assert get_posts(their_client, 'all').json()['items'][0]['source']['name'] == (
+        'Hacker News: Front Page'
+    )
 
 
-def test_a_saved_post_whose_feed_is_gone_lists_with_no_feed_uid(
+def test_a_saved_post_whose_source_left_every_feed_still_says_where_it_came_from(
     authed_client, user, make_feed, make_post
 ):
     feed = make_feed(user)
     post = make_post(source=feed.source)
     save(user, post)
-    feed.delete()  # unsubscribed, but the saved post is never taken away
+    feed.delete()  # unfollowed, but the saved post is never taken away
 
     item = get_posts(authed_client, 'saved').json()['items'][0]
 
     assert item['uid'] == post.uid
-    assert item['feed_uid'] is None
+    assert item['source']['name'] == feed.source.title
 
 
 def test_saved_group_is_null_until_the_post_is_saved(authed_client, user, make_feed, make_post):
@@ -350,7 +368,7 @@ def test_post_detail_returns_the_post(authed_client, user, make_feed, make_post)
 
     assert body['uid'] == post.uid
     assert body['title'] == 'The Composition API'
-    assert body['feed_uid'] == feed.uid
+    assert body['source']['uid'] == feed.source.uid
 
 
 def test_a_post_you_neither_follow_nor_saved_is_a_404(authed_client, user, make_feed, make_post):

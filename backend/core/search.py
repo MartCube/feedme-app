@@ -6,8 +6,8 @@ Elasticsearch upgrade path is a one-module swap precisely because nothing else r
 the column; `core/models.py` declares it and nothing reads it but the query below.
 
 Scoping is not reimplemented here. `postlist.resolve_stream` already turns a uid into the
-posts behind it, and reusing it verbatim is what makes searching inside a folder skip the
-feeds muted *in that folder*, makes another user's uid 404 rather than leak, and carries the
+posts behind it, and reusing it verbatim is what makes searching inside a feed skip the
+sources switched off *in that feed*, makes another user's uid 404 rather than leak, and carries the
 three per-caller annotations a post response needs. Search is that stream with one more
 WHERE on it.
 """

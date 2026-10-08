@@ -126,12 +126,12 @@ def logout(request):
 def delete_me(request):
     user = request.auth
     # read before the delete, while the feeds still point at them — the cascade below is the
-    # one way feeds vanish without passing through unsubscribe, so it owes the same
+    # one way feeds vanish without passing through the feed writes, so it owes the same
     # deactivation: a source nobody follows must not go on being polled forever
     sources = list(Source.objects.filter(feeds__user=user).distinct())
     with transaction.atomic():
-        # every user-owned table (tokens, feeds, folders, saved, settings) is on_delete=CASCADE;
-        # Feed.source is PROTECT, which guards the shared Source, not the Feed row
+        # every user-owned table (tokens, feeds and their members, saved, settings) is
+        # on_delete=CASCADE; FeedSource.source is PROTECT, which guards the shared Source
         user.delete()
         for source in sources:
             deactivate_if_orphaned(source)

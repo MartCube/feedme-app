@@ -5,8 +5,7 @@ from django.utils.html import format_html
 from .models import (
     AuthToken,
     Feed,
-    Folder,
-    FolderMember,
+    FeedSource,
     Post,
     SavedPost,
     Source,
@@ -14,7 +13,7 @@ from .models import (
     UserSettings,
 )
 
-# Everything a user owns — settings, feeds, folders, saved posts, sessions — is edited from
+# Everything a user owns — settings, feeds, saved posts, sessions — is edited from
 # the user's own page, because that is the question admin gets asked first: what does this
 # account actually have? Only the global tables (Source and Post, one copy shared by every
 # subscriber) and the accounts themselves are listed on the index.
@@ -35,22 +34,12 @@ class UserSettingsInline(admin.StackedInline):
 class FeedInline(admin.TabularInline):
     model = Feed
     extra = 0
-    fields = ('name', 'source', 'order', 'uid')
-    readonly_fields = ('uid',)
-    autocomplete_fields = ('source',)
-    show_change_link = True
-    verbose_name_plural = 'Feeds (subscriptions to a source)'
-
-
-class FolderInline(admin.TabularInline):
-    model = Folder
-    extra = 0
     fields = ('name', 'order', 'uid')
     readonly_fields = ('uid',)
     show_change_link = True
-    verbose_name_plural = 'Folders'
-    # Members and the per-folder mute are edited on the folder's own page: Django admin has
-    # no nested inlines, so FolderMemberInline cannot ride along inside this one. The change
+    verbose_name_plural = 'Feeds (groups of sources)'
+    # A feed's sources and their on/off are edited on the feed's own page: Django admin has
+    # no nested inlines, so FeedSourceInline cannot ride along inside this one. The change
     # link on each row is the way through.
 
 
@@ -86,7 +75,6 @@ class UserAdmin(admin.ModelAdmin):
     inlines = (
         UserSettingsInline,
         FeedInline,
-        FolderInline,
         SavedPostInline,
         AuthTokenInline,
     )
@@ -147,46 +135,36 @@ class PostAdmin(admin.ModelAdmin):
     date_hierarchy = 'published_at'
 
 
-class FolderMemberInline(admin.TabularInline):
-    model = FolderMember
+class FeedSourceInline(admin.TabularInline):
+    model = FeedSource
     extra = 0
-    autocomplete_fields = ('feed',)
+    fields = ('source', 'name', 'enabled', 'order')
+    autocomplete_fields = ('source',)
 
 
 @admin.register(Feed)
 class FeedAdmin(admin.ModelAdmin):
-    list_display = ('name', 'user', 'source', 'order')
-    list_select_related = ('user', 'source')
-    list_filter = ('user',)
-    search_fields = ('name', 'user__email')
-    autocomplete_fields = ('user', 'source')
-    readonly_fields = ('uid',)
-
-
-class OwnedByUserAdmin(admin.ModelAdmin):
-    """Registered, but not listed on the admin index.
-
-    Folders and saved posts belong to one account, so the user's own page is where they are
-    edited. These still need registering — Django admin has no nested inlines, so a folder's
-    members and per-folder mute can only be edited on the folder's own page, and the saved
-    pile needs a changelist to link to once it outgrows a form. `get_model_perms` returning
-    empty drops the model from the index while leaving those URLs working, which is the one
-    supported way to have exactly that.
-    """
-
-    def get_model_perms(self, request):
-        return {}
-
-
-@admin.register(Folder)
-class FolderAdmin(OwnedByUserAdmin):
     list_display = ('name', 'user', 'order')
     list_select_related = ('user',)
     list_filter = ('user',)
     search_fields = ('name', 'user__email')
     autocomplete_fields = ('user',)
     readonly_fields = ('uid',)
-    inlines = (FolderMemberInline,)
+    inlines = (FeedSourceInline,)
+
+
+class OwnedByUserAdmin(admin.ModelAdmin):
+    """Registered, but not listed on the admin index.
+
+    Saved posts belong to one account, so the user's own page is where they are edited. They
+    still need registering — the saved pile needs a changelist to link to once it outgrows a
+    form. `get_model_perms` returning
+    empty drops the model from the index while leaving those URLs working, which is the one
+    supported way to have exactly that.
+    """
+
+    def get_model_perms(self, request):
+        return {}
 
 
 @admin.register(SavedPost)
