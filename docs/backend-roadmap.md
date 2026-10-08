@@ -28,6 +28,15 @@ searching) each wait on something outside the code; T15e waits on a deploy targe
 (`UserSettings.pane_split`, migration 0006), the Post API's `video` field and YouTube player,
 sharper ingest-time thumbnails (YouTube `hq720`, Reddit originals), and the PostCard redesign
 — see [current-state.md](./current-state.md) § Built.
+**Also landed, outside the numbered tasks** _(2026-10-08)_: **the feeds remodel — folders are
+gone and a `Feed` is a group of sources.** `Folder` / `FolderMember` are deleted and `FeedSource`
+(the user's name for a source in a feed, plus its on/off) is new, in migration
+`0007_feeds_group_sources`; `Source` is user-facing (`source_*`) and gains `description`;
+`GET /home`, `PUT /home/order`, the post list and `/discover` change shape, `PostSchema.feed_uid`
+becomes `source`, and `/folders` is replaced by `POST /feeds/{uid}/sources` and friends. It
+rewrites parts of T4, T5 and T7 as built — those entries stay as the record of what they
+delivered, each with a pointer — and is recorded in § Decision log (2026-10-08) and in
+[backend.md](./backend.md) § Decision log. The numbered tasks and their order are unchanged.
 
 **T15 is five tasks from the start _(2026-09-15)_** — one per stage of the images strategy plus
 one per consumer: the proxy with post images (a), feed icons (b), article images (c), the bucket
@@ -300,13 +309,40 @@ source the account was the last subscriber of; and a cursor with a naive timesta
 `postlist.page()` is shared by the post list and search. **316 backend tests green in the tree
 as committed**, `ruff check .` clean.
 
+The feeds remodel _(2026-10-08)_ then changed what several of the paragraphs above built — the
+models are now `User`, `AuthToken`, `Source`, `Post`, `Feed`, `FeedSource`, `SavedPost` and
+`UserSettings`, with no `Folder` or `FolderMember`. `Feed` is the user's named group of sources
+(`name`, `description`, `order`; `sources` many-to-many through `FeedSource`, whose `name`,
+`enabled` and `order` are the user's own per placement, unique per feed and source, with
+`source` on `PROTECT`). `Source` gained a `description`, backfilled at ingest from RSS
+`<description>` / Atom `<subtitle>` and flattened to plain text (`strip_tags` + `unescape`,
+whitespace collapsed, capped at 1000). `GET /home` returns `{feeds: [{uid, name, description,
+sources: […]}], saved_counts}` in display order — still a fixed number of queries, now the feeds
+and one prefetch of their members and sources; `PUT /home/order` takes feed uids only, with the
+same strict validation. `core/api/feeds.py` serves `POST /feeds` (`{name?, description?,
+feed_url?}` — with a URL it creates the feed and its first source in one call, so a URL that
+isn't a feed leaves no empty feed behind), `PATCH` and `DELETE /feeds/{uid}`, and
+`POST /feeds/{uid}/sources`, `PATCH` and `DELETE /feeds/{uid}/sources/{source_uid}`; each
+answers with the whole feed (`HomeFeedSchema`) except the feed delete. A source added twice to
+one feed is a 422; changing a source's link resolves a *different* `Source` and repoints the
+row, keeping its name and on/off; an orphaned source is deactivated, never deleted.
+`core/postlist.py` resolves `all` → `saved` → `saved_*` → `feed_*`, a feed's stream being its
+**enabled** sources and `all` the sources enabled in at least one feed; a post may be opened or
+saved if its source is in any of the caller's feeds, on or off, or is saved. The post-list
+annotations are now `source_name` (the caller's rename in the first feed that has one, in feed
+order), `saved_group` and `saved_at`, and `PostSchema.feed_uid` is replaced by
+`source: {uid, name, type, site_url}`. `/discover`'s `already_subscribed` means "in one of your
+feeds" and no longer blocks picking. Admin edits a feed's sources as an inline on the feed's own
+page. `core/api/folders.py` and `tests/test_folder_writes.py` are deleted.
+
 **Not built.** Everything else: keyword discovery outside YouTube (T11c, T11d — gated on
 credentials and on a catalog worth searching), T14's preview, every image the app should still
 show (T15d–e — [images.md](./images.md); T15a–c shipped post images, feed icons and article
 images through the proxy, so what's left is permanence and the CDN), and the endpoints stop at
 `/health`, `/me`, `/auth/google`, `/auth/logout`, `/home`, `/home/order`, `/settings`, `/feeds`,
-`/feeds/{uid}`, `/feeds/{uid}/posts`, `/folders`, `/folders/{uid}`, `/posts/{uid}`,
-`/posts/{uid}/article`, `/posts/{uid}/save`, `/search` and `/discover`.
+`/feeds/{uid}`, `/feeds/{uid}/sources`, `/feeds/{uid}/sources/{source_uid}`,
+`/feeds/{uid}/posts`, `/posts/{uid}`, `/posts/{uid}/article`, `/posts/{uid}/save`, `/search`
+and `/discover`.
 `PUT /home/order` still has no drag-and-drop UI driving it. Every served endpoint now has a
 frontend caller — `/posts/{uid}/article` was the last one without, wired 2026-09-18.
 
@@ -325,7 +361,8 @@ join is backend work. Merged streams make this load-bearing — an `all` respons
 from many feeds and each card needs its own `feed_uid`. **Amended in T5:** the field is
 **nullable**. A saved post outlives unsubscribing, so a `saved` response can carry a post whose
 source the reader no longer has a feed for; it returns `feed_uid: null` rather than being
-dropped from the list.
+dropped from the list. **Superseded 2026-10-08:** `feed_uid` is gone — every post carries
+`source: {uid, name, type, site_url}`, never null (§ Decision log, 2026-10-08).
 
 **2. `Post.content` vs `summary` / `article_html`.** The frontend has one `content` field; the
 backend deliberately splits what RSS gave us (`summary`) from on-demand extracted article text
@@ -341,7 +378,9 @@ patched `feed_url`, but that field lives on the shared global `Source` — editi
 repoint every other subscriber's feed. `PATCH /feeds/{uid}` accepts **name only**. **Applied in
 T6:** `updateFeed` takes a name, and the edit panel shows the RSS URL as read-only text rather
 than an input — it's what tells two feeds apart, so it stays on screen. The API still *returns*
-`feed_url`, so the `Feed` type itself doesn't change.
+`feed_url`, so the `Feed` type itself doesn't change. **Amended 2026-10-08:** the shared
+`Source.feed_url` is still never edited, but a user can now *change a source's link* — that
+resolves a different `Source` and repoints their row at it (§ Decision log, 2026-10-08).
 
 **4. `UserSettings` scope.** The model gained `scrollbar_style` in T4 — it's an appearance
 preference that should follow the account across devices. Desktop panel-affordance state (the
@@ -351,7 +390,8 @@ preference worth syncing to another device.
 **5. Top-level home order.** `Feed.order` and `Folder.order` are separate integer columns.
 `PUT /home/order` writes **one shared 0..n-1 sequence** across both tables, where `Feed.order`
 is only meaningful for loose feeds — a feed's position *inside* a folder lives on
-`FolderMember.order`.
+`FolderMember.order`. **Superseded 2026-10-08:** there are no folders, so `PUT /home/order`
+writes `Feed.order` alone, over feed uids only.
 
 ## Decision log
 
@@ -954,7 +994,7 @@ Decided 2026-09-18, outside any task (frontend-only, attached to T14):
   loses the wizard entirely; the folder-scoped add already puts the *step* on the route
   (`/edit/:uid/add` vs. `/edit/:uid/add/input`), but not the type or the search term. Direction:
   `/add?type=youtube&q=one+piece`, written with `router.replace` (not `push`) exactly like the
-  post list's `?q=` ([current-state.md](./current-state.md) → Built → Feed page v1), with the
+  post list's `?q=` ([current-state.md](./current-state.md) → Built → Post list v1), with the
   step derived from the params; picks and the destination step stay in `useState`. Deferred to
   T14 rather than built now, so the scheme is designed once together with the preview state — a
   tapped candidate should be addressable too. Rejected: leaving it as-is (fine on Capacitor, but
@@ -1015,6 +1055,51 @@ Decided 2026-09-28, with the reader rework (not a numbered task):
   by rewriting; `external-preview.redd.it` has no such original and is left alone.
 - **Pane split is a synced setting** (`UserSettings.pane_split`, default `equal`), not a
   frontend-only preference, like the card style: it follows the account across devices.
+
+Decided 2026-10-08, outside any task (the feeds remodel — backend and frontend together; the
+product-level reasoning is in [backend.md](./backend.md) § Decision log):
+
+- **No folders; a `Feed` is a group of sources.** The user's call, in their words: "lets not have
+  folders. we simple have feeds and sources. feed is like a folder, its a group of sources. feed
+  has title description and list of sources. feed can also have a single source." Backend work
+  that follows: `Folder` / `FolderMember` deleted, `Feed` reshaped, `FeedSource` added, one
+  migration (`0007_feeds_group_sources`). This **supersedes** T4's `/home` shape and shared
+  top-level order, T5's `folder_*` branch and nullable `feed_uid`, and T7's `/folders` writes and
+  cascade rules — those entries stay as the record of what each task delivered.
+- **The link between a feed and a source is its own row, `FeedSource`, not a bare M2M.** It
+  carries the user's rename (`name`, blank = the source's title), the on/off (`enabled`) and
+  the order. A plain `ManyToManyField` could have held membership but nothing per placement,
+  and both are per placement by decision: one source can sit in several feeds, named and
+  switched differently in each.
+- **`FeedSource.source` is `PROTECT`; `Feed.sources` has `related_name='feeds'`.** The first
+  makes the orphan rule explicit — a source is only ever deactivated, because deleting it would
+  take its posts and everyone's saves with it. The second makes `source.feeds` mean "the feeds
+  that follow this source" (any user's), which is exactly what orphan cleanup asks.
+- **Changing a link repoints the row; it never edits the `Source`.** `PATCH
+  /feeds/{uid}/sources/{source_uid}` with a `feed_url` runs the same find-or-create-and-fetch
+  as an add (so a typo is a 422 and changes nothing), then points the row at the result,
+  keeping its `name` and `enabled`. Resolving happens before the transaction, so a network call
+  never holds a database lock open; a replacement already in the feed is refused with the
+  duplicate message.
+- **A feed write answers with the whole feed, and `POST /feeds` can create the first source in
+  the same call.** The frontend store swaps one row rather than patching fields; and a URL that
+  isn't a feed 422s *before* anything exists, so the wizard's "New feed" can never leave an
+  empty feed behind. A feed created without a URL needs a name; with one, name and description
+  default to the source's own.
+- **`GET /home` has no `order` field and no `folders`.** Feeds arrive in display order, since
+  the home list is one flat sequence and `Feed.order` is its only column.
+- **The post's per-caller `source_name` is the first rename, in feed order.** A source can be
+  renamed differently in several feeds; `_annotate` takes `[:1]` of the caller's non-blank
+  names ordered by `(feed.order, member.order)` — a correlated subquery, in keeping with T5's
+  rule that nothing here may multiply post rows.
+- **`Source.description` is read at ingest, flattened once.** `feed_metadata` now returns it,
+  `_plain` strips tags, unescapes entities and collapses whitespace (cap 1000), and
+  `_backfill_source_metadata` fills it like it fills the title — blank only, never overwriting.
+  Doing it at ingest means no reader of the column strips markup again.
+- **The 2026-09-18 "wizard state on the URL" direction loses its folder-scoped precedent.** It
+  pointed at `/edit/:uid/add` as the step-on-the-route example; that route is gone with the
+  edit drawer (the feed page's *Add source* sets a `target` in wizard state instead). The
+  direction itself — type and query as query params on `/add`, deferred to T14 — is unchanged.
 
 ## Tasks
 
@@ -1139,6 +1224,10 @@ dedupe on re-poll, the 304 no-op, a malformed feed not raising, and backoff grow
 grow with the number of feeds, order survives a round-trip, and a test proves a second user's
 folders and feeds never appear in the first user's response.
 
+**Reshaped 2026-10-08.** `/home` now returns `feeds` (each a group with its `sources`) and
+`saved_counts` only — no folders, no top-level order — and `PUT /home/order` takes feed uids
+alone. See § Decision log (2026-10-08).
+
 ### T5 — Posts: list, detail, save ✅
 
 **Goal.** The polymorphic post list that every reader screen is built on.
@@ -1161,6 +1250,10 @@ folders and feeds never appear in the first user's response.
 **Done when.** Every uid branch returns the right set. A feed muted in a folder is absent from
 that folder's stream but still complete on its own page. Paging through a list while inserting
 a newer post skips nothing and repeats nothing. Cross-user isolation is tested.
+
+**Reshaped 2026-10-08.** The `folder_*` branch is gone and so is `feed_uid`: a feed's stream is
+its enabled sources, and each post carries `source: {uid, name, type, site_url}` instead. See §
+Decision log (2026-10-08).
 
 ### T6 — Vertical slice: wire the Nuxt app to real data ✅
 
@@ -1234,6 +1327,12 @@ feed", "Remove from this folder" — closing the divergence
 
 **Done when.** The add wizard and edit drawer flows work against the API, and each cascade rule
 in [data-model.md](./data-model.md) § Cascade rules has its own test.
+
+**Replaced 2026-10-08.** The folder writes (`POST` / `PATCH` / `DELETE /folders`), the
+delete-folder cascade and the edit drawer are gone; `POST /feeds` now creates a *group* and
+`/feeds/{uid}/sources` adds, edits and removes the sources in it. What this entry delivered is
+kept above as the record. See § Decision log (2026-10-08) and
+[data-model.md](./data-model.md) § Cascade rules for the rules that apply now.
 
 ### T8 — Google OAuth ✅
 
@@ -1610,7 +1709,7 @@ shape is what let this be a second URL inside the same composable rather than a 
 composable. A result's link carries the query so Back from a post returns to the results; the
 desktop shell mirrors it as `readerQuery` on the feeds store so a search survives opening
 Settings. `app/types/api.d.ts` is regenerated. See
-[current-state.md](./current-state.md) → Built → Feed page v1.
+[current-state.md](./current-state.md) → Built → Post list v1.
 
 ### T13 — Retention ✅
 
@@ -1661,6 +1760,10 @@ the search index intact. periodiq registers both new schedules alongside `poll_d
 real worker.
 
 ### T14 — Feed preview: a candidate's latest posts
+
+_Wording note, 2026-10-08: since the feeds remodel a `Feed` is a user's group of sources, so
+below "feed" means a candidate **source** (an RSS endpoint) and "subscribing" means adding it to
+a feed. The contract is unchanged except that a post now carries `source`, not `feed_uid`._
 
 **Goal.** Judge a discovered feed before subscribing to it. Tapping a candidate in the add
 wizard shows its newest posts — what it publishes and when the last one landed — so "is this
@@ -1722,7 +1825,7 @@ across back-and-forward, and if the live test shows repeated fetches, `core/yout
   Feeds aren't reliably ordered, so the sort is ours.
 
 *Response.* `DiscoverPostSchema`, beside `DiscoverResultSchema`: `PostSchema` minus the three
-fields an unstored entry cannot have (`uid`, `feed_uid`, `saved_group`) — `title`, `post_url`,
+fields an unstored entry cannot have (`uid`, `source`, `saved_group`) — `title`, `post_url`,
 `image_url`, `summary`, `published_at: datetime | None`. Same names on purpose, so the frontend
 renders a preview row with the same vocabulary as a post card. `summary` is the raw feed HTML
 `PostSchema.summary` already is, and the frontend already `stripHtml`s it; ten Reddit summaries

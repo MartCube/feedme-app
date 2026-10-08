@@ -7,26 +7,30 @@ _Last reviewed: 2026-10-08._
 
 ## Summary
 
-The **design system** and **navigation/drawer UX** are well developed, and the three **reader
-screens** (feeds list, feed page, post page) navigate end to end. **Desktop
-(≥1024px) v1** now renders those same screens as a three-column shell — sidebar, posts pane,
-post pane — composed by the layout from the same routes and store state; Settings/Add/Edit
-present as a sliding content area over the reading panes instead of drawers — a master–detail
-split where there's a list to sit beside, single-pane where there isn't. **The app runs on real
-data** _(2026-09-01)_: a `/login` screen gates every route, and the account's own feeds,
-folders, fetched posts, saved posts and settings all come from the Django API in `backend/`
-(Django + django-ninja, Docker Compose) — the mock data files are deleted and nothing falls
-back to them. **Writes are real too** _(2026-09-01)_: subscribing, renaming, folder membership,
-mute and both deletes all go through the API, and the edit drawer's copy moved onto the spec's
-nouns (folder / feed — no "source" on screen). **Sign-in is real** _(2026-09-03)_: `/login`
-renders Google's own button and `POST /auth/google` trades its credential for our bearer token —
-with the dev-token field deliberately kept beside it for now, so there are two ways in until the
-dev path is retired. **Posts now age out** _(2026-09-07)_: a nightly job prunes unsaved posts
-past 90 days and, per source, past the newest 500 — saved posts are exempt at any age — and
-polling respects the same line, so a feed subscribed today arrives with only the posts inside
-that window. **Posts are searchable** — `GET /search` _(2026-09-06)_ narrows any feed / folder /
-saved list, and the feed page and the desktop posts pane search through it from a box on the
-list's own title row. What has no endpoint behind it yet says so: the add wizard resolves any
+The **design system** and **navigation/drawer UX** are well developed, and the **reader
+screens** (feeds list, post list, post page, and a feed's own page) navigate end to end.
+**Desktop (≥1024px) v1** now renders those same screens as a three-column shell — sidebar,
+posts pane, post pane — composed by the layout from the same routes and store state;
+Settings/Add present as a content area over the reading panes instead of drawers — a
+master–detail split where there's a list to sit beside, single-pane where there isn't. **The app
+runs on real data** _(2026-09-01)_: a `/login` screen gates every route, and the account's own
+feeds, their sources, fetched posts, saved posts and settings all come from the Django API in
+`backend/` (Django + django-ninja, Docker Compose) — the mock data files are deleted and nothing
+falls back to them. **Writes are real too** _(2026-09-01)_: adding, renaming, switching on and
+off, and deleting all go through the API. **The product model was remade** _(2026-10-08)_:
+**folders are gone and a feed is a group of sources** — a name, a description and one source or
+many. A source can sit in several feeds, with its own name and its own on/off in each; the home
+list is flat, and each feed has a page (tap its title above the posts) where its sources are
+switched on or off, renamed, relinked and removed. The edit drawer, long-press and home options
+sheet are deleted. See Resolved decisions → Feeds are groups of sources. **Sign-in is real**
+_(2026-09-03)_: `/login` renders Google's own button and `POST /auth/google` trades its
+credential for our bearer token — with the dev-token field deliberately kept beside it for now,
+so there are two ways in until the dev path is retired. **Posts now age out** _(2026-09-07)_: a
+nightly job prunes unsaved posts past 90 days and, per source, past the newest 500 — saved posts
+are exempt at any age — and polling respects the same line, so a source added today arrives
+with only the posts inside that window. **Posts are searchable** — `GET /search` _(2026-09-06)_ narrows any feed / saved
+list, and the post list (mobile page and desktop posts pane) searches through it from a box on
+the list's own title row. What has no endpoint behind it yet says so: the add wizard resolves any
 **pasted URL** and searches **YouTube** by channel name, but a keyword under Website or Reddit
 still finds nothing, and the home reorder has no UI. **The reader is wired to
 `/posts/{uid}/article`** _(2026-09-18)_: the post page renders the extracted article as markup,
@@ -41,7 +45,7 @@ the reading width with no crop, and dropped along with an image that can't be pr
 than left hotlinked. **Feed icons are proxied too** _(2026-09-28)_: the add wizard shows one
 for every type, with the name's initials when a feed has none. Nothing else consumes them yet.
 **The reader got a rework** _(2026-09-28)_: PostCards are now a square thumbnail beside the text
-with a meta row (feed name, type icon, date) and an excerpt; a **YouTube** post plays in the
+with a meta row (source name, type icon, date) and an excerpt; a **YouTube** post plays in the
 post page instead of showing a still; images are sharper (Reddit originals, YouTube `hq720`, no
 upscaling on the post page); and on desktop an Appearance setting picks the **reading-pane
 split**. The rest of the strategy is specced in [images.md](./images.md) _(2026-09-15)_.
@@ -70,11 +74,10 @@ own status: **read that file's § Status for what to build next.**
   `GET`/`PUT /settings`, see **Data layer** below, which is what still paints the chosen theme
   server-side without a flash); `app.vue` applies `data-theme` on `<html>` via `useHead`.
 - **Feed-list style switch** — Settings → Appearance → Feed list picks **List** (plain rows,
-  default) or **Cards** (**top-level** home rows — Home, Saved, folders, loose feeds — become
-  permanent `bg-elevated` + `shadow-elevated` cards, spaced `md` apart via per-row margins;
-  member rows inside an expanded dropdown stay plain, spaced `xs`);
-  `settings.feedListStyle`, persisted like the theme. In cards mode the top-level tap flash
-  merges into the card surface — the icon accent flash stays the cue.
+  default) or **Cards** (every home row — Home, Saved and the feeds — becomes a permanent
+  `bg-elevated` + `shadow-elevated` card, spaced `md` apart via per-row margins);
+  `settings.feedListStyle`, persisted like the theme. In cards mode the tap flash merges into
+  the card surface — the name's accent stays the cue.
 - **Scrollbar style switch** — Settings → Appearance → Scrollbar (desktop only, hidden on
   touch via `useIsDesktop()`) picks **Thin** (default), **Comfortable**, or **System** (native,
   writes no rules); `settings.scrollbarStyle`, persisted like the theme, applied as
@@ -82,12 +85,13 @@ own status: **read that file's § Status for what to build next.**
   `app/assets/css/scrollbars.css` (thumb colors derived from `--ui-bg-muted` / a color-mix
   toward `--ui-text`, separate webkit and Firefox branches — the two must never target the
   same element or Chromium 121+ drops the webkit rules). Scroll containers across
-  add/edit/settings/desktop components use the `scroll-host` utility this defines (an
+  add/settings/desktop components use the `scroll-host` utility this defines (an
   `overflow-y-auto` + reserved `scrollbar-gutter` pair) in place of plain `overflow-y-auto`.
 - **Navbar** — `app/components/Navbar.vue` (menu → `/settings`, add → `/add`).
 - **IconButton** — `app/components/ui/IconButton.vue` (round soft-fill button, accent press
   flash). A `quiet` variant blends into the page bg at rest and lifts to the normal
-  elevated look while the press flash runs (home 3-dot options trigger). On hover-capable
+  elevated look while the press flash runs (no caller since the home 3-dot options trigger
+  was deleted, 2026-10-08). On hover-capable
   pointers the icon itself lights `primary`, the same cue `hover-accent` gives a row's label —
   see [design-system.md](./design-system.md) § Color roles → Hover state.
 - **Settings drawer** — `app/components/settings/Drawer.vue` hosts the sheet; the
@@ -115,105 +119,113 @@ own status: **read that file's § Status for what to build next.**
   (whole card toggles a trailing page-bg circle "well" that gains an accent checkmark when
   picked; a header forward button at IconButton size — disabled until ≥1 picked, accent when
   enabled — advances) (`add/SearchStep.vue`) → **choose destination** — a quiet "Adding"
-  caption + plain titles list of the picked feeds above an "Add to" caption + destination
-  cards (top level / folders), so only tappable things read as cards; **tapping a
-  card commits all picked feeds there** (many feeds → one destination) and closes
-  (`add/DestinationStep.vue`) → optional **new folder** — a bottom "New folder" card slides to a
-  name input whose submit arrow creates the folder via `feedsStore.addFolder()` and pops back to
-  the destination list (`add/FolderStep.vue`). Phases slide with the `panel-slide` classes in
+  caption + plain titles list of the picked sources above an "Add to" caption + destination
+  cards: **New feed** first (always there, the common case for a first source), then one card
+  per existing feed with its source count, so only tappable things read as cards; **tapping a
+  feed commits all picked sources there** (many sources → one destination) and closes
+  (`add/DestinationStep.vue`) → or **New feed** → a name input, prefilled with the first picked
+  source's name, whose submit arrow creates the feed and closes (`add/NewFeedStep.vue`, the old
+  `FolderStep.vue` renamed and re-pointed). With several picks the feed is created with the
+  first (`POST /feeds` carrying its `feed_url`, so one that isn't a feed leaves no empty feed
+  behind) and the rest are added to it one at a time; a refusal stops the rest, and the ones
+  already in stay in. Phases slide with the `panel-slide` classes in
   `transitions.css`. Headers follow the settings drawer's language: step 1 has an in-flow close
   above the title; steps 2–4 have a md caret back + `text-subtitle` title (no close). The search
   input is enlarged for mobile (taller padding, `text-body`, `rounded-2xl`).
-  Committing calls `useFeedsStore().addFeed()` per picked feed, which `POST`s to `/feeds` and
-  awaits the server's row (uids are minted server-side). Subscribing is the one step that can be
-  **refused**, and the refusal surfaces in both places that commit: `add/DestinationStep.vue`
-  and — for the folder-scoped add, which commits straight from the search step since it already
-  knows its destination — `add/SearchStep.vue`. It's the API's `detail` verbatim ("That URL
-  isn't a feed.", "You already follow that feed."), sitting **above** the destination list (the
-  panel is `touch-none`, so anything below a long folder list is out of reach on mobile), with
-  the destination cards disabled while the request is in flight; the sheet **only closes on
-  success**. The search step calls
+  **Pointed at a feed** _(2026-10-08)_: the feed page's *Add source* sets the wizard's `target`
+  to that feed (`useAddFeedWizard().target`, cleared by `reset()`) before opening `/add`; the
+  wizard then skips the destination step and commits straight from the search step.
+  Committing calls `useFeedsStore().addFeed()` for a new feed or `addSource()` per picked source
+  for an existing one, which `POST` to `/feeds` and `/feeds/{uid}/sources` and await the
+  server's whole feed (uids are minted server-side). Adding is the one step that can be
+  **refused**, and the refusal surfaces in every place that commits: `add/DestinationStep.vue`,
+  `add/NewFeedStep.vue` and — for the targeted add — `add/SearchStep.vue`. It's the API's
+  `detail` verbatim ("That URL isn't a feed.", "That source is already in this feed."), sitting
+  **above** the destination list (the panel is `touch-none`, so anything below a long feed list
+  is out of reach on mobile), with the destination cards disabled while the request is in
+  flight; the sheet **only closes on success**. The search step calls
   **`GET /discover`** _(T11a, 2026-09-06)_: a pasted URL resolves whether or not it is the feed
   URL — a blog homepage or a post page, a YouTube channel URL or `@handle`, a subreddit URL or a
-  bare name. Results a user already follows come back dimmed with a **"Following"** caption and
-  can't be picked, and each row is captioned with its **feed URL**, since one page can declare
-  several feeds and that is what tells them apart. A **keyword under the YouTube card** searches
+  bare name. A result already in one of the user's feeds **stays pickable** _(changed
+  2026-10-08; it used to be dimmed and locked as "Following")_ with an **"In your feeds ·"**
+  caption in front of its feed URL, and each row is captioned with that **feed URL**, since one
+  page can declare several feeds and that is what tells them apart. A **keyword under the YouTube card** searches
   YouTube by channel name _(T11b, 2026-09-11)_: up to five channels, each row leading with the
   channel's avatar (through the image proxy since T15b, _2026-09-28_ — before that a hotlink
   with `referrerpolicy="no-referrer"`, since Google's image CDN 429s a hotlink carrying a
   foreign referrer), and the same `videos.xml` feed URL
-  a pasted channel resolves to, so subscribing
-  is the same `POST /feeds` either way. YouTube refusing to answer (quota spent, key rejected) is
+  a pasted channel resolves to, so adding it
+  is the same call either way. YouTube refusing to answer (quota spent, key rejected) is
   a **503** the step shows as an error — not "nothing found", which would be a lie. A keyword
   under Website or Reddit still says "Nothing found. Try pasting a link." (T11c, T11d).
-- **Edit drawer (folder / feed)** — `app/components/edit/Drawer.vue` hosts the sheet (UDrawer
-  + open protocol + close-key provide + animation-end navigation), like the settings/add
-  drawers; every `/edit/*` URL renders the home component (`pages:extend`) so the list stays
-  behind the sheet on mobile. The route-driven panel switch and confirm-descriptor table live in
-  `app/components/edit/Panels.vue` (`EditPanels`), shared by the mobile drawer and, on desktop,
-  the content overlay. Opened by **long-press** on a folder or loose-feed home
-  row (mobile, `useLongPress` — suppresses the follow-up nav click) or a **hover-revealed 3-dot**
-  on the row (desktop only, `@media (hover: hover)`). Polymorphic by uid: a `folder_*` uid opens
-  the **folder panel** (`edit/FolderPanel.vue` — rename input + a **Save** pill, a "Feeds"
-  list of member feeds each row spanning the full drawer width with an on/off mute toggle
-  (`ui/Toggle.vue`), a dashed full-width ghost row labelled "Add feed" that runs the add
-  wizard scoped to this folder — skipping the destination step and returning here — and a
-  `ui/DangerButton.vue` labelled "Delete folder"); a loose `feed_*` uid opens the **feed panel**
-  directly (`edit/FeedPanel.vue` — edits the **name only**, with the RSS `feed_url` shown as
-  read-only text below it (it lives on the shared global `Source`; [backend-roadmap.md](./backend-roadmap.md)
-  § Contract resolutions, 3), back caret + `useSwipeBack`
-  when reached as a folder member (`/edit/:uid/feed/:feedUid`), X close when standalone; its
-  `DangerButton` reads "Remove from this folder" as a member or "Delete feed" standalone).
-  Both the name and, in the folder panel, each member's mute toggle are staged as **local
-  drafts** — toggling a mute enables the Save pill same as editing the name does, and nothing
-  reaches the store until Save is pressed. Text/mute edits commit via an explicit **Save**
-  `ui/PillButton.vue` (muted until a draft differs from the committed folder/feed), and
-  pressing it also **closes the edit drawer**, returning to the home list.
-  `ui/DangerButton.vue` is the app's one destructive affordance — an elevated full-width card, no
-  icon, muted label — that **arms** on tap (`animate-pulse` + `text-error` for 250ms, deliberately
-  under the 0.35s panel-slide since the red flip is instant) and then
-  routes to a confirm sheet; it never mutates the store itself. Every destructive action now
-  confirms before committing, via `edit/ConfirmPanel.vue` (replaces the earlier `DeleteConfirm.vue`;
-  purely presentational — props `action`/`verb`/`subject`/optional `context`/`note`/`backTo`,
-  emits `confirm`), rendered at three routes whose copy, back path, and store call are owned by a
-  single `confirm` computed in `Panels.vue`: `/edit/:uid/delete` (delete the folder, or the
-  standalone feed when `:uid` is a loose `feed_*`, branching on the prefix) and
-  `/edit/:uid/feed/:feedUid/delete` (route name `edit-feed-delete`, registered in
-  `nuxt.config.ts` `pages:extend`) which unlinks a member feed from the folder. Confirm/Cancel on
-  the sheet itself are `ui/BlockButton.vue`. Row content in both panels is inset `sm` as real
-  padding on the row (`pl-sm` on the link, `pr-sm` on the `li`) rather than a `text-inset` margin
-  on the list, so row text lines up with the Name input, the RSS URL text, and the section
-  headings.
-  Panels slide with the shared `panel-slide` classes. Backing `feeds`-store actions:
-  `renameFolder`, `setMutedFeeds` (replaces the folder's whole muted set in one immutable
-  write — the folder panel's draft toggles it once, on Save), `updateFeed`, `removeFromFolder`,
-  `deleteFeed`, `folderDeleteImpact`, `deleteFolder` — all of them API calls now (see **Data
-  layer**). **The label divergence this file tracked is closed** _(2026-09-01)_: the shipped
-  copy is now "Delete folder", "Delete feed" and "Remove from this folder" — the three actions
-  [screens-and-flows.md](./screens-and-flows.md#7-create--edit-folders--feeds-from-the-home-list)
-  § 7 already specced — and headings, aria-labels and route segments use
-  [backend.md](./backend.md)'s nouns throughout, so a `Source` is never named on screen.
-  A `/edit/*` route whose folder or feed can't be found — a stale link, or a store that never
-  loaded — redirects to `/` instead of leaving an empty panel open, and the sheet doesn't open
-  until the store has answered either way (`edit/Drawer.vue`, and the edit branch of the desktop
-  `ContentOverlay.vue`), so a cold deep link no longer slides up an empty sheet and holds it for
-  the length of `GET /home`.
+- **Feed page** _(2026-10-08)_ — replaces the whole edit drawer. `app/components/feed/Info.vue`
+  (`FeedInfo`) is a feed's own page: a back caret (hidden on desktop, where the list is already
+  beside it, but keeping its space), a pencil to edit, the name in `text-title`, the
+  description, then "Sources n/m" (on out of total) and one row per source — the name as a
+  link to the source's page (dimmed by opacity alone when off, so the row's inherited accent
+  still reaches it) and a `ui/Toggle.vue` **outside** the link (interactive in interactive is
+  invalid) that flips it on or off **immediately** through `feedsStore.updateSource`, with no
+  Save. Below the list a dashed full-width ghost row, **Add source**, resets the add wizard,
+  sets its `target` to this feed and navigates to `/add`; an empty feed says "No sources yet."
+  and keeps the row. For **Saved** (`/feed/saved`, `/feed/saved_*`) the same component lists
+  All saved / Bookmarks / Favorites / Later with their counts, each → its post list — this
+  replaces Saved's expand chevron. `feed/InfoPanels.vue` (`FeedInfoPanels`) is the one switch
+  over the views, shared by both hosts (the mobile page and the desktop post pane), so they look
+  and behave alike; `utils/feed-info.ts` (`infoView`, `infoBack`, `restOf`) names each view from
+  the path's tail and where Back from it goes. The views are routes under `/feed/:uid/info`,
+  all rendered by one catch-all page, `pages/feed/[uid]/info/[...rest].vue` (which captures the
+  uid and tail once, so the leaving page keeps its content through the slide, and wires
+  `useSwipeBack` to `infoBack`):
+
+  | Path | View |
+  | --- | --- |
+  | `/feed/:uid/info` | the feed page |
+  | `…/info/edit` | `feed/InfoEdit.vue` — Name and Description inputs, a **Save** `ui/PillButton.vue` (live once a draft differs and the name is non-empty; Save returns to the feed page), and a `ui/DangerButton.vue` **Delete feed** |
+  | `…/info/delete` | `feed/Confirm.vue` — "Its sources leave your list unless another feed has them. Saved posts stay." Confirming deletes and goes home |
+  | `…/info/source/:sourceUid` | `feed/SourceEdit.vue` — a **Name** input with the source's own title as its placeholder (blank = that title), a **Link** input, a **Save** pill, and a `DangerButton` **Remove from this feed** |
+  | `…/info/source/:sourceUid/remove` | `feed/Confirm.vue` — "It stays in your other feeds. Saved posts stay." Confirming removes and returns to the feed page |
+
+  Back is the parent view (remove → source → feed page → post list; delete → edit → feed page).
+  Saving a **name** is optimistic; saving a **link** awaits `relinkSource`, since the new URL is
+  fetched and may not be a feed — the API's reason shows under the field, nothing changes, and
+  the form stays up; success goes to the feed page (a new link is a different source with a
+  different uid in the path). A feed or source that no longer exists — a stale link, a delete on
+  another device — sends the reader to the feed page, or home if the feed is gone, held until
+  `/home` has answered so a deep link doesn't bounce mid-load.
+  `ui/DangerButton.vue` is still the app's one destructive affordance — an elevated full-width
+  card, no icon, muted label — that **arms** on tap (`animate-pulse` + `text-error` for 250ms,
+  deliberately under the 0.35s panel-slide since the red flip is instant) and then routes to a
+  confirm view; it never mutates the store itself. `feed/Confirm.vue` is the old
+  `edit/ConfirmPanel.vue` moved: purely presentational — props
+  `action`/`verb`/`subject`/optional `context`/`note`/`backTo`, emits `confirm`; its
+  Confirm/Cancel are `ui/BlockButton.vue`. Row content is inset `sm` as real padding on the row
+  rather than a `text-inset` margin on the list, so row text lines up with the heading.
+  **Mobile:** the post list's title is a link (`feed/PostList.vue`) to `/feed/:uid/info`; the
+  middleware's depth rule makes that a push with the page slide, and `useSwipeBack` pops it.
+  All feeds keeps a plain-text title. **Desktop:** the post pane renders `FeedInfoPanels` (body
+  capped at `max-w-reading`) whenever no post is open and the feed isn't All feeds — replacing
+  the "Select a post" placeholder, which All feeds keeps — and the title links to `/feed/:uid`,
+  which closes the post. The store mirrors the view as `readerInfo` (the path tail, or null)
+  beside `readerFeedUid`/`readerPostUid`, so it survives Settings or Add opening over the
+  reader. **Deleted with it:** `edit/Drawer.vue`, `Panels.vue`, `FolderPanel.vue`,
+  `FeedPanel.vue`, `home/OptionsDrawer.vue`, `useLongPress`, `utils/edit-drawer.ts`, the
+  `/edit/*` routes in `nuxt.config.ts`, and the desktop overlay's edit branch.
 - **Layouts** — `app/layouts/default.vue` is the single layout and the mobile/desktop branch
   point: `useIsDesktop()` (`app/composables/useIsDesktop.ts` — VueUse `useMediaQuery` at the
   `lg` 1024px tier, gated behind `useMounted` so SSR and the hydration render always emit the
   mobile tree, flipping only after mount on wide clients) chooses between the unchanged mobile
-  tree (`lg:hidden`-masked for a wide first paint, hosting the three drawers) and
+  tree (`lg:hidden`-masked for a wide first paint, hosting the two drawers — Settings and Add) and
   `DesktopShell`. `isDesktopNow()` is the synchronous twin for imperative guards.
 - **Desktop shell v1** (`app/components/desktop/`) — ≥1024px renders three columns composed
   straight from the route and the `feeds` store, not a nested-route tree: `Sidebar.vue` (18rem)
-  — the shared `HomeFeedList` (wordmark, Home, Saved, folders, loose feeds — see Feeds list v1,
+  — the shared `HomeFeedList` (wordmark, Home, Saved, feeds — see Feeds list v1,
   below), then two standing rows, **Add feed** (→ `/add`) and **Settings** (→ `/settings`); a
   posts pane (`FeedPostList`, 50% by default — the Appearance split); and a post pane (the rest, body capped at 56rem, a `FeedPostActions` bar — Copy link, Open source and Save — right-aligned above
-  `FeedPostView` once a post is loaded, or a dimmed "Select a post" placeholder —
-  **no auto-select**).
+  `FeedPostView` once a post is loaded; with no post open, the **feed page** — see Feed page,
+  above — or, on All feeds, a dimmed "Select a post" placeholder — **no auto-select**).
   `Shell.vue` reads `useRouter().currentRoute` rather than Nuxt's `useRoute()` (Nuxt's route
   object only resyncs when a `NuxtPage` resolves, and the shell renders none), syncing the
-  feeds store's `readerFeedUid`/`readerPostUid`/`readerQuery`/`readerPath` on reader routes only
+  feeds store's `readerFeedUid`/`readerPostUid`/`readerInfo`/`readerQuery`/`readerPath` on reader routes only
   — they stay frozen while a content route is open (which is what keeps a search alive across a
   trip into Settings).
   **The three columns share a pinned top-row axis** _(2026-09-24)_: the sidebar wordmark, the
@@ -222,42 +234,36 @@ own status: **read that file's § Status for what to build next.**
   offset from the scroll container's *padding* edge, not its border box) so each stays reachable
   while its own column scrolls under it. Each pinned row folds its column's `page-inset` into an
   opaque strip in the column's own surface — `bg-sunken` for the sidebar, `bg-default` for the
-  two reading panes — rather than a divider. Mobile is unchanged: the feed page's title still
+  two reading panes — rather than a divider. Mobile is unchanged: the post list's title still
   clears the navbar with `mt-lg`, and mobile navbars aren't pinned.
-  Settings, Add, and Edit present as a **content area** (`ContentOverlay.vue`) laid over the two
+  Settings and Add present as a **content area** (`ContentOverlay.vue`) laid over the two
   reading panes; the sidebar stays interactive and the reading panes stay mounted underneath
   throughout (feed, selected post, search, and pane scroll all survive a round-trip). **Nothing
   on desktop slides** — the area appears and disappears like a page replacing a page, and the
   `.content-slide-*` classes are gone from `transitions.css` (see Resolved decisions → Desktop
-  motion). Settings and Edit split the area into **two equal panes**, each `basis-2/5` — the
+  motion). Settings splits the area into **two equal panes**, each `basis-2/5` — the
   posts pane's width, with the remaining fifth left empty on the right, because a form has a
   natural width and doesn't get better by getting wider the way an article does — a master pane
-  (the settings section list, or a folder's panel) and a detail pane (the open section, or a
-  folder member's panel / the scoped add steps / a delete confirm), each keeping the open item's
-  row persistently **elevated with its label in `primary`** in the master (`activePath` on
-  `SettingsHome`, `activeUid` on `EditFolderPanel` — the same treatment the feed list and post
-  list use), with a "Select a section" / "Select a feed" placeholder in the detail pane until
-  something is open. Two flows have no master to sit beside and take the area **single-pane**,
-  capped at `--container-reading`: Add (the wizard is four linear steps with no list) and editing
-  a **loose** feed (nothing below it to pick — a second pane there would be dead space beside a
-  squeezed form). Switching what the detail pane shows is a plain swap with no motion, exactly
-  like clicking a different post, and the add wizard's steps cut instead of sliding here
-  (`AddSteps`'s `slide` prop, `false` from this host only). The area reuses the exact mobile
-  panel components (`app/utils/settings-panels.ts`'s route map, `AddSteps`, `EditPanels` — which
-  gained a `pane: 'all' | 'single' | 'master' | 'detail'` prop — `'all'` is the unchanged
-  mobile-drawer behaviour, `'single'` the same views without the slide) and resets the add wizard
-  on any exit from `/add` or `/edit/*`. The
-  three drawer hosts guard their `onMounted` open-on-deep-load with `isDesktopNow()` so a
-  desktop deep-load of `/settings/*`, `/add`, or `/edit/*` never flashes a bottom sheet.
+  (the settings section list) and a detail pane (the open section, with a "Select a section"
+  placeholder until one is open), the master keeping the open item's
+  row persistently **elevated with its label in `primary`** (`activePath` on
+  `SettingsHome` — the same treatment the feed list and post list use). Add has no master to
+  sit beside and takes the area **single-pane**, capped at `--container-reading` (the wizard is
+  four linear steps with no list). Switching what the detail pane shows is a plain swap with no
+  motion, exactly like clicking a different post, and the add wizard's steps cut instead of
+  sliding here (`AddSteps`'s `slide` prop, `false` from this host only). The area reuses the
+  exact mobile panel components (`app/utils/settings-panels.ts`'s route map, `AddSteps`) and
+  resets the add wizard on any exit from `/add`. The
+  two drawer hosts guard their `onMounted` open-on-deep-load with `isDesktopNow()` so a
+  desktop deep-load of `/settings/*` or `/add` never flashes a bottom sheet.
   Layout tokens live in `app/assets/css/layout.css` (`--container-sidebar/postlist/reading/post`,
   a `@theme static` block in its own namespace so it doesn't collide with the six-name
   `--spacing-*` rule) — there is no whole-shell width cap. **v1 is deliberately unpolished:**
-  keyboard focus rings still suppressed, and `HomeOptionsDrawer` still opens as a bottom sheet
-  on desktop — both queued for a later design/polish pass.
+  keyboard focus rings still suppressed — queued for a later design/polish pass.
 - **Empty / unreachable state** — `app/components/home/EmptyState.vue` carries two states in one
   layout: the first-run nudge ("Nothing here yet" + an explainer + a primary "Add your first
-  feed" action → `/add`), driven by the `feeds` store's `hasFeeds` computed (feeds or folders
-  non-empty), and — when `GET /home` failed — "Can't reach the server" + a **Try again** action
+  feed" action → `/add`), driven by the `feeds` store's `hasFeeds` computed (feeds non-empty),
+  and — when `GET /home` failed — "Can't reach the server" + a **Try again** action
   that retries the load. Neither renders until the store is `loaded` (or has failed), so the
   first paint can't flash "Nothing here yet" while the request is in flight. Shown on the mobile
   home page in place of the list, and on desktop in place of both reading panes (the sidebar
@@ -271,10 +277,12 @@ own status: **read that file's § Status for what to build next.**
   context). Types are **generated from the API**: `pnpm types:api` runs `openapi-typescript`
   against `/api/v1/openapi.json` into `app/types/api.d.ts` (committed, so typecheck doesn't need
   Docker; ESLint-ignored). `app/assets/types.ts` survives as a thin alias layer over
-  `components['schemas']` — `Feed`, `Folder`, `Post`, `FeedType`, plus `Home`/`PostPage`/
+  `components['schemas']` — `Feed` (a group of sources), `Source` (one source as it sits in a
+  feed — `FeedSourceSchema`), `Post`, `FeedType`, plus `Home`/`PostPage`/
   `Settings`/`Me`/`SavedGroupName` — so component imports are unchanged and a renamed backend
   field breaks typecheck instead of silently rendering blank. `FeedCandidate` is generated too as of
-  T11a — `DiscoverResultSchema`, which is a `Feed` minus its uid plus `already_subscribed`.
+  T11a — `DiscoverResultSchema`, a source's name, type, site, feed URL and icon plus
+  `already_subscribed` (now "in one of your feeds").
 - **Auth & login** — `app/pages/login.vue` (brand, one line, then **two controls**: Google's
   rendered sign-in button and, below it, the dev-token field — both ship, see Not started →
   Sign-in (rest); `definePageMeta({ layout: false })` is load-bearing, since the default
@@ -297,10 +305,10 @@ own status: **read that file's § Status for what to build next.**
   a linked account even in a dev-token session, because `provider` describes the account.
 - **Data layer** — the `feeds` store loads `GET /home` once (in-flight-guarded; a failure is
   swallowed rather than raised, so it can never surface as Nuxt's error page, and retries from
-  the home screen's **Try again** or the next app boot) into feeds, folders and `savedCounts`,
-  behind a `loaded` gate and an `unreachable` flag; the response's `order` is applied as a sort at load time and not retained
-  (the list renders as folders-then-loose-feeds; interleaving waits on the reorder UI — see
-  Not started → Home reorder).
+  the home screen's **Try again** or the next app boot) into `feeds` — each a group with its
+  sources — and `savedCounts`, behind a `loaded` gate and an `unreachable` flag. The feeds
+  arrive in display order (the server sorts by its one order column) and the response carries no
+  order of its own; reordering waits on its UI — see Not started → Home reorder.
   `app/composables/usePostList.ts` cursor-pages `GET /feeds/{uid}/posts` (limit 10) behind a
   sentinel + VueUse `useIntersectionObserver` rooted on the viewport, so the same composable
   serves the mobile page scroll and the desktop pane; given a query it pages `GET /search`
@@ -310,14 +318,21 @@ own status: **read that file's § Status for what to build next.**
   plus its save toggle. The `settings` store loads `GET /settings` and `PUT`s on change (a full
   replace of all three synced fields). Both loads run from
   `app.vue`'s `onMounted` (and again on sign-in), never from middleware — see Resolved decisions.
-  **Writes** _(2026-09-01)_: every `feeds`-store action calls the API. `renameFolder`,
-  `setMutedFeeds`, `updateFeed`, `removeFromFolder`, `deleteFeed` and `deleteFolder` are
+  **Writes** _(2026-09-01, reshaped 2026-10-08)_: every `feeds`-store action calls the API.
+  `updateFeed`, `deleteFeed`, `updateSource` (rename and on/off) and `removeSource` are
   **optimistic with rollback** — the local array is replaced first and a shared `commit()` helper
-  restores the previous one if the request fails (the cascading `deleteFolder` re-reads `/home`
-  instead, via the store's new `reload()`, since its effect spans both arrays). `addFeed` and
-  `addFolder` **await** instead and let their error escape to the add wizard, because the backend
-  mints every uid. Membership is sent whole: `removeFromFolder` `PATCH`es the surviving
-  `feed_uids`.
+  restores the previous one if the request fails, and on success swaps in the server's copy of
+  the **whole feed** (every feed write answers with one, so the store replaces a row — `put()` —
+  instead of patching fields, and a rename's fallback title or a new link lands exactly).
+  `addFeed`, `addSource` and `relinkSource` **await** instead and let their error escape to the
+  add wizard or the source form, because the backend mints every uid and fetches a new URL to
+  find out whether it is a feed at all. The store also keeps `postsRevision`, a counter bumped
+  when a write that changes which posts a feed holds has **landed** — a source switched on or
+  off, added, relinked or removed, a feed created or deleted — and never on the optimistic
+  flip, since a list refetched before the server has the write reads the old posts.
+  `usePostList(uid, q, contents)` takes the caller's `contents` string as a third argument
+  (only compared, never sent): a change resets the list exactly as a changed uid or query does,
+  and `feed/PostList.vue` passes the revision for every uid except the saved lists.
 - **Feeds list v1** — `app/components/home/FeedList.vue` (`HomeFeedList`) renders the home list
   from the `feeds` store's `/home` load — used by the mobile home page (`app/pages/index.vue`)
   and, on desktop, the sidebar (an `activeUid` prop drives the desktop persistent-selection
@@ -328,44 +343,39 @@ own status: **read that file's § Status for what to build next.**
   the top of the sidebar, on the top-row axis it shares with the posts pane's title row and the
   post pane's actions — see Desktop shell v1), then **Home** as an ordinary list row —
   same height and surface as every other row, inline `Home` + an `All feeds` caption — linking
-  to `/feed/all` (the merged all-feeds read), then a pinned **Saved** row (links to
-  `/feed/saved`; chevron expands to the three saved groups — Bookmarks / Favorites / Later from
-  `app/utils/saved.ts`, each → `/feed/saved_*`, each showing its count from `/home`'s
-  `saved_counts`, the same muted count a folder row carries), then folder rows (name + feed
-  count, expand/collapse chevron with auto-animate and an accent tap flash, sitting **inside**
-  the row's tap-flash card surface at IconButton size on the navbar buttons' vertical axis;
-  members indented and greyed when muted), then loose feeds; every row links to `/feed/[uid]`.
-  Chevrons point **right** when collapsed and rotate to down when expanded, and light `primary`
-  on hover the same way an `IconButton`'s icon does (see [design-system.md](./design-system.md)
-  § Color roles → Hover state). Home's trailing
-  3-dot — sitting where folder rows keep their chevron, directly below the navbar **+** — opens
-  a **half-height options sheet** (`app/components/home/OptionsDrawer.vue`, local-state drawer —
-  not route-driven — with placeholder rows: New folder / Edit feeds / Reorder feeds). Names only
-  for now — no type icons. A row's trailing action is hover-revealed on hover-capable pointers
-  (`@media (hover: hover)`); on touch it hides for a folder/loose-feed row, where long-press is
-  the entry (below), but stays visible for Home's 3-dot, which has no long-press fallback. Every
-  row also carries the shared desktop `hover-accent` (label to `primary` on hover), and a
-  selected row — the tap flash on mobile, the persistent desktop selection — lights its **name**
-  `primary` on top of the elevated surface, since in cards mode every top-level row already has
-  a surface and the name is the only cue left; a muted member is dimmed by opacity alone so it
-  still takes both. In list mode rows sit `2xs` apart so a selected row's rounded surface doesn't
-  fuse with its neighbour. See [design-system.md](./design-system.md) § Color roles → Hover
-  state. Long-press (mobile) /
-  hover 3-dot (desktop) on a folder or loose-feed row opens the **edit drawer** (see Built,
-  below).
-- **Feed page v1** — `app/components/feed/PostList.vue` (`FeedPostList`, `uid` + `q` +
-  `activePostUid` props) lists PostCards with the resolved feed/folder name as title — used by
-  the mobile feed page (`app/pages/feed/[uid]/index.vue`) and, on desktop, the shell's posts
-  pane. Posts come from `usePostList(uid, q)` — the uid resolves **server-side** in the
-  frontend's own order (`all` → `saved` → `saved_*` → `folder_*` → `feed_*`), so the component
+  to `/feed/all` (the merged read of every source that's on in some feed), then a pinned
+  **Saved** row (links to `/feed/saved`, with the total of `/home`'s `saved_counts` beside it
+  when non-zero; its three groups — Bookmarks / Favorites / Later from `app/utils/saved.ts`,
+  each → `/feed/saved_*` — live on its feed page, see Feed page above), then one row per
+  feed: the name, and a count of its sources beside it unless it has exactly one (so a
+  multi-source or empty feed shows its count), linking to `/feed/[uid]`. **The list is flat**
+  _(2026-10-08)_: no expand chevrons, no trailing ⋯ buttons, no long-press, and the options
+  sheet that Home's 3-dot opened is deleted — everything done to a feed lives on its feed page.
+  Names only — no type icons. Every row carries the shared desktop `hover-accent` (label to
+  `primary` on hover), and a selected row — the tap flash on mobile, the persistent desktop
+  selection — lights its **name** `primary` on top of the elevated surface, since in cards mode
+  every row already has a surface and the name is the only cue left. The Saved row also stays
+  lit while one of its groups is open. In list mode rows sit `2xs` apart so a selected row's
+  rounded surface doesn't fuse with its neighbour. See [design-system.md](./design-system.md)
+  § Color roles → Hover state.
+- **Post list v1** — `app/components/feed/PostList.vue` (`FeedPostList`, `uid` + `q` +
+  `activePostUid` props) lists PostCards with the resolved feed name as title — used by
+  the mobile page (`app/pages/feed/[uid]/index.vue`) and, on desktop, the shell's posts
+  pane. (This is the screen docs called "Feed page" until 2026-10-08; "feed page" now means a
+  feed's own page, above.) The **title is a link** to the feed page — `/feed/:uid/info` on a
+  phone, `/feed/:uid` on desktop, where the page already fills the post pane and the link just
+  closes the open post; All feeds' title stays plain text. Posts come from
+  `usePostList(uid, q, contents)` — the uid resolves **server-side** in the
+  frontend's own order (`all` → `saved` → `saved_*` → `feed_*`), so the component
   filters nothing and just renders what pages in; a uid change resets the list rather than
-  appending. The list says "No posts here yet" when a stream is genuinely empty and "Couldn't
+  appending, and so does the store's `postsRevision` changing (see Data layer), so switching a
+  source off on the feed page is reflected the moment the write has landed. The list says "No posts here yet" when a stream is genuinely empty and "Couldn't
   load posts." when a page request failed (paging stops rather than retrying into a refusing
   server).
   **Search** lives on the title row: a magnifying-glass `IconButton` — the standard `md`
   elevated style, matching the post actions, not the smaller quiet one it used to be — swaps
   the title for a `SearchInput` (placeholder "Search *{title}*", so the list being searched is
-  named without a noun that would be wrong for a folder or Saved; no submit arrow — the field is
+  named without a noun that would be wrong for a feed or Saved; no submit arrow — the field is
   live) and back to an X that closes it. Typing is debounced 300ms into `?q=` on the route via
   `router.replace` (never `push` — Back must leave the page, not walk the term backwards), and
   the list pages
@@ -453,30 +463,33 @@ own status: **read that file's § Status for what to build next.**
   channel. Discovery reads the icon off the page it already fetched, at no extra request;
   ingest looks it up once per source when the icon is blank, and never again. `images.icon()`
   serves it as a signed 64 × 64 centre crop. Wire: `icon_url` became `icon: string | null` on
-  `/home` feeds and `/discover` results. **Not consumed anywhere else yet** — home rows and the
-  PostCard show no feed icon (the card uses a type icon instead). See
+  `/home` sources and `/discover` results. **Not consumed anywhere else yet** — home rows, the
+  feed page's source rows and the PostCard show no icon (the card uses a type icon instead). See
   [images.md](./images.md).
 - **PostCard v2** _(2026-09-28)_ — `app/components/feed/PostCard.vue`, redesigned. The
   **Image** style (the account's default, Settings → Appearance → *Post cards*) is a **square
   thumbnail beside the text** (`FeedPostImage` with its `square` prop; 128px, then 160 / 176 /
   192 at `md` / `lg` / `xl`) with a **meta row** above the title — a type icon (YouTube, Reddit;
-  a website gets an external-link icon) and the feed's name as a link to its `site_url`, then
+  a website gets an external-link icon) and the source's name as a link to its `site_url`, then
   `·` and the date — and a **3-line excerpt** of `summary`, with Reddit's "submitted by" footer
   and Hacker News's footer stripped. **Compact** — and any post with no image, under either
   style — is date + title alone. The card is no longer one big link: the title link is stretched
-  over the whole card and the feed link sits above it, so each is its own target; the card is
+  over the whole card and the source link sits above it, so each is its own target; the card is
   `isolate`, which keeps that link's `z-10` from painting over the desktop pane's sticky title
   row. Rows are separated by spacing (no divider lines). Closes the old "source-feed type cue"
   item. **Surfaces** _(2026-10-08)_: the card rests on `bg-elevated`; selected and hovered
   (desktop pointers only, `hover-lift`) both go to `bg-muted` with no shadow — hover equals
-  selected on purpose. The meta row's feed link is always underlined, here and on the post
-  page.
+  selected on purpose. The meta row's source link is always underlined, here and on the post
+  page. **Source on the post** _(2026-10-08)_: the shared meta row (`feed/PostMeta.vue`) reads
+  `post.source` — name, type, site — straight off the post, with no store lookup, so it still
+  names a saved post's source after that source has left every feed (it used to fall back to
+  the date alone).
 - **Reading-pane split (desktop)** _(2026-09-28)_ — `UserSettings.pane_split`
   (`posts` / `equal` / `post`, default `equal`) gives the posts and post panes 60/40, 50/50 or
   40/60. It rides `GET` / `PUT /settings` and the settings store; Settings → Appearance has a
   **Reading panes** section (desktop only), and `desktop/Shell.vue` applies `basis-3/5`,
   `basis-1/2` or `basis-2/5` to the posts pane while the post pane takes the rest. The
-  Settings / Edit content area is unaffected (two fixed 40% panes).
+  Settings content area is unaffected (two fixed 40% panes).
 - **YouTube in the reader** _(2026-09-28)_ — the Post API carries `video: {src, vertical} | null`,
   built from `post_url` by `core/youtube.video()`: a `youtube-nocookie.com` embed
   (`playsinline=1`, `rel=0`), `vertical` meaning a `/shorts/` link. `feed/PostVideo.vue`
@@ -488,8 +501,6 @@ own status: **read that file's § Status for what to build next.**
   cached), and a Reddit `preview.redd.it` thumbnail becomes the `i.redd.it` original
   (`external-preview.redd.it` is left alone). `FeedPostImage` has a `noUpscale` prop, used on
   the post page, capping the box at the image's natural width.
-- **Sidebar auto-expand** _(2026-09-28)_ — the feeds store expands any folder holding the
-  selected feed, so the selection is never hidden. Expansion state itself is not persisted.
 - **Polish pass** _(2026-10-08)_ — frontend only; no new feature. Post card surfaces, the shared
   meta row and the post page order are under PostCard v2 and Post page v1 above. **Desktop sticky
   pane-top rows** (the posts list's title/search row, the post pane's action strip) end in
@@ -503,31 +514,32 @@ own status: **read that file's § Status for what to build next.**
   `position: relative; overflow: hidden`, so a leaving step no longer escapes to the whole
   desktop overlay for a frame, and the desktop wizard renders its step swap with `:css="false"`
   (no transition phase at all).
-- **Context-aware navbar** — both slots swap per page: home = menu + add, feed page =
-  sidebar icon (→ home) alone (search sits on the list's title row instead — see Feed page v1),
+- **Context-aware navbar** — both slots swap per page: home = menu + add, post list =
+  sidebar icon (→ home) alone (search sits on the list's title row instead — see Post list v1),
   post page = back (→ its feed, carrying the search it was opened from) + Copy link + Open
-  source + Save (`FeedPostActions` — see Post page v1). Navigation is hierarchical, not
-  history-based.
+  source + Save (`FeedPostActions` — see Post page v1). The feed page and its views carry
+  their own header (back, plus the edit pencil on the feed page) instead of the navbar.
+  Navigation is hierarchical, not history-based.
 - **Reader slide transitions** — **mobile only** (the desktop shell renders no `<NuxtPage/>`,
-  so this machinery never runs there — see Desktop shell v1). home → feed → post slide like a
+  so this machinery never runs there — see Desktop shell v1). home → feed → post — and
+  feed → feed page → its edit / source views — slide like a
   navigation stack (deeper pushes in from the right, back pops out to the right). Direction is
   set on route meta by `app/middleware/page-slide.global.ts` (computed *before* render — a
   component watch is one navigation late), shared `.page-slide-*` classes live in
   `assets/css/transitions.css`, and the default layout provides the positioning/clip context.
   Non-reader routes (add, settings) swap instantly (`page-none`) so their drawer animations own
-  the motion; the settings drawer's internal slides — and the edit sheet's, and this
+  the motion; the settings drawer's internal slides — and the add wizard's, and this
   middleware's own direction check — share one push/pop rule and its CSS variables in
   `app/utils/panel-slide.ts` (`panelSlideDirection`/`panelSlideVars`, replacing three copies of
-  the same logic). An **equal-depth** move (one settings panel to a sibling, one folder's edit
-  to another's) now slides **not at all**, rather than incorrectly animating as a push — the bug
-  the consolidation fixed.
+  the same logic). An **equal-depth** move (one settings panel to a sibling) now slides **not at
+  all**, rather than incorrectly animating as a push — the bug the consolidation fixed.
 - **Swipe navigation** — `app/composables/useSwipeNav.ts` (VueUse `useSwipe`, touch-only).
-  `useSwipeBack`: swipe right anywhere on the feed page, post page, a settings subpage, or an
-  edit-feed subpage drags the page with the finger and past 72px pops to the parent route
-  (reusing the page-slide / panel-slide pop); under threshold it snaps back. `useSwipeOpen`: swipe left
-  on a home feed row or settings section row nudges it and opens it (gesture twin of
-  tapping; one delegated listener per list). Axis-locked so vertical scrolling and vaul's
-  drag-to-close are untouched; back buttons unchanged.
+  `useSwipeBack`: swipe right anywhere on the post list, post page, the feed page and each view
+  under it, or a settings subpage drags the page with the finger and past 72px pops to the
+  parent route (reusing the page-slide / panel-slide pop); under threshold it snaps back.
+  Axis-locked so vertical scrolling and vaul's drag-to-close are untouched; back buttons
+  unchanged. _(An earlier version of this entry listed a `useSwipeOpen` — swipe left on a row
+  to open it. It is not in the tree; corrected 2026-10-08.)_
 
 ## Stubs (exist but placeholder content)
 
@@ -540,29 +552,23 @@ own status: **read that file's § Status for what to build next.**
 ## Not started
 
 - **Desktop polish** — v1 (see Built → Desktop shell v1) ships the structural three columns
-  only: keyboard focus rings still globally suppressed,
-  and `HomeOptionsDrawer` still opens as a mobile-style bottom sheet on desktop. Auto-selecting
+  only: keyboard focus rings still globally suppressed. Auto-selecting
   a detail post (e.g. the last-read one) on entering a feed is also deferred — v1 always starts
-  at the "Select a post" placeholder.
+  with no post open: the feed page in the post pane, or on All feeds the "Select a post"
+  placeholder.
 - **Settings content** — the drawer, its four subpages, and transitions are built, and
   Appearance and Account are real, including the Post cards switch (see Built); About's version
   string is hardcoded and Report still needs real content and a way to actually send anything.
 - **Add feed (rest)** — keyword search for subreddits and our own catalog (T11c, T11d), a
-  candidate's latest posts before subscribing (T14, planned — `GET /discover/posts`), putting the
+  candidate's latest posts before adding it (T14, planned — `GET /discover/posts`), putting the
   wizard's type and query on the URL so a reload doesn't lose them (decided 2026-09-18, deferred
   to T14 — see [backend-roadmap.md](./backend-roadmap.md) § Decision log), sub counts, and input
   validation via VeeValidate/Zod. The wizard UI, RSS discovery from a pasted URL, YouTube search
-  by name and the subscribe itself are built (see Built) — any URL works end to end.
+  by name and the add itself (into a feed or a New feed) are built (see Built) — any URL works
+  end to end.
 - **Saved posts (rest)** — saving, unsaving and reading the saved streams work end to end (see
   Built), but every save lands in **Bookmarks**: there is no group chooser and no way to move a
   post between Bookmarks / Favorites / Later, though the API call for it is the same upsert.
-- **Folders (rest)** — the expandable rows on the home list, the merged-stream read, **folder
-  creation inside the add wizard** (`addFolder` store action + `add/FolderStep.vue`), the **edit
-  drawer** and every folder write (`POST`/`PATCH`/`DELETE /folders`) are done. Still missing: the
-  actions behind the home options sheet (New folder / Edit feeds / Reorder feeds are still
-  placeholder rows) and a standalone folder-creation entry point with member picking. See
-  [data-model.md](./data-model.md#folder) and
-  [screens-and-flows.md](./screens-and-flows.md).
 - **Sign-in (rest)** — Google sign-in works end to end (see Built → Auth & login), but the
   **dev-token field is still on `/login` for everyone**, deliberately: the natural retirement is
   gating it on `import.meta.dev`, and gating it at build time today would make it vanish silently
@@ -576,10 +582,11 @@ own status: **read that file's § Status for what to build next.**
   for permanence, T15d) and stage 3 (a CDN and a paid transformer at deploy, T15e) come after.
   The whole strategy, staged, is [images.md](./images.md); task entries in
   [backend-roadmap.md](./backend-roadmap.md) § Tasks → T15d, T15e.
-- **Home reorder** — `PUT /home/order` exists and is strict, but **nothing drives it**: the home
-  list has no drag-and-drop, and the options sheet's Reorder feeds row is a placeholder. The
-  `order` from `/home` is applied as a sort at load and not retained, so the UI, when it lands,
-  re-reads `/home` after writing.
+- **Home reorder** — `PUT /home/order` exists and is strict (it now takes **feed uids only** —
+  the whole flat list, nothing else to interleave), but **nothing drives it**: the home list has
+  no drag-and-drop and no other way to move a feed, and the `feeds` store has no action for
+  it. Feeds arrive from `/home` already in display order, so the UI, when it lands, writes the
+  new order and swaps the list locally or re-reads `/home`.
 
 ## Installed but unused
 
@@ -592,6 +599,19 @@ _None currently._
 
 ## Resolved decisions
 
+- **Feeds are groups of sources** _(2026-10-08)_ — **no folders.** The user's call: "lets not
+  have folders. we simple have feeds and sources. feed is like a folder, its a group of sources.
+  feed has title description and list of sources. feed can also have a single source." Settled
+  with it: **one source can sit in several feeds**; sources can be **renamed** (per feed) and
+  their **links changed**; adding a source asks **which feed it goes into, or "New feed"**; and
+  existing data was a **fresh start** (old feeds and folders dropped, saved posts kept). On/off
+  per feed replaces the old per-folder mute. The shape of a feed's own page came from a
+  screenshot of crowdfeed, the user's earlier aggregator. Consequences for the docs: `Source` is
+  now a user-facing noun (`source_*`), so "a `Source` is never named on screen" no longer holds
+  (full reasoning in [backend.md](./backend.md) § Decision log, 2026-10-08); "feed page" now
+  means a feed's own page, and the post-list screen the docs used to call that is the **post
+  list**. This supersedes **Folders** (2026-06-30) and **Folder reads through the feed page**
+  (2026-07-01) below, and amends **Saved groups** (2026-07-11).
 - **Images** _(recorded 2026-09-15)_ — every image the app shows goes through a proxy the
   backend signs URLs for; the frontend never builds one. Staged so the first hundred readers
   run on one server and growth is bought, not rewritten: `imgproxy` with nothing stored, then
@@ -605,7 +625,7 @@ _None currently._
   title on the same row, in `FeedPostList.vue`, so the mobile feed page and the desktop posts
   pane share one entry point. The query lives on the route as `?q=` (debounced, `replace` not
   `push`), which is what makes a deep link, a reload, and Back from a post all land on the same
-  results. See Built → Feed page v1.
+  results. See Built → Post list v1.
 - **Desktop motion** _(recorded 2026-09-15)_ — **nothing slides on desktop.** The content area
   (Settings / Add / Edit) replaces the reading panes the way a new page would, the add wizard's
   steps cut, and detail-pane swaps were already plain. Sliding is the mobile stack's language:
@@ -626,7 +646,9 @@ _None currently._
   middle tablet tier is possible later but not built.
 - **Desktop detail-pane selection** _(2026-07-27)_ — the post pane shows a placeholder
   ("Select a post") until a post is clicked; there is no auto-select of the first or
-  last-read post. Revisit later if that feels wrong in daily use.
+  last-read post. Revisit later if that feels wrong in daily use. **Amended _(2026-10-08)_:**
+  until a post is clicked the pane shows the feed's own page instead; only All feeds, which has
+  none, keeps the placeholder. Still no auto-select.
 - **AI reading-companion feed** _(2026-07-16)_ — a custom RSS feed of AI-written posts
   (one per book chapter, reflection + link back to the chapter) is specced in
   [ai-feed.md](./ai-feed.md). Lives in a separate `feedme-books` repo (Python; batch
@@ -896,7 +918,7 @@ _None currently._
   a mute reflected instantly, 105 results paged two at a time across 53 pages with no duplicates,
   and `openapi.json` carrying `search_posts` under `feeds` with still exactly four tags.
   **The frontend is wired to it** — the feed page and the desktop posts pane search from their
-  title row (see Built → Feed page v1), and `app/types/api.d.ts` has been regenerated to carry
+  title row (see Built → Post list v1), and `app/types/api.d.ts` has been regenerated to carry
   the `/search` path.
   **T13 landed _(2026-09-07)_, with no endpoint and no screen behind it:** the posts table now has
   a ceiling. `backend/core/retention.py` holds every deletion rule — unsaved posts older than **90
@@ -934,6 +956,24 @@ _None currently._
   passing through unsubscribe; and a cursor carrying a naive timestamp is a 422. **316 backend
   tests green in the tree as committed** (T13's 285 plus T11b's 12 in `test_youtube.py` and the
   tests behind the hardening above), `ruff check .` clean.
+  **The feeds remodel landed _(2026-10-08)_, outside the numbered tasks**, and supersedes the
+  models and endpoints above where they differ: `Folder` and `FolderMember` are deleted
+  (migration `0007_feeds_group_sources`, no data step — the old feeds and folders were dropped,
+  saved posts kept), `Feed` is now the user's group (`name`, `description`, `order`) with
+  `sources` many-to-many through a new `FeedSource` (`name` = the user's rename, `enabled`,
+  `order`; unique per feed and source; `source` is `PROTECT`), and `Source` gained `description`,
+  backfilled at ingest from RSS `<description>` / Atom `<subtitle>` and flattened to plain text
+  (cap 1000). `GET /home` is `{feeds: [{uid, name, description, sources: […]}], saved_counts}`
+  in display order; `PUT /home/order` takes feed uids only; `core/api/feeds.py` serves
+  `POST`/`PATCH`/`DELETE /feeds` and `POST`/`PATCH`/`DELETE /feeds/{uid}/sources[/{source_uid}]`,
+  each answering with the whole feed; `core/api/folders.py` and its three endpoints are gone.
+  `core/postlist.py` resolves `all` → `saved` → `saved_*` → `feed_*` (a feed's stream is its
+  enabled sources; `all` is sources enabled in at least one feed), a post may be opened or saved
+  if its source is in any of the caller's feeds, and `PostSchema.feed_uid` became
+  `source: {uid, name, type, site_url}`. `/discover`'s `already_subscribed` now means "in one of
+  your feeds". Details and the reasoning are in [backend.md](./backend.md) § Decision log
+  (2026-10-08); `tests/test_folder_writes.py` is deleted and the feed, home, posts, search,
+  account and admin tests were updated to the new shape.
 
 - **Feed discovery** _(T11a, 2026-09-06)_ — the add wizard's search step does real work: paste a
   URL and `GET /discover` turns it into feeds you can subscribe to. **T11 was split into four**
@@ -994,17 +1034,21 @@ _None currently._
   via a long-press / 3-dot context menu (rename, add/remove feeds, **per-folder mute**, delete).
   **Mute** is per-folder only. **Remove from folder** unlinks; **delete feed** unsubscribes
   everywhere; **delete folder** also unsubscribes its feeds except those in another folder (with
-  confirmation). See [data-model.md](./data-model.md#folder).
+  confirmation). See [data-model.md](./data-model.md) (its Folder section was removed).
+  **Superseded _(2026-10-08)_:** there are no folders — see Feeds are groups of sources.
 - **Saved groups** _(2026-07-11)_ — Saved is not one pile: saves organize into three fixed
   groups — **Bookmarks / Favorites / Later** (`app/utils/saved.ts`, uids `saved_*`). On the
   home list Saved is an expandable pinned row (tap → `/feed/saved`, all groups merged; expand →
   the three group rows → `/feed/saved_*`). Group uids resolve on the feed page before
   folder/feed uids. Saved groups are deliberately **not** store `Folder`s — that would leak
   them into the add-wizard destination list and the loose-feed computation.
+  **Amended _(2026-10-08)_:** there are no folders and the Saved row no longer expands — its
+  groups are listed on Saved's feed page. They are still app structure, not store `Feed`s.
 - **Folder reads through the feed page** _(2026-07-01)_ — a folder is **not** its own route.
   The feed page (`/feed/[uid]`) is polymorphic: `uid` resolves in a fixed order — `saved` →
   folder (`folder_*`) → feed (`feed_*`) — exactly the pattern `saved` already established.
   Chosen over a separate `/folder/[uid]` tree to avoid duplicating the feed/post routes; the
   page stays thin by delegating to a `usePostList(uid)` resolver. If folders ever need
   folder-specific chrome, splitting out a dedicated route is a cheap, additive refactor. See
-  [screens-and-flows.md](./screens-and-flows.md).
+  [screens-and-flows.md](./screens-and-flows.md). **Superseded _(2026-10-08)_:** there are no
+  folders; the polymorphic uid is now `all` → `saved` → `saved_*` → `feed_*`.

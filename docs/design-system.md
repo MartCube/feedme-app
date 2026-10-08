@@ -61,20 +61,20 @@ so stepping a hover to `bg-muted` would make a hovered row louder than a selecte
 10% `primary` wash (the first attempt) barely registered — there is no alpha of the accent
 that is both visible over `bg-default` and quieter than `bg-elevated`, so it landed as haze.
 Colour borrows no surface, which is also why it can **stack** on a row that already has one
-(the selected row, or every top-level row in cards mode) instead of having to be withheld
+(the selected row, or every row in cards mode) instead of having to be withheld
 from exactly the rows that most needed feedback. Meta that sets its own colour (counts, the
-`text-muted` caption) keeps it, so only the name lights up; a muted feed is dimmed by opacity
-rather than `text-muted` for the same reason; an icon that sets its own colour follows by the
-same gate (`group-hover`), or the label would light beside a muted icon. The `hover-accent`
-utility (`app/assets/css/themes.css`) carries this, wrapped in `@media (hover: hover)` so touch
-pointers — where `:hover` sticks after a tap — get nothing. Used across the feed list, the
-sidebar's Add feed/Settings entries, settings' section rows, and the edit-folder member rows.
+`text-muted` caption) keeps it, so only the name lights up; a source switched off in a feed is
+dimmed by opacity rather than `text-muted` for the same reason; an icon that sets its own colour
+follows by the same gate (`group-hover`), or the label would light beside a muted icon. The
+`hover-accent` utility (`app/assets/css/themes.css`) carries this, wrapped in
+`@media (hover: hover)` so touch pointers — where `:hover` sticks after a tap — get nothing.
+Used across the feed list, the sidebar's Add feed/Settings entries, settings' section rows, and
+the feed page's source rows (`feed/Info.vue`) and its Saved rows.
 
 The same cue reaches standalone icons that have no row label to carry it: every `IconButton`
-(`app/components/ui/IconButton.vue`) and the folder/Saved expand chevrons
-(`home/FeedList.vue`) light the icon itself `primary` on hover, gated the same way
-(`@media (hover: hover)`, via `group-hover/icon` rather than `hover-accent`, since there's no
-label doing the work).
+(`app/components/ui/IconButton.vue`) lights the icon itself `primary` on hover, gated the same
+way (`@media (hover: hover)`, via `group-hover/icon` rather than `hover-accent`, since there's
+no label doing the work).
 
 **The post card is the carve-out from "label only."** Unlike a list row, a card already rests
 on a surface (`bg-elevated`), so stepping that surface is the cue that reads: on hover it goes
@@ -86,7 +86,7 @@ on `bg-muted`, doesn't take it.
 **Selected** is the same cue made to stand: the row's label goes `primary` *and* the row takes
 `bg-elevated` + `shadow-elevated` — the tap flash on the way out on mobile, the persistent
 master–detail selection on desktop. The name carries the selection rather than the surface
-alone because in cards mode every top-level row already has a surface. A post card selects the
+alone because in cards mode every row already has a surface. A post card selects the
 other way round: it rests on `bg-elevated`, so selected steps up to `bg-muted` with no shadow
 and no label change.
 
@@ -196,7 +196,7 @@ the same pattern as spacing and the type scale.
 
 | Timing | Value | Used for |
 |---|---|---|
-| Feedback | 300ms, ease-out | Every colour or surface change: hover, selection, the tap flash, the toggle thumb, the chevron turn |
+| Feedback | 300ms, ease-out | Every colour or surface change: hover, selection, the tap flash, the toggle thumb |
 | Slide | `--duration-slide` 350ms, `--ease-slide` (iOS's curve, `cubic-bezier(0.32, 0.72, 0, 1)`) | Page and drawer-panel slides — mobile only |
 
 Feedback is Tailwind's own transition default (`--default-transition-duration` and

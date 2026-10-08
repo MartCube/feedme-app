@@ -13,7 +13,7 @@ comments on any post — yours or anyone's. Nothing optimizing for engagement. J
 
 ## What FeedMe is
 
-FeedMe is a personal **feed reader**. It aggregates a user's subscribed sources into one
+FeedMe is a personal **feed reader**. It aggregates the sources a user follows into one
 clean, mobile-first reading experience. A source can be:
 
 - a **YouTube** channel,
@@ -22,6 +22,10 @@ clean, mobile-first reading experience. A source can be:
 
 Each source is pulled via its RSS endpoint, and its latest items are presented as a simple,
 scrollable list the user can read, save, and open at the original source.
+
+The user arranges sources into **feeds**: a feed is a named group of one source or several,
+with a description, read as one merged stream. One source can sit in several feeds, and can be
+switched off inside any of them. There are no folders — a feed is already the group.
 
 ## Who it's for
 
@@ -42,13 +46,14 @@ is the current focus; the rest come later, off one codebase.
 
 Layout follows the **viewport**, not the platform:
 
-- **Mobile** (< 1024px) — one pane at a time. Tap a feed → its posts; tap a post → the post;
-  Settings, Add, and Edit open as bottom drawers.
+- **Mobile** (< 1024px) — one pane at a time. Tap a feed → its posts; tap the title above them
+  → the feed's own page (its sources, switched on or off right there); tap a post → the post;
+  Settings and Add open as bottom drawers.
 - **Desktop / wide** (≥ 1024px) — **three columns**: a persistent sidebar (the feed list, plus
-  standing Add feed / Settings links, always visible), a posts pane, and a post pane. Settings,
-  Add, and Edit present as a content area over the two reading panes instead of
-  drawers — a master–detail pair where there's a list to sit beside (Settings, folder editing),
-  single-pane where there isn't (Add, loose-feed editing); the sidebar stays interactive
+  standing Add feed / Settings links, always visible), a posts pane, and a post pane — which
+  shows the feed's own page until a post is opened. Settings and Add present as a content area
+  over the two reading panes instead of drawers — a master–detail pair where there's a list to
+  sit beside (Settings), single-pane where there isn't (Add); the sidebar stays interactive
   alongside them.
 
 This is why content uses **nested routes** (post under feed, subpage under settings): the route
@@ -73,11 +78,12 @@ These are non-negotiable constraints that every screen should honor:
 - **Reeder-style minimalism.** Typography and whitespace carry the design. The full visual
   language (type scale, colors, surfaces, controls) lives in the design-system page
   `app/pages/design.vue` and the theme tokens in `app/assets/css/main.css`.
-- **Overlay secondary actions.** Add feed, Settings, and editing a feed/folder layer over the
-  current screen as a bottom drawer (`UDrawer`) on mobile, but they're route-backed (`/add`,
-  `/settings/*`, `/edit/*`), so on desktop they present as a content area over the
-  reading panes rather than drawers — a master–detail pair where there's a list to sit beside
-  (Settings, folder editing), single-pane where there isn't (Add, loose-feed editing).
+- **Overlay secondary actions.** Add feed and Settings layer over the current screen as a
+  bottom drawer (`UDrawer`) on mobile, but they're route-backed (`/add`, `/settings/*`), so on
+  desktop they present as a content area over the reading panes rather than drawers — a
+  master–detail pair where there's a list to sit beside (Settings), single-pane where there
+  isn't (Add). Editing a feed is not an overlay: a feed's page is a screen in the reader flow,
+  reached by tapping its title.
 
 ## Theme tokens (reference)
 

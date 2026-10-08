@@ -9,12 +9,12 @@ the decision log at the bottom records what was chosen and why.
 
 **The backend exists to:**
 
-- authenticate users (Google OAuth) and store their personal state: feeds, folders, saved
-  posts, settings, home-list order;
+- authenticate users (Google OAuth) and store their personal state: feeds and the sources in
+  them, saved posts, settings, home-list order;
 - fetch posts from sources (websites, YouTube channels, subreddits) in the background and
   serve them paginated (infinite scroll);
 - power the add-wizard's **discovery** (URL or keyword → candidate sources);
-- power **post search** scoped to a feed / folder / saved;
+- power **post search** scoped to a feed / saved;
 - extract **full article text** on demand so reading stays in-app.
 
 **Non-goals (v1):**
@@ -32,18 +32,20 @@ Agreed naming, used consistently in backend code, API, and these docs:
 
 | Term | What it is | Visible to frontend? |
 | --- | --- | --- |
-| **Source** | One RSS endpoint (a website/blog, a YouTube channel, a subreddit). Global, deduplicated, polled once no matter how many users follow it. | No — backend-only |
+| **Source** | One RSS endpoint (a website/blog, a YouTube channel, a subreddit). Global, deduplicated, polled once no matter how many users follow it. One source can sit in several of a user's feeds. | Yes (uid `source_*`) — user-facing since 2026-10-08 |
 | **Post** | One item of a source. Global, deduped per source by guid. | Yes (uid `post_*`) |
-| **Feed** | The user↔source link: *your* handle on a source — custom name, display order. Same noun as the frontend's `Feed` type, deliberately. | Yes (uid `feed_*`) |
-| **Folder** | A user's named group of feeds; many-to-many, per-folder mute. | Yes (uid `folder_*`) |
+| **Feed** | The user's named **group of sources** — a name, a description and an ordered list of sources, one or many. What the home list shows and the post list reads. Same noun as the frontend's `Feed` type, deliberately. | Yes (uid `feed_*`) |
+| **FeedSource** | One source's place in one feed: the user's own name for it there (blank means the source's own title), on/off for that feed, order. Unique per (feed, source). | Not an entity of its own — it flattens into the feed's `sources` list, where the frontend calls each row a `Source` |
 | **Saved** | Per-user post→group map; fixed groups Bookmarks / Favorites / Later. | Yes (uids `saved_*`) |
 
-Merged streams (a folder's read, `all`, `saved`) need no entity name — the polymorphic
+There is no **Folder**: a feed is already the group (removed 2026-10-08, see the decision log).
+
+Merged streams (a feed's read, `all`, `saved`) need no entity name — the polymorphic
 `/feeds/{uid}/posts` uid expresses them, mirroring the frontend's resolver order in
 [screens-and-flows.md](./screens-and-flows.md).
 
 The **backend mints every public uid** with the prefixes the frontend already resolves:
-`feed_*`, `folder_*`, `post_*`, plus the literals `all` / `saved` and the fixed `saved_*`
+`feed_*`, `source_*`, `post_*`, plus the literals `all` / `saved` and the fixed `saved_*`
 group uids from `app/utils/saved.ts`. (Mock ids like `art_med_1` are replaced by `post_*`.)
 
 ## Architecture: global sources, per-user everything else
@@ -63,23 +65,25 @@ what makes the app scalable and cheap, and it's how Feedly / Miniflux / FreshRSS
    ══════╪═════════════════════════╪══════════  per-user layer
          │ many                    │ many
    ┌────────────┐            ┌────────────┐
-   │    Feed    │            │ SavedPost  │
+   │ FeedSource │            │ SavedPost  │
    └────────────┘            └────────────┘
-     │ many   (custom name,     (group: bookmarks /
-     │ many    order)            favorites / later)
+     │ many   (your name for      (group: bookmarks /
+     │ one     it, on/off, order)  favorites / later)
    ┌────────────┐
-   │   Folder   │──── FolderMember (muted, order)
+   │    Feed    │  (name, description, order)
    └────────────┘
    + User · AuthToken · UserSettings
 ```
 
 Consequences worth spelling out:
 
-- **Adding a feed** is usually "subscribe to an existing source" — instant, posts already
+- **Adding a source to a feed** is usually "link an existing source" — instant, posts already
   fetched. Only the first user to add a source triggers a fetch.
-- **Renaming a feed** edits *your* Feed row's name, never the shared Source title.
-- A source with **zero remaining feeds** is orphaned: polling stops (it's deactivated, kept
-  for cheap re-subscribe; a cleanup job can delete stale orphans later).
+- **Renaming a source** edits *your* FeedSource row's name, never the shared Source title, and
+  **changing its link** swaps which Source the row points at (resolving, and so fetching, the
+  new URL) — the shared Source's URL is never edited, since that would repoint everyone else.
+- A source that **no feed holds** is orphaned: polling stops (it's deactivated, kept for cheap
+  re-adding; a cleanup job can delete stale orphans later).
 - Post content (including extracted article text) is cached **globally** — extracted once,
   served to everyone.
 
@@ -122,28 +126,34 @@ Nuxt app are generated from it (e.g. `openapi-typescript`), so the two sides can
 ```
 User          google_sub (unique), email, created_at
 AuthToken     user FK, token_hash (SHA-256, unique), created_at, last_used_at, device_label
-Source        uid, type (website|youtube|reddit), feed_url (unique), site_url, title,
-              icon_url, active, etag, last_modified, last_fetched_at, next_fetch_at,
-              error_count
+Source        uid (source_*), type (website|youtube|reddit), feed_url (unique), site_url,
+              title, description (the feed's own <description> / <subtitle>, backfilled at
+              ingest like the title, flattened to plain text, 1000-char cap), icon_url,
+              active, etag, last_modified, last_fetched_at, next_fetch_at, error_count
 Post          uid (post_*), source FK, guid (unique per source), title, post_url, image_url
               (the source's URL as fetched — the wire carries a proxied `image` built from it,
               see images.md; stage 2 adds image_key / image_width / image_height),
               summary, article_html (nullable — filled by on-demand extraction),
               published_at, search (persisted generated tsvector, title weighted over summary,
               GIN-indexed) + a functional trigram index on upper(title)
-Feed          uid (feed_*), user FK, source FK, name (user's custom title), order
-              — unique (user, source)
-Folder        uid (folder_*), user FK, name, order
-FolderMember  folder FK, feed FK, muted (bool), order — unique (folder, feed)
+Feed          uid (feed_*), user FK, name, description, order; sources M2M through FeedSource
+FeedSource    feed FK (cascade), source FK (PROTECT), name (the user's rename — blank means
+              the source's own title), enabled (bool: on/off for this feed), order
+              — unique (feed, source)
 SavedPost     user FK, post FK, group (bookmarks|favorites|later), saved_at
               — unique (user, post): a post lives in exactly one group
 UserSettings  user 1:1, theme, feed_list_style, scrollbar_style, post_card_style, pane_split (posts|equal|post), … (grows with Appearance options)
 ```
 
 **Cascade rules** are exactly [data-model.md](./data-model.md#cascade-rules)'s, enforced
-server-side: remove-from-folder unlinks one membership; delete feed removes it from every
-folder; delete folder also deletes member feeds *except* those that are in another folder
-(the API returns how many were unsubscribed, for the confirmation dialog).
+server-side: removing a source from a feed deletes that one FeedSource row (the feed stays,
+even empty); deleting a feed deletes its FeedSource rows; and in both — and when a changed link
+swaps a row's source — a source left in no feed of anyone is deactivated, never deleted
+(`FeedSource.source` is `PROTECT`, so a followed source can't be removed from under a feed).
+Saved posts are untouched by all of it.
+
+**Existing data was not migrated** _(2026-10-08)_: migration `0007_feeds_group_sources` has no
+data step. The old feeds and folders were dropped (a fresh start), and saved posts were kept.
 
 **Retention _(built 2026-09-07, T13)_:** a nightly job prunes unsaved posts older than **90
 days** and, per source, unsaved posts beyond the newest **500** — both rules delete, so a post
@@ -153,7 +163,7 @@ the exemption is "saved by anyone": a post row is global, so an owner-scoped rul
 out from under another account's saved pile. **Ingest honours the same window** — polling never
 creates a post the prune would delete that night, so an archive feed can't refill what the job
 just emptied; the visible consequence is that a source whose entries are all past the window
-subscribes as a valid feed with zero posts. Keeps the table and its two GIN indexes lean; a
+can still be added, as a valid source with zero posts. Keeps the table and its two GIN indexes lean; a
 reader is about recent content.
 
 ## API
@@ -171,34 +181,37 @@ Conventions:
 ### Endpoint catalog
 
 Grouped in the OpenAPI schema — and so in the docs UI at `/api/v1/docs` — under four tags:
-**home** (the home aggregate, its reorder, and the **folder** writes — a folder is home-screen
-structure, read only through `GET /home`), **feeds** (what you follow: the polymorphic post
-list, post detail, save, and the subscription writes), **user** (identity, sessions, settings),
-and **default** (`/health`). The tag is declared on each router in `core/api/`; the order and
-the per-group descriptions come from `TAGS` in `feedme/api.py`.
+**home** (the home aggregate and its reorder), **feeds** (what you follow: the polymorphic post
+list, post detail, save, and the writes to feeds and the sources in them), **user** (identity,
+sessions, settings), and **default** (`/health`). The tag is declared on each router in
+`core/api/`; the order and the per-group descriptions come from `TAGS` in `feedme/api.py`.
+
+**Every feed write answers with the whole feed** (`HomeFeedSchema`, the shape `GET /home` holds
+per feed), so the app swaps one row of its home list rather than re-reading `/home` — the one
+exception is `DELETE /feeds/{uid}`, which has nothing left to return.
 
 | Method & path | Purpose |
 | --- | --- |
 | `POST /auth/google` | Body: the Google `credential` (id_token). Verify signature / issuer / audience / expiry → find, link or create the User → issue an opaque bearer token. **Returns the token alone**; the profile comes from `GET /me` |
 | `POST /auth/logout` | Revoke the presented token (delete its row) |
 | `GET /me` | Profile: email, member-since, sign-in provider (Settings → Account) |
-| `DELETE /me` | Delete account + all user data (tokens, feeds, folders, saved, settings) |
-| `GET /home` | **One aggregate round-trip for the home screen:** folders (with member uids + muted uids), feeds (uid, name, type, site_url, feed_url, `icon` — a proxied 64px square or null), top-level order, saved counts per group |
-| `PUT /home/order` | Persist home-list reorder: ordered list of top-level uids (folders + loose feeds) |
-| `POST /feeds` | Subscribe: `{feed_url, folder_uid?}`. Find-or-create the Source (`type` inferred from the host), create the Feed, and fetch a brand-new Source inline — **fetching it is what validates it**, so a URL that isn't a feed answers 422 and leaves no Source behind. Returns the new feed |
-| `PATCH /feeds/{uid}` | Rename (the user's Feed row, never the shared Source) |
-| `DELETE /feeds/{uid}` | Unsubscribe everywhere (drops folder memberships too). The Source survives its last subscriber, deactivated |
-| `POST /folders` | Create: name + optional member `feed_uids` |
-| `PATCH /folders/{uid}` | Rename / set members / set per-folder mute — every field optional, so one call can commit a rename and the mutes together |
-| `DELETE /folders/{uid}` | Cascade delete per the rules above; returns `unsubscribed_count` |
-| `GET /feeds/{uid}/posts` | **The post list, polymorphic uid:** `all` \| `saved` \| `saved_*` \| `folder_*` (members minus muted) \| `feed_*` — same resolution order as the frontend's `usePostList`. Newest-first, cursor-paginated |
-| `GET /posts/{uid}` | Post detail (what RSS gave us). From T15a every post here and in the lists carries `image: {src, srcset} \| null` in place of `image_url` — ready `<img>` attributes built by `core/images.py`, see [images.md](./images.md) § Wire contract. Posts also carry `video: {src, vertical} \| null` (YouTube only), built by `core/youtube.video()` |
+| `DELETE /me` | Delete account + all user data (tokens, feeds and their sources, saved, settings); a source that was nobody else's is deactivated |
+| `GET /home` | **One aggregate round-trip for the home screen:** `feeds` in display order — each `{uid, name, description, sources: [{uid, name, title, type, site_url, feed_url, icon, enabled}]}`, where `name` is the user's rename in that feed or else the source's own `title`, and `icon` is a proxied 64px square or null — plus `saved_counts` per group. There is no separate order field and no folders |
+| `PUT /home/order` | Persist home-list reorder: the ordered list of feed uids — exactly the account's feeds, no more, no less (a duplicate, unknown or missing uid is a 422 that writes nothing). No UI drives it yet |
+| `POST /feeds` | Create a feed: `{name?, description?, feed_url?}`. With a `feed_url` it creates the feed **and its first source in one call**: find-or-create the Source (`type` inferred from the host) and fetch a brand-new one inline — **fetching it is what validates it**, so a URL that isn't a feed answers 422 and leaves neither a Source nor an empty feed behind. Name and description default to the source's own; without a `feed_url` a name is required. 201, returns the feed |
+| `PATCH /feeds/{uid}` | Edit the feed: `{name?, description?}` — omitted means untouched |
+| `DELETE /feeds/{uid}` | Delete the feed and its placements (204). Any source left in no feed of anyone is deactivated, not deleted |
+| `POST /feeds/{uid}/sources` | Add a source to the feed: `{feed_url}`. Same find-or-create-and-fetch as above. 201, returns the whole feed. A source already in this feed is a 422, "That source is already in this feed." |
+| `PATCH /feeds/{uid}/sources/{source_uid}` | Edit one placement: `{name?, enabled?, feed_url?}`. `name` is the user's rename (`""` clears it back to the source's title); `enabled` is the on/off for this feed only; a new `feed_url` is resolved (fetched) to a *different* Source and the row is repointed to it, keeping its name and on/off — the shared Source's URL is never edited, and the old source is deactivated if nothing else holds it. A URL that isn't a feed, or one already in this feed, is a 422 and changes nothing |
+| `DELETE /feeds/{uid}/sources/{source_uid}` | Remove the source from this feed; 200, returns the feed. A feed may be left empty. The source is deactivated if no feed holds it any more |
+| `GET /feeds/{uid}/posts` | **The post list, polymorphic uid:** `all` (sources on in at least one feed) \| `saved` \| `saved_*` \| `feed_*` (that feed's **enabled** sources) — same resolution order as the frontend's `usePostList`. Newest-first, cursor-paginated |
+| `GET /posts/{uid}` | Post detail (what RSS gave us). Every post, here and in the lists, carries `source: {uid, name, type, site_url}` — where it came from, `name` being the caller's rename of that source in any feed (the first, in feed order) or else the source's own title; it replaces the earlier `feed_uid`. A post may be opened or saved if its source is in any of the caller's feeds, on or off, or if it is saved. From T15a every post carries `image: {src, srcset} \| null` in place of `image_url` — ready `<img>` attributes built by `core/images.py`, see [images.md](./images.md) § Wire contract. Posts also carry `video: {src, vertical} \| null` (YouTube only), built by `core/youtube.video()` |
 | `GET /posts/{uid}/article` | Full article: extract-on-first-request (trafilatura), cached globally in `article_html`, served instantly after. Returns extracted HTML or a "couldn't extract" signal (frontend falls back to summary + Open source). From T15c the `<img src>` inside `article_html` are rewritten to proxied, reading-width URLs at read time — never into the cached column |
 | `PUT /posts/{uid}/save` | Body: `{group}` (bookmarks \| favorites \| later). Upsert — moving groups is the same call |
 | `DELETE /posts/{uid}/save` | Unsave |
-| `GET /discover` | `?type=website|youtube|reddit&q=<url or keyword>` → candidate feeds (`name`, `type`, `site_url`, `feed_url`, `icon`, `already_subscribed`) — `HomeFeedSchema` minus the uid one hasn't earned, plus the flag. Field names follow § Vocabulary (`name`, not `title`). A URL resolves under any card; a bare name is a YouTube channel search under `youtube` (503 when YouTube won't answer) and finds nothing under the other two until T11c/T11d. Backs the add wizard |
-| `GET /discover/posts` | _(T14, planned)_ `?feed_url=<a candidate's feed_url>` → its newest 10 posts, fetched live and never stored — `PostSchema` minus `uid` / `feed_uid` / `saved_group`, with `published_at` nullable. The twin of `GET /feeds/{uid}/posts` for a feed you don't have yet. Unreachable or not a feed → 422 with a message; a real feed with no entries → `[]` |
-| `GET /search` | `?q=&scope=<all \| saved \| saved_* \| folder_* \| feed_*>&cursor=&limit=` (scope defaults to `all`) — **the post list narrowed by `q`**: same polymorphic scope uid, same page shape, same cursor, newest-first. A blank `q` is an empty page, not an error. Engine-neutral contract — no tsquery syntax in, no rank out; see [Search](#search) |
+| `GET /discover` | `?type=website|youtube|reddit&q=<url or keyword>` → candidate sources (`name`, `type`, `site_url`, `feed_url`, `icon`, `already_subscribed`) — a source row's fields minus the uid, `title` and `enabled` it hasn't earned, plus the flag. `already_subscribed` means the source is **in one of your feeds** already; it no longer blocks picking, since a source can sit in several. Field names follow § Vocabulary (`name`, not `title`). A URL resolves under any card; a bare name is a YouTube channel search under `youtube` (503 when YouTube won't answer) and finds nothing under the other two until T11c/T11d. Backs the add wizard |
+| `GET /discover/posts` | _(T14, planned)_ `?feed_url=<a candidate's feed_url>` → its newest 10 posts, fetched live and never stored — `PostSchema` minus `uid` / `source` / `saved_group`, with `published_at` nullable. The twin of `GET /feeds/{uid}/posts` for a source you haven't added yet. Unreachable or not a feed → 422 with a message; a real feed with no entries → `[]` |
+| `GET /search` | `?q=&scope=<all \| saved \| saved_* \| feed_*>&cursor=&limit=` (scope defaults to `all`) — **the post list narrowed by `q`**: same polymorphic scope uid, same page shape, same cursor, newest-first. A blank `q` is an empty page, not an error. Engine-neutral contract — no tsquery syntax in, no rank out; see [Search](#search) |
 | `GET /settings` · `PUT /settings` | The persisted `UserSettings` (theme, feed-list style, post-card style, desktop `pane_split`, …) — replaces cookie-only persistence so settings follow the account across devices |
 
 ## Auth
@@ -306,10 +319,10 @@ reversal of this table's earlier `extract_article` job row.
 
 **Postgres FTS + pg_trgm. No separate search engine in v1** — decided after a detailed
 Elasticsearch comparison (see decision log). **Built _(2026-09-06, T12)_:** `GET /search`
-answers, and the feed page and the desktop posts pane search through it from the list's title
-row ([screens-and-flows.md](./screens-and-flows.md) § 2).
+answers, and the post list (mobile page and desktop posts pane) searches through it from the
+list's title row ([screens-and-flows.md](./screens-and-flows.md) § 2).
 
-The use case is *scoped* search: part of a title, within one feed / folder / saved list.
+The use case is *scoped* search: part of a title, within one feed / saved list.
 That never hits FTS's real scale cliff (ranking huge unscoped result sets), and every ES
 advantage either doesn't activate on scoped queries or belongs to features FeedMe rejects
 (trending, recommendations) or defers (public lists).
@@ -324,8 +337,8 @@ Design:
   query is the two branches OR'd. `summary` is matched whole-word only — it is arbitrary
   third-party HTML, so substring-matching it would match markup.
 - Scoping is not a second implementation: `scope` resolves through the same `core/postlist.py`
-  uid resolver the post list uses, joining the live Feed/Folder/SavedPost tables — mute a feed
-  and search reflects it instantly, with no re-index.
+  uid resolver the post list uses, joining the live Feed/FeedSource/SavedPost tables — switch a
+  source off in a feed and search reflects it instantly, with no re-index.
 - Results are ordered by **recency, not relevance**. The weights are in the vector, so ranking
   later is an `order_by` rather than a migration, and today's results reuse the post list's
   cursor unchanged.
@@ -477,3 +490,43 @@ Added 2026-09-15 (images strategy, before T15a):
   sizes at ingest (the previous project's shape) was rejected because a new size then means a
   backfill over every post. The full comparison and the wire contract are in
   [images.md](./images.md) § Decision log.
+
+Added 2026-10-08 (the feeds remodel, outside the numbered tasks):
+
+- **No folders: a `Feed` is the group.** The user's call: "lets not have folders. we simple have
+  feeds and sources. feed is like a folder, its a group of sources. feed has title description
+  and list of sources. feed can also have a single source." This **supersedes** the 2026-07-12
+  entry that made `Feed` the user↔source link, and every folder rule built on it. `Feed` keeps
+  its name and its place in the shared vocabulary but now means the group; the link moves to
+  `FeedSource`. The shape of the feed page came from a screenshot of crowdfeed, the user's
+  earlier aggregator.
+- **`Source` is user-facing** (uid `source_*`). The earlier "only `Source` is backend-only" no
+  longer holds: the user now sees, renames, relinks and switches sources. `FeedSource` stays a
+  backend noun — the wire flattens it into the feed's `sources` list.
+- **One source can sit in several feeds, with its own name and on/off in each.** Both live on
+  `FeedSource`, unique per (feed, source). On/off is a property of the placement and replaces
+  the old per-folder mute: a feed's stream is its enabled sources, and `all` is every source
+  enabled in at least one feed.
+- **Renaming is per placement; relinking swaps the Source.** The shared `Source.feed_url` is
+  never edited — that would repoint every other reader — so a new link is resolved (fetched, so
+  validated) to a different Source and the row is repointed, keeping its name and on/off. The
+  old source is deactivated if nothing else holds it.
+- **A feed may be empty.** Removing its last source leaves the feed standing: deleting it for
+  the user would throw away the name and description they wrote.
+- **Every feed write answers with the whole feed** (`HomeFeedSchema`), so the app swaps one row
+  of its list; the server's view of a rename's fallback title or a new link lands exactly.
+- **Posts carry `source: {uid, name, type, site_url}`, replacing the nullable `feed_uid`.** A
+  post always has exactly one source, so the field is never null and a saved post keeps saying
+  where it came from after that source leaves every feed. `name` is the caller's rename of that
+  source in any feed (the first, in feed order), else the source's own title.
+- **A post can be opened or saved if its source is in any of the caller's feeds — on or off —
+  or if it is saved.** Off removes a source from streams only.
+- **`already_subscribed` stays on `/discover`, but now means "in one of your feeds"** and no
+  longer blocks picking: the same source can legitimately join another feed.
+- **`Source.description` is backfilled at ingest** from the feed's own RSS `<description>` /
+  Atom `<subtitle>` — `strip_tags` + `unescape`, whitespace collapsed, capped at 1000 — and
+  seeds a new feed's description. Like the title it only fills a blank, and it is not on the
+  wire.
+- **Fresh start, no data migration.** Migration `0007_feeds_group_sources` drops `Folder` /
+  `FolderMember` and reshapes `Feed`; the old feeds and folders were dropped and saved posts
+  kept, so there was nothing to translate.

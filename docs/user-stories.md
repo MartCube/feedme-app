@@ -5,8 +5,9 @@ app. These map directly to the screens in [screens-and-flows.md](./screens-and-f
 
 ## Reading
 
-- As a user, I can **see all my feeds** on the home screen so I know what I'm subscribed to.
-- As a user, I can **open a feed** to see its latest posts.
+- As a user, I can **see all my feeds** on the home screen so I know what I'm following.
+- As a user, I can **open a feed** to see its latest posts — newest first, merged across its
+  sources when it has more than one.
 - As a user, I can **browse a feed's posts** as a scrollable list of cards (image, title,
   date).
 - As a user, I can **open a post and read it in full** (title, image, content, date).
@@ -19,37 +20,42 @@ app. These map directly to the screens in [screens-and-flows.md](./screens-and-f
 - As a user, I can **open a saved post** and read it like any other post.
 - As a user, I can **unsave a post** when I no longer want it in my saved list.
 
-## Folders
+## Feeds & sources
 
-- As a user, I can **group feeds into a named folder** so related sources sit together.
-- As a user, I can **put one feed in several folders** (membership is many-to-many).
-- As a user, I can **expand a folder** in the feeds list to see its member feeds, or **tap the
-  folder** to read all its feeds as one merged, newest-first stream.
-- As a user, I can **create a folder** from the navbar **+** menu (alongside New feed).
-- As a user, I can **rename a folder**.
-- As a user, I can **add or remove feeds** from a folder.
-- As a user, I can **mute a feed inside a folder** so it's excluded from that folder's merged
-  read while staying readable on its own and in other folders.
-- As a user, I can **delete a folder** — and I'm warned that its feeds (those not in another
-  folder) will be unsubscribed.
-- As a user, feeds **not in any folder** show as loose entries at the top level.
+A **feed** is my own group of sources — one source or several — with a name and a description.
+
+- As a user, I can **group sources into a feed** so related ones sit together and read as one
+  merged, newest-first stream — or keep a feed to **a single source**.
+- As a user, I can **put one source in several feeds**.
+- As a user, I can **open a feed's page** (tap its title above the posts) to see its
+  description and its sources.
+- As a user, I can **switch a source on or off inside a feed**, right on the feed's page, so
+  it's left out of that feed's read (and of All feeds, unless another feed has it on) while
+  staying in the feed and in my other feeds.
+- As a user, I can **rename a source** in a feed — a blank name goes back to the source's own.
+- As a user, I can **change a source's link**.
+- As a user, I can **edit a feed's name and description**.
+- As a user, I can **add a source to an existing feed** from its page.
+- As a user, I can **remove a source from a feed**; the feed stays, even if it ends up empty.
+- As a user, I can **delete a feed** — and it asks first. Its sources leave my list unless
+  another feed has them; my saved posts stay.
 
 ## Source
 
 - As a user, I can **open a post at its original source** (article, YouTube watch page,
   Reddit thread) when I want the full / native experience.
-- As a user, I can tell **what kind of source** a feed is (YouTube / Reddit / website) from
-  its icon.
+- As a user, I can tell **what kind of source** a post comes from (YouTube / Reddit / website)
+  from its icon.
 
 ## Managing feeds
 
-- As a user, I can **add a new feed by URL** so I can follow a new source.
-- As a user, the app **figures out the feed type** from the URL so I don't have to.
-- As a user, a **newly added feed appears in my feeds list** immediately.
-- As a user, I can **rename a feed**.
-- As a user, I can **delete a feed**, which unsubscribes it everywhere (all folders included).
-- As a user, I can **open an edit menu** on any feed or folder — **long-press** on mobile, a
-  **3-dot / overflow** control on desktop.
+- As a user, I can **add a source by URL** so I can follow something new, and **choose which
+  feed it goes into** — or **New feed**.
+- As a user, the app **figures out the source type** from the URL so I don't have to.
+- As a user, a **newly added source appears in its feed** immediately, and a new feed in my
+  feeds list.
+- As a user, an add that **can't work** (not a feed, or already in that feed) says so and
+  leaves everything as it was.
 
 ## Account
 
@@ -75,4 +81,4 @@ app. These map directly to the screens in [screens-and-flows.md](./screens-and-f
   [screens-and-flows.md](./screens-and-flows.md) — no orphan features.
 - Saving relies on the saved-posts state described in
   [data-model.md](./data-model.md#saved-state).
-- "Add a feed by URL" should validate input using the installed VeeValidate + Zod stack.
+- "Add a source by URL" should validate input using the installed VeeValidate + Zod stack.

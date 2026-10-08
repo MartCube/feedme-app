@@ -8,26 +8,30 @@ navigates. File references point at `app/pages/` and `app/components/`.
 ```
                     ┌──────────────────────────┐
                     │  Feeds list  (index.vue) │
-                    │  list of subscribed feeds│
+                    │  Home · Saved · feeds    │
                     └───┬──────────┬───────┬───┘
         tap a feed      │          │       │   navbar
-                        ▼          │       └─► +  → Add drawer (add feed)
-        ┌───────────────────────┐  │                     search input → results → add
-        │  Feed page  (master)  │  │
+                        ▼          │       └─► +  → Add drawer (add a source)
+        ┌───────────────────────┐  │                type → search → "Add to" a feed
+        │  Post list  (master)  │  │                or New feed
         │  /feed/[uid]          │  └──────────► Settings (/settings/:panel?)
         │  list of PostCards    │                /settings/{account, appearance,
-        └───────────┬───────────┘                          about, report}
-            tap a post
-                    ▼
-        ┌──────────────────────────────┐
-        │  Post page  (detail)         │   actions: Copy link · Open source · Save
-        │  /feed/[uid]/post/[postUid]  │
-        │  full readable post          │
-        └──────────────────────────────┘
+        └───┬───────────────┬───┘                          about, report}
+   tap the  │               │  tap a post
+   title    ▼               ▼
+  ┌───────────────────┐  ┌──────────────────────────────┐
+  │  Feed page        │  │  Post page  (detail)         │
+  │  /feed/[uid]/info │  │  /feed/[uid]/post/[postUid]  │
+  │  sources, on/off  │  │  full readable post          │
+  └─────────┬─────────┘  └──────────────────────────────┘
+            │ pencil · tap a source          actions: Copy link · Open source · Save
+            ▼
+     edit feed · a source's page · confirms        (/feed/[uid]/info/…)
 
-   uid can be 'all' → every followed feed merged, 'saved' → the Saved feed,
-   or a folder uid → its merged stream.
-   Desktop: sidebar + posts pane + post pane side by side. See screens 1, 6, and 7.
+   uid can be 'all' → every source that's on in some feed, merged; 'saved' → the Saved
+   feed; or a feed uid → that feed's enabled sources, merged.
+   Desktop: sidebar + posts pane + post pane side by side; the post pane shows the feed
+   page until a post is open. See screens 1, 2, 3 and 6.
 
    Signed out, every route above redirects to /login (screen 0) — there is no
    anonymous surface. Signing out, or a session going stale mid-use, lands there too.
@@ -38,20 +42,20 @@ navigates. File references point at `app/pages/` and `app/components/`.
 > instead of one nested-page tree:
 >
 > - **Mobile** (< 1024px): each route is its own page, and `feed/[uid].vue` is a bare
->   `<NuxtPage/>` passthrough to its `index.vue` / `post/[postUid].vue` children — one pane at
->   a time, sliding like a navigation stack.
+>   `<NuxtPage/>` passthrough to its `index.vue` / `post/[postUid].vue` / `info/[...rest].vue`
+>   children — one pane at a time, sliding like a navigation stack.
 > - **Desktop** (≥ 1024px): `app/layouts/default.vue` renders `DesktopShell` instead of
 >   `<NuxtPage/>` at all. The shell reads the live route (`useRouter().currentRoute`, since
 >   Nuxt's `useRoute()` only resyncs when a `<NuxtPage/>` resolves and the shell renders none)
 >   and composes three columns directly from it and the `feeds`/`settings` stores: a sidebar
 >   (feed list, plus standing Add feed / Settings links), a posts pane, and a post pane.
->   Settings/Add/Edit render as a content area laid over the two reading panes instead of a
+>   Settings/Add render as a content area laid over the two reading panes instead of a
 >   drawer (no slide — nothing on desktop animates, see [current-state.md](./current-state.md)
 >   § Resolved decisions → Desktop motion) — as a master–detail pair where there's a list to
->   sit beside (Settings, folder editing) and single-pane where there isn't (Add, loose-feed
->   editing). The sidebar's wordmark, the posts pane's title/search row, and the post pane's
->   actions row each stay pinned to the top of their own column, reachable while that column
->   scrolls beneath them. **The routes and
+>   sit beside (Settings) and single-pane where there isn't (Add). The post pane shows the
+>   feed page (screen 6) whenever no post is open. The sidebar's wordmark, the posts pane's
+>   title/search row, and the post pane's actions row each stay pinned to the top of their own
+>   column, reachable while that column scrolls beneath them. **The routes and
 >   `pages:extend` records are identical on both viewports** — layout is purely a presentation
 >   concern, nothing about navigation or the route tree changes. (This settles the layout half
 >   of the routing decision toward layout-composed panes rather than a nested-`<NuxtPage/>`
@@ -65,35 +69,37 @@ navigates. File references point at `app/pages/` and `app/components/`.
 >   login.vue                  → /login   (screen 0; the one route the global auth guard
 >                                          lets through, and the one that renders no layout)
 >   feed/
->     [uid].vue                → mobile: <NuxtPage/> passthrough;  uid: feed | 'all' | 'saved' | folder
+>     [uid].vue                → mobile: <NuxtPage/> passthrough;  uid: feed | 'all' | 'saved' | saved_*
 >     [uid]/
 >       index.vue              → /feed/[uid]              (post list)
 >       post/[postUid].vue     → /feed/[uid]/post/[postUid]  (post)
+>       info/[...rest].vue     → /feed/[uid]/info and everything under it: the feed page, its
+>                                edit form and delete confirm, a source's page and its remove
+>                                confirm — one catch-all record, the tail picks the view
+>                                (utils/feed-info.ts)
 >
 > pages:extend (nuxt.config.ts) adds these paths, all rendering the SAME index.vue component
 > (the home page, kept mounted behind a drawer on mobile / behind the content overlay on
 > desktop) — there are no separate settings.vue / settings/*.vue page files:
 >   /settings/:panel?          → SettingsDrawer (mobile) / DesktopContentOverlay (desktop)
 >   /add                       → AddDrawer (mobile) / DesktopContentOverlay (desktop)
->   /edit/:uid, /edit/:uid/feed/:feedUid, /edit/:uid/add, /edit/:uid/add/input,
->   /edit/:uid/delete, /edit/:uid/feed/:feedUid/delete
->                              → EditDrawer (mobile) / DesktopContentOverlay (desktop)
 > ```
 >
-> **The feed page is a polymorphic post-list view.** Its `[uid]` resolves to one of three
-> things, and the same page + nested post route serve all three — there is no separate folder
-> route. Resolve in a **fixed order** so the shared namespace never collides:
+> **The post list is polymorphic.** Its `[uid]` resolves to one of three things, and the same
+> page + nested post route serve all three — there is no separate route for a group of sources.
+> Resolve in a **fixed order** so the shared namespace never collides:
 >
-> 1. `all` → posts from every followed feed, merged (the home header's target).
+> 1. `all` → posts from every source that is on in at least one feed, merged (the home header's
+>    target).
 > 2. `saved` → all saved posts merged, or a **saved-group** uid (`saved_*`:
 >    Bookmarks / Favorites / Later, defined in `app/utils/saved.ts`) → that group's posts.
-> 3. a **folder** uid (`folder_*`) → the folder's merged stream (member feeds minus muted).
-> 4. otherwise a **feed** uid (`feed_*`) → that feed's own posts.
+> 3. otherwise a **feed** uid (`feed_*`) → that feed's merged stream: its **enabled** sources,
+>    newest first.
 >
-> Ids are prefixed (`feed_*`, `folder_*`, `saved_*`, plus the literals `all` and `saved`) so
+> Ids are prefixed (`feed_*`, `saved_*`, plus the literals `all` and `saved`) so
 > resolution is unambiguous. **The API resolves the uid in this same order**
 > (`GET /feeds/{uid}/posts`), so the page stays thin for real: `usePostList(uid)` pages the
-> stream it's handed and the screen renders it — feed / folder / saved differences live in one
+> stream it's handed and the screen renders it — feed / saved differences live in one
 > place, on the server, not in template conditionals on either side.
 
 ---
@@ -139,40 +145,37 @@ other screen loads anything until this one has been passed.
 
 ## 1. Feeds list — `pages/index.vue`
 
-**Purpose:** the home screen. Shows the pinned **Saved** group, the user's **folders**, and any
-**loose** feeds (feeds not in a folder). Folders only exist here — they are created, read, and
-edited from this screen. A **FEEDME** wordmark leads the list (the mark itself is a link to
-`/feed/all`), then **Home** is an ordinary list row like the rest (same height and surface, an
-inline **All feeds** caption) — tapping it opens the merged read of every followed feed
-(`/feed/all`) — with the options 3-dot trailing where folder rows keep their chevron.
+**Purpose:** the home screen. Shows the pinned **Saved** row and the user's **feeds** — a flat
+list, nothing nested: a feed is already a group of sources, so there is nothing to expand. A
+**FEEDME** wordmark leads the list (the mark itself is a link to `/feed/all`), then **Home** is
+an ordinary list row like the rest (same height and surface, an inline **All feeds** caption) —
+tapping it opens the merged read of every source that's on in some feed (`/feed/all`).
 
-**List order:** pinned **Saved** group → **folders** → **loose feeds**.
+**List order:** **Home** → pinned **Saved** → **feeds**, in the order `GET /home` returns them.
 
 **The user can:**
-- See a pinned **Saved** row → tapping it lists all posts the user has saved (`/feed/saved`);
-  expanding its chevron reveals the three saved groups — **Bookmarks / Favorites / Later**
-  (`/feed/saved_*`), so saves can be organized instead of landing in one pile.
-- See each **folder** as an **expandable/collapsible row** (collapsed: name + feed count).
-  - **Expand** it → reveal its member feeds; muted members show greyed/off.
-  - **Tap the folder row** → read the folder as a merged stream (`/feed/[uid]`, uid = the
-    folder's uid).
-  - **Tap a member feed** → that feed's page (`/feed/[uid]`).
-- See each **loose feed** (name, type icon based on `Feed.type`) → **tap** → `/feed/[uid]`.
-- **Create** via the navbar **+**: it opens the **Add drawer** directly (`→ /add`). Where
-  **New folder** (name it + pick member feeds) is triggered from is undecided — the old
-  **+** menu was dropped in favour of consistency with the settings drawer.
-- **Edit** any feed or folder via a **context menu** — **long-press** on mobile, a **3-dot /
-  overflow** affordance on desktop. Contents differ by row (see screen 7).
+- See a pinned **Saved** row, with the total number of saved posts beside it (once there are
+  any) → tapping it lists
+  all posts the user has saved (`/feed/saved`). Its three groups — **Bookmarks / Favorites /
+  Later** (`/feed/saved_*`) — are on its feed page (screen 6), not on this list.
+- See each **feed** as a row: its name, and a count of its sources beside it when it holds
+  anything but exactly one (so a multi-source or empty feed shows its count, a one-source feed
+  is just its name) → **tap** → read it (`/feed/[uid]`, screen 2).
+- **Add** via the navbar **+**: it opens the **Add drawer** directly (`→ /add`) — a new source,
+  into an existing feed or a New feed (screen 4).
 - Tap the **menu** icon (navbar) → open the Settings drawer.
 
-**Data:** one `GET /home` round-trip — the account's `feeds`, `folders`, the shared top-level
-order, and the per-group saved counts the Saved rows show. A feed is **loose** when its `uid` is
-in no folder's `feed_uids`.
+Everything done *to* a feed or its sources — rename, description, switching a source on or off,
+removing, deleting — lives on the feed page (screen 6), reached from the feed's own post list.
+The list itself has no overflow buttons, no long-press and no options sheet.
 
-**Navbar:** `components/Navbar.vue` provides the menu (`→ /settings`) and the **+** create menu
-via `components/IconButton.vue`.
+**Data:** one `GET /home` round-trip — the account's `feeds` (each with its description and its
+sources) and the per-group saved counts the Saved row shows.
 
-**Empty state:** if the user follows nothing yet (no feeds, no folders), the list is replaced
+**Navbar:** `components/Navbar.vue` provides the menu (`→ /settings`) and the **+** (`→ /add`)
+via `components/ui/IconButton.vue`.
+
+**Empty state:** if the user follows nothing yet (no feeds), the list is replaced
 by a first-run nudge — an explainer and a primary **Add your first feed** action into the Add
 flow. If the home request **failed** instead, the same space says the server couldn't be
 reached and offers **Try again** — an unreachable app must never be mistaken for an empty
@@ -184,17 +187,22 @@ the list scrolls beneath it — see the Routing note.
 
 ---
 
-## 2. Feed page — `pages/feed/[uid].vue` (currently `Feed.vue`)
+## 2. Post list — `pages/feed/[uid]/index.vue`
 
 **Purpose:** show a post list for the selected `uid`. This is the **master** pane; on desktop
 the selected post renders beside it in its own pane (detail), on mobile it's full-screen. The
-page is **polymorphic** — `uid` is a real feed, `saved`, or a folder (see screens 1 and 6, and
-the Routing note's resolution order). The render is identical; only the post list it resolves
-differs.
+page is **polymorphic** — `uid` is a feed, `all` or `saved` (see the Routing note's resolution
+order). The render is identical; only the post list it resolves differs. (A feed's own page —
+its description and sources — is a different screen, number 6, reached from this one's title.)
 
 **The user can:**
 - See a scrollable list of **PostCards** (`components/PostCard.vue`) for this feed, which
   **keeps loading as they scroll** — there is no "load more" button and no page count.
+- **Tap the title** → the feed's own page (screen 6). On a phone it is a page of its own
+  (`/feed/[uid]/info`), pushed with the page slide and dismissed with swipe-back; on desktop
+  the feed page already fills the post pane while no post is open, so the title just links to
+  `/feed/[uid]` — which closes the open post. **All feeds** has no page of its own, so its
+  title is plain text.
 - **Search** this list: a magnifying glass on the title row swaps the title for a search box
   ("Search *{this list's name}*"), and the list narrows **as they type** to the posts in this
   same `uid` that match — a partial word is enough, newest first. Results page like the list
@@ -209,7 +217,8 @@ differs.
 server-side in the order below, so the screen renders the stream it is given rather than
 filtering one. Posts are newest-first by `published_at`, except the saved lists, which are
 newest-**save** first. When `uid` is `saved`, the list is every saved `Post`; when `uid` is a
-**folder**, the list is its member feeds' posts merged (minus muted) — see screen 6. With a
+**feed**, the list is its enabled sources' posts merged, so switching a source on or off on the
+feed page changes what this list holds — it reloads as soon as the write has landed. With a
 query, `GET /search?q=&scope={uid}` instead — the same page shape and cursor, so searching is a
 different URL and nothing else ([backend.md](./backend.md#search)).
 
@@ -218,10 +227,10 @@ empty search says which query matched nothing; a failed page says the posts coul
 and stops asking, rather than retrying into a server that just refused.
 
 **PostCard** comes in **two versions**, chosen in Settings → Appearance → *Post cards*: **Image**
-(default) — a square thumbnail beside the text: a meta row (a type icon and the feed's name,
+(default) — a square thumbnail beside the text: a meta row (a type icon and the source's name,
 linking to its `site_url` and always underlined, then `·` and `published_at`), the `title`, and a
 three-line excerpt of the `summary` — and **Compact** — the date and title alone. The title link
-covers the whole card; the feed link sits above it. A post with no image is compact under either
+covers the whole card; the source link sits above it. A post with no image is compact under either
 setting, and an image that fails to load collapses the card to compact rather than leaving a
 broken box. The image is the API's `post.image` (a proxied, resized `src`/`srcset` —
 [images.md](./images.md)); tapping the card opens the Post page. A card rests on the elevated
@@ -241,9 +250,9 @@ the Routing note.
 it renders beside the feed list on desktop and full-screen on mobile.
 
 **The user can:**
-- Read the post, top to bottom: the `title`; the same **meta row** the card has (the feed's
-  name, linking to its `site_url`, then `·` and the formatted `published_at` — the date alone
-  once the feed is deleted); a 16:9 **hero** (`post.image`, never enlarged past its own width;
+- Read the post, top to bottom: the `title`; the same **meta row** the card has (the source's
+  name, linking to its `site_url`, then `·` and the formatted `published_at` — the source is
+  named even after it has left every feed, since the post carries it); a 16:9 **hero** (`post.image`, never enlarged past its own width;
   absent when the post has none or it fails to load — [images.md](./images.md) § Rendering) —
   or, for a YouTube post, the **video player** in its place (a Short gets a tall 9:16 box), with
   the description's line breaks kept and no inline **Open source** (the action bar has it); and
@@ -256,27 +265,29 @@ it renders beside the feed list on desktop and full-screen on mobile.
 - **Open source** — opens `post.post_url` in a new tab.
 - **Save** the post (toggle) — it lands in **Bookmarks**; toggling again unsaves it. See
   [data-model.md](./data-model.md#saved-state).
-- Go **back** → the Feed page (the `[uid]` it was opened from — a real feed, or `saved` — and,
-  if it was opened from search results, those same results).
+- Go **back** → the post list (the `[uid]` it was opened from — a feed, `all` or `saved` —
+  and, if it was opened from search results, those same results).
 
 **Data:** `GET /posts/{uid}` for the post named by `postUid`, and `GET /posts/{uid}/article` for
 the article text (`status: ok | unavailable` — `unavailable` is the fallback above, not an
 error); the route `uid` is the feed context it was opened in.
 
-**Desktop:** until a post is tapped, the post pane shows a placeholder ("Select a post")
-instead of this screen — there is no auto-selected first or last-read post. The actions row
-(Copy link · Open source · Save) stays pinned to the top of the pane the same way — see the
-Routing note.
+**Desktop:** until a post is tapped, the post pane shows the feed page (screen 6) instead of
+this screen — or, on **All feeds**, which has no page of its own, a placeholder ("Select a
+post"). There is no auto-selected first or last-read post. The actions row (Copy link · Open
+source · Save) stays pinned to the top of the pane the same way — see the Routing note.
 
 ---
 
-## 4. Add feed — `components/add/Drawer.vue` (bottom drawer, three-phase wizard)
+## 4. Add feed — `components/add/Drawer.vue` (bottom drawer, four-step wizard)
 
-**Purpose:** subscribe to a new feed. Reached from the navbar **+** (opens `/add` directly).
-The drawer is hosted in the layout and mirrors the settings drawer: `/add` renders the home
-component behind the sheet (`pages:extend` hook), and closing routes back to `/`. Inside the
-sheet it's an **in-drawer wizard** — three phases that slide right/left (matching the house
-`page-slide`/`panel-slide` transitions) with a back button, all state in `useAddFeedWizard()`.
+**Purpose:** add a source — and say which feed it goes into, or start a new one. Reached from
+the navbar **+** (opens `/add` directly), or from a feed's own page (screen 6) already pointed
+at that feed. The drawer is hosted in the layout and mirrors the settings drawer: `/add`
+renders the home component behind the sheet (`pages:extend` hook), and closing routes back to
+`/`. Inside the sheet it's an **in-drawer wizard** — phases that slide right/left (matching the
+house `page-slide`/`panel-slide` transitions) with a back button, all state in
+`useAddFeedWizard()`.
 
 **Phase 1 — pick a type.** A vertical list of source types: **Website**, **YouTube**, **Reddit**
 (podcasts later). Tapping one advances to phase 2. Reddit's account-connect step is deferred
@@ -288,47 +299,60 @@ like the others.
 shows a **Paste** chip (reads the clipboard on tap — browsers block silent reads). Submit → a
 loading skeleton while `/discover` answers → a short **results list** (name + its **feed URL**,
 which is what tells two feeds off one page apart; a YouTube channel leads with its avatar, and
-there is no type icon since the type is in the header), each a multi-select card.
+there is no type icon since the type is in the header), each a multi-select card. A result
+that is already in one of the user's feeds stays pickable — a source can sit in several — and
+carries an **"In your feeds ·"** caption before its feed URL.
 
-**Phase 3 — choose destination.** Tapping a result's `+` advances here. Header is "Add to" + a
-back button. It reuses the home feed list: a **Feeds (top level)** row plus one row per **folder**.
-Tapping a destination **commits** — the feed is subscribed there, the drawer closes, and the home
-list reflects it. Subscribing is the first step that can be **refused**: the sheet stays open
-with the server's reason on it (a URL that turns out not to be a feed, or one already followed),
-shown above the destination list where a long list can't push it out of reach, and only closes
-once the subscribe lands. Run **scoped to a folder** (from screen 7's *Add feed*), the wizard
-skips this phase — the destination is already known — and commits, and reports the same
-refusal, from the paste/search step.
+**Phase 3 — choose destination.** The forward button advances here. A quiet "Adding" list of
+the picked sources, then **Add to**: a **New feed** card first (always there, and the common
+case for a first source), then one card per existing feed with its source count. Tapping a
+feed **commits** — every picked source joins it, the drawer closes, and the home list reflects
+it. **New feed** advances to phase 4.
 
-**Scope:** one feed → one destination per pass (multi-select / multi-folder deferred; the data
-model stays many-to-many, so a feed can join more folders later via a folder's *Edit feeds*).
+**Phase 4 — name the new feed.** A name input, prefilled with the first picked source's name
+(so a one-source feed costs one tap); submitting creates the feed holding the picks and closes
+the drawer. With several picks the feed is created with the first, then the rest are added to
+it. The feed's description starts as that first source's own, and is edited later on the feed
+page.
+
+Adding is the first step that can be **refused**: the sheet stays open with the server's reason
+on it (a URL that turns out not to be a feed — which leaves no empty feed behind — or a source
+already in that feed), shown above the destination list where a long list can't push it out of
+reach, and only closes once the add lands. If several picks are going in and one is refused,
+the ones already in stay in.
+
+**Pointed at a feed.** Opened from a feed's page with *Add source* (screen 6), the wizard
+already knows its destination: it skips phases 3 and 4 and commits from the paste/search step,
+reporting the same refusals there.
+
+**Scope:** several sources → one destination per pass. Putting one source into a second feed is
+a second pass — it stays pickable for exactly that.
 
 **Data:** candidates come from `GET /discover?type=&q=` _(T11a, 2026-09-06)_. A pasted URL of any
 shape resolves — a blog homepage or a post page, a YouTube channel URL or `@handle`, a subreddit
 URL or a bare name — whether or not it is the feed URL itself; a page that declares no feed sends
-the resolver up its own path and then to the usual `/feed`, `/rss.xml` guesses. Candidates the
-user already follows come back flagged `already_subscribed`, and render dimmed with a
-**"Following"** caption that can't be picked. A **keyword under the YouTube card** searches
+the resolver up its own path and then to the usual `/feed`, `/rss.xml` guesses. Candidates
+already in one of the user's feeds come back flagged `already_subscribed` (the caption above).
+A **keyword under the YouTube card** searches
 YouTube by channel name _(T11b, 2026-09-11)_ — up to five channels with their avatars; if YouTube
 won't answer (quota spent), the step shows that as an error rather than an empty result. A
 keyword under Website or Reddit still finds nothing (T11c, T11d).
-Committing calls `POST /feeds`
-(`{feed_url, folder_uid?}`) through `useFeedsStore().addFeed()`; the server finds-or-creates the
-shared source, fetches it, and answers with the feed's real name.
+Committing a New feed calls `POST /feeds` (`{name, feed_url}`) through `useFeedsStore().addFeed()`,
+and every other source `POST /feeds/{uid}/sources` through `addSource()`; the server
+finds-or-creates the shared source, fetches it, and answers with the whole feed.
 
 **Components:** `add/Drawer.vue` (mobile sheet host: open protocol + commit/close/reset),
 `add/Steps.vue` (the phase switch itself — reused by the desktop presentation below),
-`add/TypeStep.vue`, `add/SearchStep.vue`, `add/DestinationStep.vue`, and the `useAddFeedWizard()`
-composable. **Not yet built:** keyword search for subreddits and our own catalog (T11c, T11d), a
-candidate's latest posts before subscribing (T14, `GET /discover/posts` — planned), sub counts,
-and form validation via the installed **VeeValidate + Zod** stack.
+`add/TypeStep.vue`, `add/SearchStep.vue`, `add/DestinationStep.vue`, `add/NewFeedStep.vue`, and
+the `useAddFeedWizard()` composable. **Not yet built:** keyword search for subreddits and our own
+catalog (T11c, T11d), a candidate's latest posts before adding it (T14, `GET /discover/posts` —
+planned), sub counts, and form validation via the installed **VeeValidate + Zod** stack.
 
 **Desktop:** `/add` presents as a single-pane content area over the two reading panes (sidebar
 stays usable) instead of a bottom sheet — there is no master beside it, since the wizard is
 linear steps with nothing to list; the wizard itself is unchanged except that its steps cut
-rather than slide there. Settings and folder editing,
-by contrast, split the same content area into a master–detail pair (screens 5 and 7); editing a
-loose feed is single-pane like this one.
+rather than slide there. Settings, by contrast, splits the same content area into a
+master–detail pair (screen 5).
 
 ---
 
@@ -364,89 +388,111 @@ sidebar carries a single **Settings** link, not a second copy of the section lis
 
 ---
 
-## 6. Folder read — `pages/feed/[uid].vue` (folder uid)
+## 6. Feed page — `components/feed/Info.vue` (`/feed/[uid]/info`)
 
-**Purpose:** read a folder as a single **merged stream**. This is **not a separate screen** — a
-folder uid resolves through the same feed page (screen 2), exactly like `saved` does.
+**Purpose:** what a feed *is* and what is in it — its name, its description and its sources —
+and the way into every edit to them. A feed is a group of sources, and this is the page that
+shows the group. It is reached by tapping the title above a feed's posts (screen 2); the home
+list has no menu for it.
 
 **The user can:**
-- See a scrollable list of **PostCards** combining all of the folder's member feeds, **newest
-  first**, with each card carrying its source feed's type cue.
-- **Tap a post** → open the Post page (`/feed/[uid]/post/[postUid]`, uid = the folder's uid).
-- Go **back** → Feeds list.
+- Read the feed's **name** and **description** (the description is left out when empty).
+- See its **Sources**, with a count of how many are on out of how many ("Sources 2/3"): one
+  row per source in the feed's own order, showing the name the user knows it by — their
+  rename in this feed, else the source's own title.
+- **Switch a source on or off** with the toggle on its row — right there, immediately, with no
+  Save. An off source stays in the feed and stays listed (dimmed), but is left out of this
+  feed's posts, and out of All feeds unless another feed has it on. On/off belongs to this
+  feed only.
+- **Tap a source's name** → its page (screen 7).
+- **Add source** (the dashed row below the list) → the add wizard (screen 4), already pointed
+  at this feed.
+- **Edit** (the pencil) → the name and description form (screen 7).
+- Go **back** → the post list (on desktop the list is already beside it, so the button keeps
+  its space and hides).
+- A feed with no sources says "No sources yet." and offers **Add source** all the same.
 
-**Data:** the `Folder` matching the route `uid`, plus all `Post`s whose `feed_uid` is in
-`folder.feed_uids` **and not** in `folder.muted_feed_uids`. Muted members are excluded here but
-unaffected on their own feed pages and in other folders. (See the resolution order in the
-Routing note: `saved` → folder → feed.)
+**Saved** has a feed page of the same shape in place of sources: **All saved**, **Bookmarks**,
+**Favorites** and **Later**, each with its count and linking to its post list (`/feed/saved`,
+`/feed/saved_*`). It has no description, no edit and no sources — the groups are fixed app
+structure — and it replaces the expand chevron the Saved row used to carry on the home list.
 
-**Desktop:** renders through the same posts pane as screen 2 — no separate treatment.
+**Mobile:** `/feed/[uid]/info` is a page of its own. It pushes in with the page slide from the
+post list and has swipe-back; so does each deeper view (screen 7), one level at a time — a
+source's remove confirm goes back to the source, which goes back to the feed page, which goes
+back to the posts.
+
+**Desktop:** the post pane shows the feed page — or whichever of its deeper views is open —
+whenever no post is. It replaces the "Select a post" placeholder, except on **All feeds**, which
+has no page of its own and keeps the placeholder. Opening a post replaces it; the list's title
+links to `/feed/[uid]`, which closes the post and brings it back. The view is remembered with
+the rest of the reading position, so opening Settings or Add over the reader and coming back
+finds it as it was.
+
+**A stale link** — a feed deleted on another device, or a source that has since left it — never
+shows an empty panel: once the account's data has loaded, the reader is sent to the feed page,
+or home if the feed itself is gone.
+
+**Data:** none of its own. The feed and its sources come from the `GET /home` the home list
+already holds, and every write on this page swaps the server's copy of the whole feed back in
+([backend.md](./backend.md) § Endpoint catalog).
 
 ---
 
-## 7. Create & edit folders / feeds (from the home list)
+## 7. Create & edit feeds and sources (from the feed page)
 
-**Create — navbar `+`:**
-- **New feed** → the **+** opens the Add drawer at `/add` directly (screen 4).
-- **New folder** → a route-backed drawer/page: enter a **name** and **pick member feeds**
-  (multi-select from existing feeds). Confirm → the folder appears in the Feeds list. Same
-  drawer-on-mobile / panel-on-desktop pattern as Add feed. **Entry point is undecided** — the
-  old **+** menu that offered both was dropped; where folder creation is triggered from is a
-  later design decision.
+Editing is not a drawer or a menu: each view is a deeper path under the feed page
+(`/feed/[uid]/info/…`, screen 6), so it slides like the rest of the reader on a phone and fills
+the post pane on desktop. They all render through one component, and Back from each goes to
+the one above it.
 
-**Edit — context menu** (long-press on mobile; 3-dot / overflow on desktop). Built as a
-route-driven **edit drawer** (`app/components/edit/Drawer.vue`, `/edit/*`) rather than a popover
-menu: long-press (or a desktop hover 3-dot) on a folder opens the **folder panel** (rename,
-per-feed mute toggles, add a feed, delete the folder), and tapping a member feed — or
-long-pressing a loose feed — opens the **feed panel** (`/edit/:uid/feed/:feedUid`): rename it,
-with its RSS URL shown as read-only context, and remove or delete. The destructive buttons are
-labelled with the three actions below, word for word, and a `Source` is never named on screen
-([backend.md](./backend.md) § Vocabulary). On desktop this presents in the content area (see the
-Routing note) instead of a bottom sheet: a folder's panel is the **master** pane and the open
-member's feed panel — or the scoped add steps, or a delete confirm — is the **detail** pane
-beside it, with a "Select a feed" placeholder until one is open (the same master–detail split as
-Settings, screen 5, and the reader). Editing a **loose** feed has no list beside it, so it takes
-the content area single-pane instead — like Add (screen 4) — rather than leaving a dead pane
-beside a squeezed form. An `/edit/*` route never shows an empty panel: the
-drawer waits for the account's data before opening, and a uid it then can't find — a stale link,
-a folder deleted on another device — sends the reader home.
+**Create.** A feed is made in the add wizard (screen 4) — *New feed*, with its first source —
+and a source is added to an existing feed either there (*Add to* that feed) or from the feed
+page's *Add source*. There is no separate create screen.
 
-- **Folder row:**
-  - **Rename** the folder.
-  - **Edit feeds** — add/remove member feeds and **toggle per-folder mute** on members.
-  - **Delete folder** — see cascade below.
-- **Loose feed row:**
-  - **Rename** the feed.
-  - **Delete feed**. *(No mute — mute only exists inside a folder.)*
-- **Feed row inside a folder:**
-  - **Rename** the feed.
-  - **Mute in this folder** (toggle) — excludes it from this folder's merged read only.
-  - **Remove from this folder** — unlinks it here; it stays subscribed (goes loose if it was
-    in no other folder).
-  - **Delete feed**.
+**Edit feed** — `/feed/[uid]/info/edit`, from the pencil. A **Name** and a **Description**,
+committed together by a **Save** pill (live once something changed and the name is not empty),
+and a **Delete feed** button at the bottom. Save returns to the feed page.
 
-**Destructive cascade** (mirrors [data-model.md](./data-model.md#cascade-rules)). All three
-actions confirm before committing:
-- **Remove from folder** — unlinks one membership; feed stays subscribed.
-- **Delete feed** — unsubscribes the feed everywhere (all folders + the list).
-- **Delete folder** — removes the folder **and unsubscribes its member feeds**, *except* any
-  member that also belongs to another folder; the confirmation **names how many feeds will be
-  unsubscribed**.
+**Source page** — `/feed/[uid]/info/source/[sourceUid]`, from a source's row. The source's name,
+"In {feed}" beneath it, then:
+- **Name** — the user's own name for the source *in this feed*. The source's own title shows as
+  the placeholder, and leaving it blank means that title.
+- **Link** — the source's feed URL, editable. Changing it swaps the row to a *different*
+  source: the new URL is fetched first, so one that isn't a feed (or is already in this feed)
+  is refused with the reason under the field and nothing changes. The shared source behind the
+  old link is never edited.
+- **Save** — commits the name and the link, then returns to the feed page (a new link has to,
+  since it is a different source with a different identity).
+- **Remove from this feed** — see below.
+
+**Destructive actions** (mirror [data-model.md](./data-model.md#cascade-rules)). Both go through
+a confirm view, reached by a button that arms before routing and never mutates anything itself:
+- **Remove from this feed** — `/feed/[uid]/info/source/[sourceUid]/remove`. Takes that one
+  source out of the feed. It stays in every other feed that has it, saved posts stay, and the
+  feed stays even if it ends up empty. Confirming returns to the feed page.
+- **Delete feed** — `/feed/[uid]/info/delete`. Removes the feed and its placements. A source
+  that no feed holds any more stops being polled; saved posts stay. Confirming returns home.
+
+The buttons carry those two labels word for word. A **source** is named on screen here — it is
+now part of the product's vocabulary ([backend.md](./backend.md) § Vocabulary).
 
 ---
 
 ## Cross-screen behaviors
 
-- **Back navigation** follows the route nesting: Post → Feed → Feeds list (where "Feed" is the
-  `/feed/[uid]` it opened from — a real feed, `saved`, or a folder), and Settings subpage →
-  Settings → wherever it opened from. Add / Edit close back to `/` on mobile, or to the frozen
-  reading position on desktop (see the Routing note).
+- **Back navigation** follows the route nesting: Post → Post list → Feeds list (where "Post
+  list" is the `/feed/[uid]` it opened from — a feed, `all` or `saved`); Feed page → Post list;
+  Edit / Delete / a source's page → Feed page, and a source's remove confirm → that source's
+  page (delete confirm → Edit); and Settings subpage → Settings → wherever it opened from. Add
+  closes back to `/` on mobile, or to the frozen reading position on desktop (see the Routing
+  note).
 - **Master/detail by viewport:** the same routes present as one pane on mobile (nested
   `<NuxtPage/>`s, sliding like a stack) and three panes on desktop (sidebar + posts pane + post
   pane, composed by the layout directly from the route and the stores — not by rendering
   `<NuxtPage/>` — see the Routing note above). Layout is a presentation concern; the routes and
   `pages:extend` records don't change.
-- **Type-aware rendering:** `Feed.type` drives small differences (YouTube thumbnail vs.
+- **Type-aware rendering:** `Source.type` drives small differences (YouTube thumbnail vs.
   article body), but the layout and interactions are the same across types.
 - **Images are never hotlinked.** Every image on screen — post images, feed icons, the pictures
   inside an article — is a URL the API built through the image proxy; the frontend adds

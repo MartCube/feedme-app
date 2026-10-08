@@ -158,7 +158,7 @@ types:api` plus typecheck finds every consumer — `PostCard.vue` and `PostView.
   original. `external-preview.redd.it` is left alone.
 - `alt=""` — the image is decoration beside a title that carries the text.
 - Cards `loading="lazy"`; the hero loads eagerly with `fetchpriority="high"`. (Lazy is safe
-  on the feed page and the desktop pane; the known trap is images *inside a vaul drawer*, which
+  on the post list and the desktop pane; the known trap is images *inside a vaul drawer*, which
   is why the add wizard's avatars stay eager.)
 - **A source that declares itself too small answers `null` before anything renders.** When the
   image URL carries its own `width=` and it is under 480 — the smallest size we serve — there is
