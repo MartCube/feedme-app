@@ -213,6 +213,32 @@ def test_an_image_enclosure_becomes_the_card_image(source, monkeypatch):
     assert Post.objects.get(guid='https://medium.com/p/one').image_url == ''
 
 
+@pytest.mark.parametrize(
+    ('given', 'stored'),
+    [
+        (
+            'https://preview.redd.it/p9lut1yylbsh1.jpeg?width=640&crop=smart&auto=webp&s=876072',
+            'https://i.redd.it/p9lut1yylbsh1.jpeg',
+        ),
+        (
+            'https://preview.redd.it/xuwnnvmmjash1.jpg?width=140&height=140&crop=1:1,smart&s=a22',
+            'https://i.redd.it/xuwnnvmmjash1.jpg',
+        ),
+        # a link preview has no original behind it
+        (
+            'https://external-preview.redd.it/dG55ODB6.png?width=640&crop=smart&s=7bb333',
+            'https://external-preview.redd.it/dG55ODB6.png?width=640&crop=smart&s=7bb333',
+        ),
+        (
+            'https://i1.ytimg.com/vi/H14_F7bGgzg/hqdefault.jpg',
+            'https://i1.ytimg.com/vi/H14_F7bGgzg/hqdefault.jpg',
+        ),
+    ],
+)
+def test_a_reddit_preview_is_swapped_for_its_full_size_original(given, stored):
+    assert ingest._pick_image({'media_thumbnail': [{'url': given}]}) == stored
+
+
 def test_an_entry_without_a_link_is_skipped(source, monkeypatch):
     serve(monkeypatch, ok(feeds.RSS_NO_LINK))
 

@@ -259,7 +259,7 @@ def _pick_image(entry):
     """media:thumbnail (YouTube, some Reddit posts), then any image enclosure."""
     for thumbnail in entry.get('media_thumbnail') or ():
         if thumbnail.get('url'):
-            return thumbnail['url']
+            return _full_size(thumbnail['url'])
     for media in entry.get('media_content') or ():
         if media.get('url') and media.get('type', '').startswith('image/'):
             return media['url']
@@ -267,6 +267,20 @@ def _pick_image(entry):
         if link.get('rel') == 'enclosure' and link.get('type', '').startswith('image/'):
             return link.get('href') or ''
     return ''
+
+
+def _full_size(url):
+    """The original behind a Reddit preview, which is what a post image should start from.
+
+    Reddit's RSS hands out `preview.redd.it/<id>.jpeg?width=640&…` — 640px at best and 140
+    as often, a size the post page stretches into a blur. The same file sits full size at
+    `i.redd.it/<id>.jpeg`, and the proxy scales it down to whatever is asked for.
+    `external-preview.redd.it` is a link's preview with no original behind it, so it stays.
+    """
+    parts = urlsplit(url)
+    if parts.hostname != 'preview.redd.it':
+        return url
+    return f'https://i.redd.it{parts.path}'
 
 
 def _published_at(entry):

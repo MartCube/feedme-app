@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { PostImage } from '~/assets/types'
 
-// The 16:9 box a post image renders in — on a card, and above the post title.
+// The box a post image renders in — 16:9 above the post title, square beside
+// a card's text.
 // docs/images.md § Rendering: the box is sized before the image arrives so
 // nothing shifts, and anything that can't fill it removes the box rather than
 // leaving a grey square or a broken-image icon behind. The attributes come
@@ -10,9 +11,14 @@ const props = defineProps<{
   image: PostImage
   sizes: string
   eager?: boolean
+  square?: boolean
+  // Never wider than the image's own pixels. A 640px Reddit preview stretched
+  // across a 1100px post pane is a blur; capped, it sits centred at its size.
+  noUpscale?: boolean
 }>()
 
 const hidden = ref(false)
+const naturalWidth = ref<number>()
 
 // A blown-up thumbnail reads worse than no image at all: a tracking pixel or a
 // 140px Reddit thumb is hidden instead. imgproxy never enlarges, so a small
@@ -35,7 +41,9 @@ function measure(event: Event) {
   probe.onload = () => {
     // The desktop pane swaps posts inside this instance; a probe that lands
     // after the swap measured the previous post's image.
-    if (img.currentSrc === src) hidden.value = probe.naturalWidth < MIN_WIDTH
+    if (img.currentSrc !== src) return
+    hidden.value = probe.naturalWidth < MIN_WIDTH
+    naturalWidth.value = probe.naturalWidth
   }
   probe.src = src
 }
@@ -44,13 +52,16 @@ function measure(event: Event) {
 // one post would otherwise stay hidden for the next.
 watch(() => props.image.src, () => {
   hidden.value = false
+  naturalWidth.value = undefined
 })
 </script>
 
 <template>
   <div
     v-if="!hidden"
-    class="aspect-video overflow-hidden rounded-xl bg-muted"
+    class="overflow-hidden rounded-xl bg-muted"
+    :class="[square ? 'aspect-square' : 'aspect-video', noUpscale && 'mx-auto w-full']"
+    :style="noUpscale && naturalWidth ? { maxWidth: `${naturalWidth}px` } : undefined"
   >
     <img
       :src="image.src"
