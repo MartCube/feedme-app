@@ -1,7 +1,5 @@
 <script setup lang="ts">
-import type { Destination } from '~/stores/feeds'
-
-// The four-phase add wizard (type → input → destination → folder) as sliding
+// The four-phase add wizard (type → input → destination → new feed) as sliding
 // panels. Hosted by the mobile bottom sheet (add/Drawer.vue) and the desktop
 // content page; wizard state is global (useAddFeedWizard), so hosts only
 // decide what close/done mean — dismiss the sheet vs return to the reader.
@@ -24,10 +22,21 @@ const slideVars = computed(() => panelSlideVars(
   !props.slide ? 'none' : direction.value === 'back' ? 'pop' : 'push',
 ))
 
-// The sheet closes only if the subscribe actually landed — otherwise the step stays up
-// with the server's reason on it.
-async function onChoose(destination: Destination) {
-  if (await wizard.chooseDestination(destination)) emit('done')
+// The sheet closes only if the add actually landed — otherwise the step stays
+// up with the server's reason on it.
+async function onChoose(feedUid: string) {
+  if (await wizard.addTo(feedUid)) emit('done')
+}
+
+async function onCreate(name: string) {
+  if (await wizard.addToNewFeed(name)) emit('done')
+}
+
+// Opened from a feed page, the feed is already chosen: the search step's
+// forward commits into it and the destination step is skipped.
+function onForward() {
+  if (wizard.target.value) onChoose(wizard.target.value)
+  else wizard.proceedToDestination()
 }
 </script>
 
@@ -54,20 +63,20 @@ async function onChoose(destination: Destination) {
         v-else-if="step === 'input'"
         key="input"
         @back="wizard.back"
-        @forward="wizard.proceedToDestination"
+        @forward="onForward"
       />
       <AddDestinationStep
         v-else-if="step === 'destination'"
         key="destination"
         @back="wizard.back"
         @choose="onChoose"
-        @new-folder="wizard.goToNewFolder"
+        @new-feed="wizard.goToNewFeed"
       />
-      <AddFolderStep
+      <AddNewFeedStep
         v-else
-        key="folder"
+        key="new-feed"
         @back="wizard.back"
-        @create="wizard.createFolder"
+        @create="onCreate"
       />
     </Transition>
   </div>

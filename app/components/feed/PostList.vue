@@ -14,9 +14,19 @@ const props = defineProps<{
   activePostUid?: string | null
 }>()
 
-const { feeds, folders } = storeToRefs(useFeedsStore())
+const { feeds } = storeToRefs(useFeedsStore())
 
-const title = computed(() => feedTitle(props.uid, feeds.value, folders.value))
+const title = computed(() => feedTitle(props.uid, feeds.value))
+
+// The title is the way into the feed page — its sources, their on/off, its
+// edit. On a phone that's its own page; on desktop the feed page already sits
+// in the post pane whenever no post is open, so the title just closes the
+// post. All feeds has no page of its own, so its title stays plain text.
+const isDesktop = useIsDesktop()
+const infoTo = computed(() => {
+  if (props.uid === 'all') return undefined
+  return isDesktop.value ? `/feed/${props.uid}` : `/feed/${props.uid}/info`
+})
 
 // vue-router's live route, NOT Nuxt's useRoute(): this component also renders
 // inside the desktop shell, which resolves no <NuxtPage/>, and Nuxt only
@@ -89,10 +99,16 @@ function postTo(postUid: string) {
   return query.value ? `${path}?q=${encodeURIComponent(query.value)}` : path
 }
 
-// The uid resolves server-side (all → saved → saved_* → folder_* → feed_*),
+// The uid resolves server-side (all → saved → saved_* → feed_*),
 // so there is nothing to filter here — this list renders whatever that stream
 // pages in. A query swaps the endpoint for GET /search, scoped to the same uid.
-const { items, pending, failed, done, loadMore } = usePostList(() => props.uid, query)
+// Which posts a feed holds changes when a source is switched off, added or
+// removed — the store counts those writes once they've landed, and the list
+// reloads on the count. Saved lists don't depend on sources.
+const { postsRevision } = storeToRefs(useFeedsStore())
+const contents = computed(() => (props.uid.startsWith('saved') ? '' : String(postsRevision.value)))
+
+const { items, pending, failed, done, loadMore } = usePostList(() => props.uid, query, contents)
 
 // A sentinel below the list, observed against the viewport: mobile scrolls the
 // page and desktop scrolls the posts pane, and neither has to be named for the
@@ -127,10 +143,19 @@ const { selectedUid, select } = useTapSelection()
         v-if="!open"
         class="min-w-0 flex-1 truncate text-title tracking-tight"
       >
-        {{ title }}
+        <NuxtLink
+          v-if="infoTo"
+          :to="infoTo"
+          class="hover-accent"
+        >
+          {{ title }}
+        </NuxtLink>
+        <template v-else>
+          {{ title }}
+        </template>
       </h1>
       <!-- The title's job moves into the placeholder: it names the list you're
-           searching, without a noun that would be wrong for a folder or Saved. -->
+           searching, without a noun that would be wrong for a feed or Saved. -->
       <SearchInput
         v-else
         v-model="draft"

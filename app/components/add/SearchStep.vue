@@ -96,10 +96,8 @@ function initials(name: string) {
         <button
           type="button"
           class="flex w-full items-center gap-sm rounded-2xl bg-elevated p-sm text-left shadow-elevated transition-colors"
-          :class="result.already_subscribed && 'opacity-60'"
-          :disabled="result.already_subscribed"
           :aria-pressed="wizard.isSelected(result)"
-          :aria-label="result.already_subscribed ? `${result.name}, already following` : `Select ${result.name}`"
+          :aria-label="`Select ${result.name}`"
           @click="wizard.toggleFeed(result)"
         >
           <!-- Every type has a face: five channels named "One Piece" are told apart by
@@ -121,18 +119,15 @@ function initials(name: string) {
             <!-- The feed URL, not the site: one page can declare several feeds, and this
                  is the only thing that tells them apart — same reason the edit panel keeps
                  it on screen. It is also what actually gets subscribed. -->
-            <span class="block truncate text-caption text-muted">{{ displayUrl(result.feed_url) }}</span>
+            <!-- A source can sit in several feeds, so one you follow stays
+                 pickable — the caption just says it's already in one. -->
+            <span class="block truncate text-caption text-muted">
+              <template v-if="result.already_subscribed">In your feeds · </template>{{ displayUrl(result.feed_url) }}
+            </span>
           </span>
-          <!-- One column, two answers: a well you can check, or the word for why
-               there is nothing to check. Never both. -->
-          <span
-            v-if="result.already_subscribed"
-            class="shrink-0 pr-2xs text-caption text-muted"
-          >Following</span>
           <!-- Page-bg circle reads as a well punched into the card; checking
                only drops a primary checkmark in, nothing else changes. -->
           <span
-            v-else
             class="flex size-10 shrink-0 items-center justify-center"
             aria-hidden="true"
           >
@@ -158,8 +153,8 @@ function initials(name: string) {
       Nothing found. Try pasting a link.
     </p>
 
-    <!-- The folder-scoped add commits straight from this step (it already knows the
-         destination), so a refused subscribe has to be able to say so here too. -->
+    <!-- The feed page's Add source commits straight from this step (it already
+         knows the feed), so a refused add has to be able to say so here too. -->
     <p
       v-if="error"
       class="mt-xs text-caption text-error text-inset"

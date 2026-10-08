@@ -6,25 +6,24 @@ import type { components } from '~/types/api'
 // two sides can no longer drift — a renamed backend field breaks typecheck.
 type Schemas = components['schemas']
 
-// A user's handle on a source: `name` is theirs, the rest is the shared
-// Source's, flattened in (a Source never surfaces on its own — backend.md
-// § Vocabulary).
+// A user's named group of sources — one or many — and what the home list
+// shows. `name` and `description` are theirs; `sources` is in the feed's own
+// order, each with its on/off for this feed (docs/data-model.md § Feed).
 export type Feed = Schemas['HomeFeedSchema']
 
-// The kind of source a feed comes from. Drives small rendering differences
-// (a YouTube item shows a video thumbnail + description, a website article
-// shows body text, etc.).
-export type FeedType = Feed['type']
+// One source inside one feed: an RSS endpoint, shared by everyone who follows
+// it, plus this feed's name for it (`name` — the user's rename, or the
+// source's own `title`) and whether it's switched on here.
+export type Source = Schemas['FeedSourceSchema']
 
-// A named group of feeds on the home screen. Membership lives here
-// (many-to-many: the same feed can be in several folders); a feed is
-// "loose" when its uid is in no folder's feed_uids.
-export type Folder = Schemas['HomeFolderSchema']
+// The kind of source. Drives small rendering differences (a YouTube post
+// plays inline, a website post reads as an article).
+export type FeedType = Source['type']
 
-// `feed_uid` is nullable — a saved post outlives unsubscribing, so a saved
-// list can carry a post whose source the reader no longer follows. `summary`
-// is what RSS gave us; extracted article text is a separate field behind
-// /posts/{uid}/article in T10. (backend-roadmap.md § Contract resolutions.)
+// `source` is where the post came from, named the caller's way — present
+// even on a saved post whose source has left every feed. `summary` is what RSS
+// gave us; the extracted article is a separate field behind
+// /posts/{uid}/article.
 export type Post = Schemas['PostSchema']
 
 // Which saved pile a post is in. Named …Name because `SavedGroup` in
@@ -57,8 +56,8 @@ export type Me = Schemas['MeSchema']
 // The profile comes from /me afterwards, the same way the dev-token path gets it.
 export type TokenResponse = Schemas['TokenSchema']
 
-// A search result before it is subscribed: a candidate feed with no uid yet.
-// Becomes a Feed (uid minted by the backend) when the user adds it. Same field
-// names as a Feed on purpose, plus `already_subscribed` — the wizard shows what
-// you follow rather than letting it be picked for a subscribe that 422s.
+// A search result before it is added: a candidate source with no uid yet.
+// Joins a feed (POST /feeds or /feeds/{uid}/sources) by its `feed_url`.
+// `already_subscribed` means it's in one of your feeds already — it can still
+// go into another.
 export type FeedCandidate = Schemas['DiscoverResultSchema']

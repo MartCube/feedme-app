@@ -1,7 +1,6 @@
 import type { FeedCandidate, FeedType } from '~/assets/types'
-import type { Destination } from '~/stores/feeds'
 
-export type WizardStep = 'type' | 'input' | 'destination' | 'folder'
+export type WizardStep = 'type' | 'input' | 'destination' | 'new-feed'
 export type WizardDirection = 'forward' | 'back'
 
 // Shared, SSR-safe wizard state (useState) so every step component and the
@@ -30,6 +29,10 @@ export function useAddFeedWizard() {
   // slower answer land last and win, and the Drawer's reset() has to be able to
   // disown an in-flight search from a step component that is already gone.
   const searchSeq = useState('add-search-seq', () => 0)
+  // The feed page's "Add source": the feed is already chosen, so the search
+  // step commits straight into it and the destination step never shows. Set
+  // by the opener before it navigates to /add; reset() clears it with the rest.
+  const target = useState<string | null>('add-target', () => null)
 
   function selectType(t: FeedType) {
     searchSeq.value++
@@ -85,9 +88,6 @@ export function useAddFeedWizard() {
   }
 
   function toggleFeed(feed: FeedCandidate) {
-    // Nothing to pick: POST /feeds answers 422 on a duplicate, so the row says
-    // "Following" instead of buying that error one step later.
-    if (feed.already_subscribed) return
     selectedFeeds.value = isSelected(feed)
       ? selectedFeeds.value.filter(f => f.feed_url !== feed.feed_url)
       : [...selectedFeeds.value, feed]
@@ -99,23 +99,43 @@ export function useAddFeedWizard() {
     step.value = 'destination'
   }
 
-  // Awaited, and reports whether it worked: the host only closes the sheet on success,
-  // because a URL that isn't a feed comes back as a 422 this step has to show.
-  async function chooseDestination(dest: Destination): Promise<boolean> {
+  // Every add awaits and reports whether it worked: the host only closes on
+  // success, because a URL that isn't a feed comes back as a 422 the step has
+  // to show. The candidates go in one at a time — a refusal stops the rest,
+  // and the ones already in stay in.
+  async function run(work: () => Promise<unknown>, fallback: string): Promise<boolean> {
     if (!selectedFeeds.value.length || adding.value) return false
     adding.value = true
     error.value = null
     try {
-      for (const feed of selectedFeeds.value) await feedsStore.addFeed(feed, dest)
+      await work()
       return true
     }
     catch (failure) {
-      error.value = detailOf(failure, 'Couldn\'t add that feed.')
+      error.value = detailOf(failure, fallback)
       return false
     }
     finally {
       adding.value = false
     }
+  }
+
+  // Into one of the user's feeds — the destination step's pick, or the target.
+  function addTo(feedUid: string) {
+    return run(async () => {
+      for (const candidate of selectedFeeds.value) await feedsStore.addSource(feedUid, candidate)
+    }, 'Couldn\'t add that source.')
+  }
+
+  // A new feed holding the picks: created with the first, so a first URL that
+  // isn't a feed leaves no empty feed behind, then the rest join it. A blank
+  // name takes the first source's own title (the backend's default).
+  function addToNewFeed(name: string) {
+    return run(async () => {
+      const [first, ...rest] = selectedFeeds.value
+      const feed = await feedsStore.addFeed({ name, candidate: first })
+      for (const candidate of rest) await feedsStore.addSource(feed.uid, candidate)
+    }, 'Couldn\'t create that feed.')
   }
 
   // The API's one error shape, {"detail": string}, as ofetch hands it back. A network
@@ -125,18 +145,10 @@ export function useAddFeedWizard() {
     return detail || fallback
   }
 
-  function goToNewFolder() {
+  function goToNewFeed() {
     direction.value = 'forward'
-    step.value = 'folder'
-  }
-
-  async function createFolder(name: string) {
-    if (!name.trim()) return
-    await feedsStore.addFolder(name)
-    // Returning is a pop: the destination list slides back in (from the left)
-    // with the new folder in place.
-    direction.value = 'back'
-    step.value = 'destination'
+    error.value = null
+    step.value = 'new-feed'
   }
 
   function back() {
@@ -144,7 +156,7 @@ export function useAddFeedWizard() {
     // A failure belongs to the attempt that caused it — stepping back and forward again
     // is a fresh one, and the old line under it would be a lie.
     error.value = null
-    if (step.value === 'folder') step.value = 'destination'
+    if (step.value === 'new-feed') step.value = 'destination'
     else if (step.value === 'destination') step.value = 'input'
     else if (step.value === 'input') step.value = 'type'
   }
@@ -162,7 +174,8 @@ export function useAddFeedWizard() {
     error.value = null
     selectedFeeds.value = []
     direction.value = 'forward'
+    target.value = null
   }
 
-  return { step, type, query, loading, results, searched, adding, error, selectedFeeds, direction, selectType, search, isSelected, toggleFeed, proceedToDestination, chooseDestination, goToNewFolder, createFolder, back, reset }
+  return { step, type, query, loading, results, searched, adding, error, selectedFeeds, direction, target, selectType, search, isSelected, toggleFeed, proceedToDestination, addTo, addToNewFeed, goToNewFeed, back, reset }
 }

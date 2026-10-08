@@ -1,6 +1,6 @@
 // The push/pop rule for sliding panels and the CSS variables that carry it.
-// Shared by the settings sheet (settings/Drawer.vue), the edit sheet
-// (edit/Panels.vue) and the add wizard (add/Steps.vue — which supplies its own
+// Shared by the settings sheet (settings/Drawer.vue), the reader pages
+// (middleware/page-slide.global.ts) and the add wizard (add/Steps.vue — which supplies its own
 // direction from the wizard rather than from the path, so it uses the vars half
 // only).
 export type PanelSlide = 'push' | 'pop' | 'none'
@@ -8,7 +8,7 @@ export type PanelSlide = 'push' | 'pop' | 'none'
 const depth = (path: string) => path.split('/').filter(Boolean).length
 
 // Deeper pushes in from the right, shallower pops back out. Equal depth is a
-// SIDEWAYS move — one folder's edit to another's, one settings panel to its
+// SIDEWAYS move — one feed's page to another's, one settings panel to its
 // sibling — and gets no slide: animating it would claim a hierarchy change that
 // didn't happen, and it read as a false "you went deeper" push before.
 export function panelSlideDirection(to: string, from: string): PanelSlide {

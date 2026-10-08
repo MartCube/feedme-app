@@ -1,7 +1,7 @@
 <script setup lang="ts">
-// The shared confirm sheet standing in front of every destructive edit action —
-// delete a folder, delete a feed, remove a feed from a folder. Purely
-// presentational: Drawer.vue supplies the copy and owns the store mutation.
+// The confirm standing in front of every destructive action on the feed page —
+// delete a feed, remove a source from it. Purely presentational: InfoPanels.vue
+// supplies the copy and owns the store mutation.
 const props = defineProps<{
   // Doubles as the heading and the confirm button's label.
   action: string
@@ -21,8 +21,7 @@ const tail = computed(() => (props.context ? ` from ${props.context}?` : '?'))
 </script>
 
 <template>
-  <!-- touch-none lets vaul own the drag-to-close gesture. -->
-  <div class="flex h-full touch-none flex-col scroll-host bg-default page-inset">
+  <div class="flex flex-col">
     <IconButton
       icon="i-ph-caret-left-bold"
       :to="backTo"

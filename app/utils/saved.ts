@@ -1,10 +1,10 @@
 import type { SavedGroupName } from '~/assets/types'
 
 // The pinned Saved entry on the home list and its three groups. Static app
-// structure (like settings-drawer.ts), NOT store folders — a Folder here would
-// leak into the add-wizard destination list and the looseFeeds computed.
+// structure (like settings-drawer.ts), NOT store feeds — a Feed here would
+// leak into the add-wizard destination list.
 // Routing: /feed/saved (all saved posts) and /feed/saved_* (one group), both
-// resolved by the feed page before folder/feed uids.
+// resolved by the feed page before feed uids.
 export interface SavedGroup {
   uid: string
   name: string

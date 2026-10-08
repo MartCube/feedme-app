@@ -1,10 +1,7 @@
 <script setup lang="ts">
-import type { Destination } from '~/stores/feeds'
+const emit = defineEmits<{ back: [], choose: [feedUid: string], newFeed: [] }>()
 
-const emit = defineEmits<{ back: [], choose: [destination: Destination], newFolder: [] }>()
-
-const feedsStore = useFeedsStore()
-const { folders } = storeToRefs(feedsStore)
+const { feeds } = storeToRefs(useFeedsStore())
 
 const { selectedFeeds, adding, error } = useAddFeedWizard()
 </script>
@@ -19,7 +16,7 @@ const { selectedFeeds, adding, error } = useAddFeedWizard()
       @click="emit('back')"
     />
 
-    <!-- The feeds being added, so the choice has context. Deliberately quiet
+    <!-- The sources being added, so the choice has context. Deliberately quiet
          (label + plain rows, no card): here cards mean "tappable". -->
     <section v-if="selectedFeeds.length">
       <p class="mt-md text-caption text-muted text-inset">
@@ -27,17 +24,17 @@ const { selectedFeeds, adding, error } = useAddFeedWizard()
       </p>
       <div class="mt-xs flex flex-col gap-2xs text-inset">
         <p
-          v-for="feed in selectedFeeds"
-          :key="feed.feed_url"
+          v-for="candidate in selectedFeeds"
+          :key="candidate.feed_url"
           class="truncate text-body"
         >
-          {{ feed.name }}
+          {{ candidate.name }}
         </p>
       </div>
     </section>
 
     <!-- Above the destination list, not below it: this panel is touch-none (vaul owns
-         the gesture), so anything under a long folder list is unreachable on mobile —
+         the gesture), so anything under a long feed list is unreachable on mobile —
          and a failure that can't be read is a failure that looks like nothing happened. -->
     <p
       v-if="error"
@@ -49,60 +46,44 @@ const { selectedFeeds, adding, error } = useAddFeedWizard()
     <p class="mt-md text-caption text-muted text-inset">
       Add to
     </p>
-    <!-- Tapping a destination card commits: every selected feed lands there
-         (many feeds → one destination) and the wizard closes. -->
+    <!-- New feed first: it's the common case for a first source, and the one
+         row that's always there. Tapping a feed commits: every selected source
+         joins it and the wizard closes. -->
     <ul class="mt-xs flex flex-col gap-sm">
       <li>
         <button
           type="button"
           :disabled="adding"
           class="flex w-full items-center gap-sm rounded-2xl bg-elevated p-sm text-left shadow-elevated transition-colors"
-          aria-label="Add to top level"
-          @click="emit('choose', 'loose')"
+          :class="adding && 'text-dimmed'"
+          @click="emit('newFeed')"
         >
-          <span
-            class="flex min-w-0 flex-1 items-baseline gap-xs"
-            :class="adding && 'text-dimmed'"
-          >
-            <span class="min-w-0 truncate text-body">Feeds</span>
-            <span :class="adding ? 'text-caption' : 'text-caption text-muted'">Top level</span>
-          </span>
+          <UIcon
+            name="i-ph-plus-bold"
+            class="size-5 shrink-0"
+            :class="adding ? 'text-dimmed' : 'text-muted'"
+          />
+          <span class="text-body">New feed</span>
         </button>
       </li>
       <li
-        v-for="folder in folders"
-        :key="folder.uid"
+        v-for="feed in feeds"
+        :key="feed.uid"
       >
         <button
           type="button"
           :disabled="adding"
           class="flex w-full items-center gap-sm rounded-2xl bg-elevated p-sm text-left shadow-elevated transition-colors"
-          :aria-label="`Add to ${folder.name}`"
-          @click="emit('choose', folder.uid)"
+          :aria-label="`Add to ${feed.name}`"
+          @click="emit('choose', feed.uid)"
         >
           <span
             class="flex min-w-0 flex-1 items-baseline gap-xs"
             :class="adding && 'text-dimmed'"
           >
-            <span class="min-w-0 truncate text-body">{{ folder.name }}</span>
-            <span :class="adding ? 'text-caption' : 'text-caption text-muted'">{{ folder.feed_uids.length }}</span>
+            <span class="min-w-0 truncate text-body">{{ feed.name }}</span>
+            <span :class="adding ? 'text-caption' : 'text-caption text-muted'">{{ feed.sources.length }}</span>
           </span>
-        </button>
-      </li>
-      <li>
-        <button
-          type="button"
-          :disabled="adding"
-          class="flex w-full items-center gap-sm rounded-2xl bg-elevated p-sm text-left shadow-elevated transition-colors"
-          :class="adding && 'text-dimmed'"
-          @click="emit('newFolder')"
-        >
-          <UIcon
-            name="i-ph-folder-plus-bold"
-            class="size-5 shrink-0"
-            :class="adding ? 'text-dimmed' : 'text-muted'"
-          />
-          <span class="text-body">New folder</span>
         </button>
       </li>
     </ul>

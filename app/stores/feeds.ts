@@ -1,11 +1,9 @@
-import type { Feed, FeedCandidate, Folder, Home } from '~/assets/types'
+import type { Feed, FeedCandidate, Home, Source } from '~/assets/types'
 
-// Where a newly added feed lands: the top-level list, or a folder by uid.
-export type Destination = 'loose' | string
-
-// Single source of truth for the home screen: the account's feeds and folders,
-// loaded in one round-trip from GET /home. Posts are not here — they page in
-// through usePostList(uid), which is what the polymorphic feed uid means.
+// Single source of truth for the home screen: the account's feeds — each a
+// named group of sources — loaded in one round-trip from GET /home. Posts are
+// not here; they page in through usePostList(uid), which is what the
+// polymorphic feed uid means.
 export const useFeedsStore = defineStore('feeds', () => {
   // Captured here, not inside the actions: an action can be called after an
   // await (signing in loads the account once /me comes back), and by then the
@@ -14,7 +12,6 @@ export const useFeedsStore = defineStore('feeds', () => {
   const nuxtApp = useNuxtApp()
 
   const feeds = ref<Feed[]>([])
-  const folders = ref<Folder[]>([])
   const savedCounts = ref<Home['saved_counts']>({ bookmarks: 0, favorites: 0, later: 0 })
 
   // Gates the home render: without it the first paint flashes the "nothing
@@ -31,8 +28,6 @@ export const useFeedsStore = defineStore('feeds', () => {
     return loaded.value ? Promise.resolve() : reload()
   }
 
-  // Re-read even when we already have data: the cascading folder delete is the one write
-  // whose failure spans both arrays, so putting it back means asking the server again.
   function reload() {
     inflight ||= fetchHome()
     return inflight
@@ -41,17 +36,8 @@ export const useFeedsStore = defineStore('feeds', () => {
   async function fetchHome() {
     try {
       const home = await nuxtApp.$api<Home>('/home')
-      // `order` is the one shared 0..n-1 sequence across folders and loose
-      // feeds. Applied here rather than kept around: the two lists render as
-      // separate blocks today, and T7's drag-and-drop — the only thing that can
-      // interleave them — re-reads /home anyway. A feed inside a folder isn't
-      // in it at all (its position lives on the folder's feed_uids).
-      const position = (uid: string) => {
-        const index = home.order.indexOf(uid)
-        return index === -1 ? Number.POSITIVE_INFINITY : index
-      }
-      folders.value = [...home.folders].sort((a, b) => position(a.uid) - position(b.uid))
-      feeds.value = [...home.feeds].sort((a, b) => position(a.uid) - position(b.uid))
+      // Already in display order — the server sorts by the one order column.
+      feeds.value = home.feeds
       savedCounts.value = home.saved_counts
       loaded.value = true
       unreachable.value = false
@@ -67,51 +53,34 @@ export const useFeedsStore = defineStore('feeds', () => {
     }
   }
 
-  const looseFeeds = computed(() =>
-    feeds.value.filter(feed => !folders.value.some(folder => folder.feed_uids.includes(feed.uid))),
-  )
+  // First-run: nothing followed yet.
+  const hasFeeds = computed(() => feeds.value.length > 0)
 
-  // First-run: nothing followed yet (no feeds, and no folders to hold any).
-  const hasFeeds = computed(() => feeds.value.length > 0 || folders.value.length > 0)
-
-  // Feed-list UI state. Lives here (not in the page) so it survives page
-  // remounts and, later, navigation to feed pages and back.
-  const expandedFolderUids = ref<string[]>([])
-
-  function isExpanded(uid: string) {
-    return expandedFolderUids.value.includes(uid)
-  }
-
-  function toggleFolder(uid: string) {
-    expandedFolderUids.value = isExpanded(uid)
-      ? expandedFolderUids.value.filter(u => u !== uid)
-      : [...expandedFolderUids.value, uid]
-  }
+  // Bumped when a write that changes which posts a feed holds has *landed* —
+  // a source switched on or off, added, relinked or removed, a feed created or
+  // deleted. The post lists key on it to reload. Not on the optimistic change:
+  // a list refetched before the server has the write reads the old posts.
+  const postsRevision = ref(0)
 
   // Desktop master–detail selection: the feed whose post list the reader
   // shows and the open post. Synced from reader routes by the desktop shell;
-  // frozen while a content page (/settings, /add, /edit/*) is open so
-  // returning restores the reading view exactly. Mobile ignores these.
+  // frozen while a content page (/settings, /add) is open so returning
+  // restores the reading view exactly. Mobile ignores these.
   const readerFeedUid = ref('all')
   const readerPostUid = ref<string | null>(null)
   // The active search, mirrored here for the same reason as the two above: the
   // live route says /settings while the overlay is open, so reading the query
   // off it would drop the search the moment Settings opened.
   const readerQuery = ref('')
-  // The selected feed is never hidden inside a collapsed folder: whenever the
-  // selection lands on a folder's member — a click, or a reload straight onto
-  // /feed/<uid>, where the folder list only arrives with /home — every folder
-  // holding it opens. Expansion itself isn't persisted; the selection is the
-  // URL, so this is what brings the sidebar back to where the reader was.
-  watch([readerFeedUid, folders], ([uid, all]) => {
-    const holding = all.filter(folder => folder.feed_uids.includes(uid) && !isExpanded(folder.uid))
-    if (holding.length) expandedFolderUids.value = [...expandedFolderUids.value, ...holding.map(folder => folder.uid)]
-  }, { immediate: true })
+  // Which feed-page view the post pane shows when no post is open: the tail of
+  // /feed/:uid/info/… (utils/feed-info.ts), or null off those routes — then
+  // the pane shows the feed page itself.
+  const readerInfo = ref<string[] | null>(null)
 
   const readerPath = computed(() => {
-    const path = readerPostUid.value
-      ? `/feed/${readerFeedUid.value}/post/${readerPostUid.value}`
-      : `/feed/${readerFeedUid.value}`
+    let path = `/feed/${readerFeedUid.value}`
+    if (readerPostUid.value) path += `/post/${readerPostUid.value}`
+    else if (readerInfo.value) path += ['/info', ...readerInfo.value].join('/')
     return readerQuery.value ? `${path}?q=${encodeURIComponent(readerQuery.value)}` : path
   })
 
@@ -119,194 +88,153 @@ export const useFeedsStore = defineStore('feeds', () => {
   // next account looking at the previous one's feeds.
   function reset() {
     feeds.value = []
-    folders.value = []
     savedCounts.value = { bookmarks: 0, favorites: 0, later: 0 }
     loaded.value = false
     unreachable.value = false
-    expandedFolderUids.value = []
     readerFeedUid.value = 'all'
     readerPostUid.value = null
     readerQuery.value = ''
+    readerInfo.value = null
   }
 
-  function memberFeeds(folder: Folder): Feed[] {
-    return folder.feed_uids
-      .map(uid => feeds.value.find(feed => feed.uid === uid))
-      .filter((feed): feed is Feed => Boolean(feed))
+  // Every feed write answers with the whole feed, so the store swaps one row
+  // rather than patching fields — the server's view of the sources (a renamed
+  // one's fallback title, a relinked one's new url) lands exactly.
+  function put(feed: Feed) {
+    feeds.value = feeds.value.some(f => f.uid === feed.uid)
+      ? feeds.value.map(f => (f.uid === feed.uid ? feed : f))
+      : [...feeds.value, feed]
   }
 
-  // Writes are optimistic: the local mutation lands first and the request follows, so Save
-  // and Delete feel instant. That leaves this helper holding the other half of the deal —
-  // a failed write has to put back what was on screen before it.
-  async function commit(request: Promise<unknown>, rollback: () => void) {
+  // Writes are optimistic: the local change lands first and the request
+  // follows, so a toggle or a rename feels instant. That leaves this helper
+  // holding the other half of the deal — a failed write puts back what was on
+  // screen before it, and a successful one takes the server's copy.
+  async function commit(request: Promise<unknown>, rollback: () => void, changesPosts = false) {
     try {
-      await request
+      const answer = await request
+      if (answer) put(answer as Feed)
+      if (changesPosts) postsRevision.value++
     }
     catch {
       rollback()
     }
   }
 
-  // The two creates are the exception: they await. The backend mints every public uid
-  // (backend.md § Vocabulary), so an optimistic row would carry a uid the server is about
-  // to replace — and one you could tap through to a 404 in the meantime. Both let their
-  // error escape, because the add wizard has somewhere to show it.
-  async function addFeed(candidate: FeedCandidate, destination: Destination): Promise<Feed> {
+  function patchLocal(uid: string, change: (feed: Feed) => Feed) {
+    const previous = feeds.value
+    feeds.value = feeds.value.map(feed => (feed.uid === uid ? change(feed) : feed))
+    return () => {
+      feeds.value = previous
+    }
+  }
+
+  function patchSource(feedUid: string, sourceUid: string, change: Partial<Source>) {
+    return patchLocal(feedUid, feed => ({
+      ...feed,
+      sources: feed.sources.map(source => (source.uid === sourceUid ? { ...source, ...change } : source)),
+    }))
+  }
+
+  // The creates await instead. The backend mints every public uid and fetches
+  // a new source to find out whether it's a feed at all, so there is nothing
+  // honest to show before it answers — and the add wizard has somewhere to put
+  // the error, which is why it escapes.
+
+  // A new feed, optionally with its first source in the same call: a URL that
+  // turns out not to be a feed then leaves no empty feed behind. Blank name /
+  // description take the source's own (the backend fills them).
+  async function addFeed(input: { name?: string, description?: string, candidate?: FeedCandidate }): Promise<Feed> {
     const feed = await nuxtApp.$api<Feed>('/feeds', {
       method: 'POST',
       body: {
-        feed_url: candidate.feed_url,
-        folder_uid: destination === 'loose' ? undefined : destination,
+        name: input.name?.trim() ?? '',
+        description: input.description?.trim() ?? '',
+        feed_url: input.candidate?.feed_url,
       },
     })
-    feeds.value = [...feeds.value, feed]
-
-    if (destination !== 'loose') {
-      folders.value = folders.value.map(folder =>
-        folder.uid === destination
-          ? { ...folder, feed_uids: [...folder.feed_uids, feed.uid] }
-          : folder,
-      )
-    }
-
+    put(feed)
+    postsRevision.value++
     return feed
   }
 
-  async function addFolder(name: string): Promise<Folder | undefined> {
-    const trimmed = name.trim()
-    if (!trimmed) return
-    const folder = await nuxtApp.$api<Folder>('/folders', {
+  async function addSource(feedUid: string, candidate: FeedCandidate): Promise<Feed> {
+    const feed = await nuxtApp.$api<Feed>(`/feeds/${feedUid}/sources`, {
       method: 'POST',
-      body: { name: trimmed },
+      body: { feed_url: candidate.feed_url },
     })
-    folders.value = [...folders.value, folder]
-    return folder
+    put(feed)
+    postsRevision.value++
+    return feed
   }
 
-  // Every mutation below is an immutable update — replacing the array rather than mutating
-  // an entry in place, which is also what makes the rollback a single assignment.
-
-  function renameFolder(uid: string, name: string) {
-    const trimmed = name.trim()
-    if (!trimmed) return
-    const previous = folders.value
-    folders.value = folders.value.map(folder =>
-      folder.uid === uid ? { ...folder, name: trimmed } : folder,
-    )
-    return commit(
-      nuxtApp.$api(`/folders/${uid}`, { method: 'PATCH', body: { name: trimmed } }),
-      () => { folders.value = previous },
-    )
+  // Changing a source's link awaits too, for the same reason as adding one:
+  // the new URL is fetched, and may not be a feed.
+  async function relinkSource(feedUid: string, sourceUid: string, feedUrl: string): Promise<Feed> {
+    const feed = await nuxtApp.$api<Feed>(`/feeds/${feedUid}/sources/${sourceUid}`, {
+      method: 'PATCH',
+      body: { feed_url: feedUrl },
+    })
+    put(feed)
+    postsRevision.value++
+    return feed
   }
 
-  // Per-folder mute: the members excluded from THIS folder's merged read only.
-  // Replaces the whole set — the edit panel stages toggles as a local draft and
-  // commits them alongside the name when Save is pressed.
-  function setMutedFeeds(folderUid: string, feedUids: string[]) {
-    const previous = folders.value
-    folders.value = folders.value.map(folder =>
-      folder.uid === folderUid
-        ? { ...folder, muted_feed_uids: [...feedUids] }
-        : folder,
-    )
-    return commit(
-      nuxtApp.$api(`/folders/${folderUid}`, {
-        method: 'PATCH',
-        body: { muted_feed_uids: feedUids },
-      }),
-      () => { folders.value = previous },
-    )
+  function updateFeed(uid: string, patch: { name?: string, description?: string }) {
+    const body = {
+      name: patch.name?.trim(),
+      description: patch.description?.trim(),
+    }
+    if (body.name === '') return
+    const rollback = patchLocal(uid, feed => ({
+      ...feed,
+      name: body.name ?? feed.name,
+      description: body.description ?? feed.description,
+    }))
+    return commit(nuxtApp.$api<Feed>(`/feeds/${uid}`, { method: 'PATCH', body }), rollback)
   }
 
-  // Name only. feed_url lives on the shared global Source — editing it would
-  // repoint every other subscriber's feed (roadmap § Contract resolutions, 3).
-  function updateFeed(uid: string, patch: Pick<Feed, 'name'>) {
-    const name = patch.name.trim()
-    if (!name) return
-    const previous = feeds.value
-    feeds.value = feeds.value.map(feed =>
-      feed.uid === uid ? { ...feed, name } : feed,
-    )
-    return commit(
-      nuxtApp.$api(`/feeds/${uid}`, { method: 'PATCH', body: { name } }),
-      () => { feeds.value = previous },
-    )
-  }
-
-  // Unlinks one membership; the feed stays subscribed (goes loose if it was in
-  // no other folder). Drops it from muted too.
-  function removeFromFolder(folderUid: string, feedUid: string) {
-    const folder = folders.value.find(f => f.uid === folderUid)
-    if (!folder) return
-    // The membership is sent whole — PATCH replaces it, and dropping a feed drops its mute
-    // with it on both sides.
-    const feedUids = folder.feed_uids.filter(u => u !== feedUid)
-    const previous = folders.value
-    folders.value = folders.value.map(f =>
-      f.uid === folderUid
-        ? {
-            ...f,
-            feed_uids: feedUids,
-            muted_feed_uids: f.muted_feed_uids.filter(u => u !== feedUid),
-          }
-        : f,
-    )
-    return commit(
-      nuxtApp.$api(`/folders/${folderUid}`, { method: 'PATCH', body: { feed_uids: feedUids } }),
-      () => { folders.value = previous },
-    )
-  }
-
-  // Unsubscribe everywhere: from the feeds list and from every folder.
   function deleteFeed(uid: string) {
-    const previousFeeds = feeds.value
-    const previousFolders = folders.value
+    const previous = feeds.value
     feeds.value = feeds.value.filter(feed => feed.uid !== uid)
-    folders.value = folders.value.map(folder =>
-      folder.feed_uids.includes(uid)
-        ? {
-            ...folder,
-            feed_uids: folder.feed_uids.filter(u => u !== uid),
-            muted_feed_uids: folder.muted_feed_uids.filter(u => u !== uid),
-          }
-        : folder,
-    )
     return commit(
       nuxtApp.$api(`/feeds/${uid}`, { method: 'DELETE' }),
-      () => {
-        feeds.value = previousFeeds
-        folders.value = previousFolders
-      },
+      () => { feeds.value = previous },
+      true,
     )
   }
 
-  // Members of `uid` that belong to no other folder — deleting the folder would
-  // unsubscribe exactly these. Drives the delete confirmation copy.
-  function folderDeleteImpact(uid: string): number {
-    const folder = folders.value.find(f => f.uid === uid)
-    if (!folder) return 0
-    return folder.feed_uids.filter(feedUid =>
-      !folders.value.some(f => f.uid !== uid && f.feed_uids.includes(feedUid)),
-    ).length
-  }
-
-  // Removes the folder and unsubscribes its members EXCEPT those also in
-  // another folder (those survive as members there).
-  function deleteFolder(uid: string) {
-    const folder = folders.value.find(f => f.uid === uid)
-    if (!folder) return
-    const orphaned = folder.feed_uids.filter(feedUid =>
-      !folders.value.some(f => f.uid !== uid && f.feed_uids.includes(feedUid)),
-    )
-    feeds.value = feeds.value.filter(feed => !orphaned.includes(feed.uid))
-    folders.value = folders.value.filter(f => f.uid !== uid)
+  // On/off and the rename. A blank name means "the source's own title" — the
+  // optimistic copy shows that straight away; the server's answer confirms it.
+  function updateSource(feedUid: string, sourceUid: string, patch: { name?: string, enabled?: boolean }) {
+    const local: Partial<Source> = {}
+    if (patch.enabled !== undefined) local.enabled = patch.enabled
+    if (patch.name !== undefined) {
+      const source = feeds.value.find(f => f.uid === feedUid)?.sources.find(s => s.uid === sourceUid)
+      local.name = patch.name.trim() || source?.title || ''
+    }
+    const rollback = patchSource(feedUid, sourceUid, local)
     return commit(
-      nuxtApp.$api(`/folders/${uid}`, { method: 'DELETE' }),
-      // The only write whose effect spans both arrays by a rule the client only mirrors —
-      // putting it back means asking the server what is actually there.
-      reload,
+      nuxtApp.$api<Feed>(`/feeds/${feedUid}/sources/${sourceUid}`, {
+        method: 'PATCH',
+        body: { name: patch.name?.trim(), enabled: patch.enabled },
+      }),
+      rollback,
+      patch.enabled !== undefined,
     )
   }
 
-  return { feeds, folders, savedCounts, loaded, unreachable, load, reload, reset, looseFeeds, hasFeeds, memberFeeds, expandedFolderUids, isExpanded, toggleFolder, readerFeedUid, readerPostUid, readerQuery, readerPath, addFeed, addFolder, renameFolder, setMutedFeeds, updateFeed, removeFromFolder, deleteFeed, folderDeleteImpact, deleteFolder }
+  function removeSource(feedUid: string, sourceUid: string) {
+    const rollback = patchLocal(feedUid, feed => ({
+      ...feed,
+      sources: feed.sources.filter(source => source.uid !== sourceUid),
+    }))
+    return commit(
+      nuxtApp.$api<Feed>(`/feeds/${feedUid}/sources/${sourceUid}`, { method: 'DELETE' }),
+      rollback,
+      true,
+    )
+  }
+
+  return { feeds, savedCounts, loaded, unreachable, load, reload, reset, hasFeeds, postsRevision, readerFeedUid, readerPostUid, readerQuery, readerInfo, readerPath, addFeed, addSource, relinkSource, updateFeed, deleteFeed, updateSource, removeSource }
 })

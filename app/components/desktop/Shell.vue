@@ -3,14 +3,14 @@
 // the route + stores — NuxtPage is not rendered on desktop at all (see
 // layouts/default.vue). The reading panes render from the store's reader
 // selection (not the route) and stay mounted while a content page
-// (/settings, /add, /edit/*) is open, which is what preserves feed, post,
-// and pane scroll on return.
+// (/settings, /add) is open, which is what preserves feed, post, and pane
+// scroll on return.
 // vue-router's live route, NOT Nuxt's useRoute(): Nuxt only re-syncs its
 // route object when a <NuxtPage> resolves, and the shell renders none — with
 // useRoute() the URL changes but the panes never update.
 const route = useRouter().currentRoute
 const feedsStore = useFeedsStore()
-const { feeds, folders, hasFeeds, loaded, unreachable, readerFeedUid, readerPostUid, readerQuery } = storeToRefs(feedsStore)
+const { feeds, hasFeeds, loaded, unreachable, readerFeedUid, readerPostUid, readerQuery, readerInfo } = storeToRefs(feedsStore)
 
 // The posts pane carries the split; the post pane takes the rest.
 const settings = useSettingsStore()
@@ -21,11 +21,15 @@ watch(() => route.value.fullPath, () => {
   if (route.value.path === '/') {
     readerFeedUid.value = 'all'
     readerPostUid.value = null
+    readerInfo.value = null
     readerQuery.value = (route.value.query.q as string | undefined) ?? ''
   }
   else if (route.value.path.startsWith('/feed/')) {
     readerFeedUid.value = route.value.params.uid as string
     readerPostUid.value = (route.value.params.postUid as string | undefined) ?? null
+    readerInfo.value = /^\/feed\/[^/]+\/info(\/|$)/.test(route.value.path)
+      ? restOf(route.value.params.rest)
+      : null
     readerQuery.value = (route.value.query.q as string | undefined) ?? ''
   }
 }, { immediate: true })
@@ -42,13 +46,10 @@ const {
   toggleSave: toggleReaderSave,
 } = usePost(readerPostUid)
 
-// The reused settings/edit panels close themselves via these injected keys
-// (on mobile they collapse the sheet); here closing means returning to the
-// frozen reading position.
+// The reused settings panels close themselves via this injected key (on
+// mobile it collapses the sheet); here closing means returning to the frozen
+// reading position.
 provide(settingsDrawerCloseKey, () => {
-  navigateTo(feedsStore.readerPath)
-})
-provide(editDrawerCloseKey, () => {
   navigateTo(feedsStore.readerPath)
 })
 
@@ -56,8 +57,7 @@ useHead({
   title: () => {
     if (route.value.path.startsWith('/settings')) return 'Settings'
     if (route.value.path === '/add') return 'Add feed'
-    if (route.value.path.startsWith('/edit/')) return 'Edit'
-    return readerPost.value?.title ?? feedTitle(readerFeedUid.value, feeds.value, folders.value)
+    return readerPost.value?.title ?? feedTitle(readerFeedUid.value, feeds.value)
   },
 })
 </script>
@@ -66,7 +66,7 @@ useHead({
   <div class="flex h-dvh">
     <DesktopSidebar class="w-sidebar shrink-0" />
 
-    <!-- Reading panes. The content area (settings/add/edit) mounts over these
+    <!-- Reading panes. The content area (settings/add) mounts over these
          without unmounting them — relative is its positioning context. -->
     <div class="relative flex min-w-0 flex-1">
       <template v-if="hasFeeds">
@@ -110,6 +110,15 @@ useHead({
               class="max-w-post"
             />
           </template>
+          <!-- No post open: the feed page — what this feed is, its sources and
+               their on/off — or one of the views under it. All feeds has no
+               page of its own, so it keeps the prompt. -->
+          <FeedInfoPanels
+            v-else-if="readerFeedUid !== 'all'"
+            :uid="readerFeedUid"
+            :rest="readerInfo ?? []"
+            class="max-w-reading"
+          />
           <div
             v-else
             class="flex h-full items-center justify-center"

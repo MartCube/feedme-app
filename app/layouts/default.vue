@@ -24,7 +24,6 @@ const isDesktop = useIsDesktop()
          triggered page remounts when the drawer lived inside a page). -->
     <SettingsDrawer />
     <AddDrawer />
-    <EditDrawer />
   </div>
 
   <DesktopShell v-else />

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const { feeds, folders } = storeToRefs(useFeedsStore())
+const { feeds } = storeToRefs(useFeedsStore())
 
 // Captured once, not computed: the route params change before the leave
 // slide finishes, and the leaving page must keep its content while animating.
@@ -21,7 +21,7 @@ watch(() => route.fullPath, () => {
 const page = useTemplateRef('page')
 const { style: swipeStyle } = useSwipeBack(page, '/')
 
-useHead({ title: computed(() => feedTitle(uid, feeds.value, folders.value)) })
+useHead({ title: computed(() => feedTitle(uid, feeds.value)) })
 </script>
 
 <template>

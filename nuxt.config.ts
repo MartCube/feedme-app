@@ -112,20 +112,6 @@ export default defineNuxtConfig({
           file: home.file,
           meta: { key: 'home' },
         })
-        // And for the edit drawer (components/edit/Drawer.vue). One record per
-        // in-drawer panel — literal `feed`/`add`/`delete` segments keep them
-        // unambiguous, and depth drives the panel-slide push/pop.
-        // uid is a folder_* (folder panel) or a loose feed_* (feed panel).
-        for (const edit of [
-          { name: 'edit', path: '/edit/:uid' },
-          { name: 'edit-feed', path: '/edit/:uid/feed/:feedUid' },
-          { name: 'edit-add', path: '/edit/:uid/add' },
-          { name: 'edit-add-input', path: '/edit/:uid/add/input' },
-          { name: 'edit-delete', path: '/edit/:uid/delete' },
-          { name: 'edit-feed-delete', path: '/edit/:uid/feed/:feedUid/delete' },
-        ]) {
-          pages.push({ ...edit, file: home.file, meta: { key: 'home' } })
-        }
       }
     },
   },

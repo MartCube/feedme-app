@@ -117,41 +117,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/folders": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Create Folder */
-        post: operations["create_folder"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/folders/{uid}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Delete Folder */
-        delete: operations["delete_folder"];
-        options?: never;
-        head?: never;
-        /** Update Folder */
-        patch: operations["update_folder"];
-        trace?: never;
-    };
     "/api/v1/feeds": {
         parameters: {
             query?: never;
@@ -161,8 +126,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Subscribe */
-        post: operations["subscribe"];
+        /** Create Feed */
+        post: operations["create_feed"];
         delete?: never;
         options?: never;
         head?: never;
@@ -179,12 +144,47 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Unsubscribe */
-        delete: operations["unsubscribe"];
+        /** Delete Feed */
+        delete: operations["delete_feed"];
         options?: never;
         head?: never;
-        /** Rename Feed */
-        patch: operations["rename_feed"];
+        /** Update Feed */
+        patch: operations["update_feed"];
+        trace?: never;
+    };
+    "/api/v1/feeds/{uid}/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Source */
+        post: operations["add_source"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/feeds/{uid}/sources/{source_uid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove Source */
+        delete: operations["remove_source"];
+        options?: never;
+        head?: never;
+        /** Update Source */
+        patch: operations["update_source"];
         trace?: never;
     };
     "/api/v1/discover": {
@@ -382,15 +382,18 @@ export interface components {
             provider: "google" | "dev";
         };
         /**
-         * HomeFeedSchema
-         * @description A user's handle on a source. `name` is theirs; the rest is the shared Source's,
-         *     flattened in — a Source never surfaces as an entity of its own (backend.md § Vocabulary).
+         * FeedSourceSchema
+         * @description One source inside one feed. `name` is what the app shows — the user's rename in this
+         *     feed, or the source's own title when there is none; `title` is always the source's own,
+         *     so a rename form can offer it back.
          */
-        HomeFeedSchema: {
+        FeedSourceSchema: {
             /** Uid */
             uid: string;
             /** Name */
             name: string;
+            /** Title */
+            title: string;
             /**
              * Type
              * @enum {string}
@@ -402,26 +405,24 @@ export interface components {
             feed_url: string;
             /** Icon */
             icon: string | null;
+            /** Enabled */
+            enabled: boolean;
         };
-        /** HomeFolderSchema */
-        HomeFolderSchema: {
+        /** HomeFeedSchema */
+        HomeFeedSchema: {
             /** Uid */
             uid: string;
             /** Name */
             name: string;
-            /** Feed Uids */
-            feed_uids: string[];
-            /** Muted Feed Uids */
-            muted_feed_uids: string[];
+            /** Description */
+            description: string;
+            /** Sources */
+            sources: components["schemas"]["FeedSourceSchema"][];
         };
         /** HomeSchema */
         HomeSchema: {
-            /** Folders */
-            folders: components["schemas"]["HomeFolderSchema"][];
             /** Feeds */
             feeds: components["schemas"]["HomeFeedSchema"][];
-            /** Order */
-            order: string[];
             saved_counts: components["schemas"]["SavedCountsSchema"];
         };
         /** SavedCountsSchema */
@@ -438,49 +439,51 @@ export interface components {
             /** Uids */
             uids: string[];
         };
-        /** CreateFolderSchema */
-        CreateFolderSchema: {
-            /** Name */
+        /** CreateFeedSchema */
+        CreateFeedSchema: {
+            /**
+             * Name
+             * @default
+             */
             name: string;
             /**
-             * Feed Uids
-             * @default []
+             * Description
+             * @default
              */
-            feed_uids: string[];
+            description: string;
+            /** Feed Url */
+            feed_url?: string | null;
         };
         /**
-         * UpdateFolderSchema
-         * @description Every field optional — the folder panel commits a rename and the mutes together, and
-         *     removing a member is a `feed_uids` write. Omitted means "leave it alone", which is what
-         *     separates PATCH here from the full-replace PUT on /settings.
+         * UpdateFeedSchema
+         * @description Every field optional — omitted means "leave it alone".
          */
-        UpdateFolderSchema: {
+        UpdateFeedSchema: {
             /** Name */
             name?: string | null;
-            /** Feed Uids */
-            feed_uids?: string[] | null;
-            /** Muted Feed Uids */
-            muted_feed_uids?: string[] | null;
+            /** Description */
+            description?: string | null;
         };
-        /** FolderDeletedSchema */
-        FolderDeletedSchema: {
-            /** Unsubscribed Count */
-            unsubscribed_count: number;
-        };
-        /** SubscribeSchema */
-        SubscribeSchema: {
+        /** AddSourceSchema */
+        AddSourceSchema: {
             /**
              * Feed Url
              * Format: uri
              */
             feed_url: string;
-            /** Folder Uid */
-            folder_uid?: string | null;
         };
-        /** RenameFeedSchema */
-        RenameFeedSchema: {
+        /**
+         * UpdateSourceSchema
+         * @description Every field optional. `name: ""` drops the rename back to the source's own title;
+         *     a new `feed_url` swaps the source behind this row for another.
+         */
+        UpdateSourceSchema: {
             /** Name */
-            name: string;
+            name?: string | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Feed Url */
+            feed_url?: string | null;
         };
         /**
          * DiscoverResultSchema
@@ -529,8 +532,7 @@ export interface components {
         PostSchema: {
             /** Uid */
             uid: string;
-            /** Feed Uid */
-            feed_uid: string | null;
+            source: components["schemas"]["PostSourceSchema"];
             /** Title */
             title: string;
             /** Post Url */
@@ -546,6 +548,24 @@ export interface components {
             published_at: string;
             /** Saved Group */
             saved_group: ("bookmarks" | "favorites" | "later") | null;
+        };
+        /**
+         * PostSourceSchema
+         * @description Where a post came from, for the meta row: the source's uid, the caller's name for it
+         *     (their rename in any feed, else the source's own title), its type and its site.
+         */
+        PostSourceSchema: {
+            /** Uid */
+            uid: string;
+            /** Name */
+            name: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "website" | "youtube" | "reddit";
+            /** Site Url */
+            site_url: string;
         };
         /**
          * VideoSchema
@@ -829,7 +849,7 @@ export interface operations {
             };
         };
     };
-    create_folder: {
+    create_feed: {
         parameters: {
             query?: never;
             header?: never;
@@ -838,7 +858,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CreateFolderSchema"];
+                "application/json": components["schemas"]["CreateFeedSchema"];
             };
         };
         responses: {
@@ -848,7 +868,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HomeFolderSchema"];
+                    "application/json": components["schemas"]["HomeFeedSchema"];
                 };
             };
             /** @description Unauthorized */
@@ -871,7 +891,7 @@ export interface operations {
             };
         };
     };
-    delete_folder: {
+    delete_feed: {
         parameters: {
             query?: never;
             header?: never;
@@ -882,14 +902,12 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description OK */
-            200: {
+            /** @description No Content */
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": components["schemas"]["FolderDeletedSchema"];
-                };
+                content?: never;
             };
             /** @description Unauthorized */
             401: {
@@ -911,7 +929,7 @@ export interface operations {
             };
         };
     };
-    update_folder: {
+    update_feed: {
         parameters: {
             query?: never;
             header?: never;
@@ -922,7 +940,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpdateFolderSchema"];
+                "application/json": components["schemas"]["UpdateFeedSchema"];
             };
         };
         responses: {
@@ -932,7 +950,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HomeFolderSchema"];
+                    "application/json": components["schemas"]["HomeFeedSchema"];
                 };
             };
             /** @description Unauthorized */
@@ -964,16 +982,18 @@ export interface operations {
             };
         };
     };
-    subscribe: {
+    add_source: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                uid: string;
+            };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["SubscribeSchema"];
+                "application/json": components["schemas"]["AddSourceSchema"];
             };
         };
         responses: {
@@ -1015,23 +1035,26 @@ export interface operations {
             };
         };
     };
-    unsubscribe: {
+    remove_source: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 uid: string;
+                source_uid: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description No Content */
-            204: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["HomeFeedSchema"];
+                };
             };
             /** @description Unauthorized */
             401: {
@@ -1053,18 +1076,19 @@ export interface operations {
             };
         };
     };
-    rename_feed: {
+    update_source: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 uid: string;
+                source_uid: string;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["RenameFeedSchema"];
+                "application/json": components["schemas"]["UpdateSourceSchema"];
             };
         };
         responses: {

@@ -1,7 +1,7 @@
 import type { Post, PostPage } from '~/assets/types'
 
 // The post list behind every reader screen. `uid` is polymorphic — all, saved,
-// a saved group, a folder or a single feed — and the backend resolves it in the
+// a saved group or a feed — and the backend resolves it in the
 // same order the frontend does (backend.md § Endpoint catalog), so there is
 // nothing to branch on here.
 //
@@ -12,9 +12,13 @@ import type { Post, PostPage } from '~/assets/types'
 // `scope` and answers the identical page shape, so searching is a different URL
 // and nothing else — same cursor, same items, same failure rules. That is why
 // there is no second composable for it.
+//
+// `contents` is what the uid currently stands for — the caller's say on when
+// the same uid means different posts (a source switched off, or added). It's
+// only compared, never sent: a change resets the list like a new uid does.
 const PAGE_SIZE = 10
 
-export function usePostList(uid: MaybeRefOrGetter<string>, q?: MaybeRefOrGetter<string>) {
+export function usePostList(uid: MaybeRefOrGetter<string>, q?: MaybeRefOrGetter<string>, contents?: MaybeRefOrGetter<string>) {
   const { $api } = useNuxtApp()
 
   const term = () => toValue(q)?.trim() ?? ''
@@ -63,11 +67,11 @@ export function usePostList(uid: MaybeRefOrGetter<string>, q?: MaybeRefOrGetter<
   }
 
   // A uid change is a different list, not more of this one — on desktop the
-  // same component instance stays mounted across feeds. A changed query is the
-  // same kind of event, so it resets identically; the generation counter above
-  // is what discards a page still in flight for the term you just stopped
-  // typing.
-  watch([() => toValue(uid), term], () => {
+  // same component instance stays mounted across feeds. A changed query or
+  // changed contents are the same kind of event, so they reset identically;
+  // the generation counter above is what discards a page still in flight for
+  // the term you just stopped typing.
+  watch([() => toValue(uid), term, () => toValue(contents)], () => {
     generation++
     items.value = []
     cursor.value = null
