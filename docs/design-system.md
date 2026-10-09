@@ -76,6 +76,16 @@ The same cue reaches standalone icons that have no row label to carry it: every 
 way (`@media (hover: hover)`, via `group-hover/icon` rather than `hover-accent`, since there's
 no label doing the work).
 
+**Icon buttons name themselves on hover** _(2026-10-09)_: every `IconButton` shows its
+`aria-label` as a tooltip (`UTooltip`), so the label a screen reader hears and the one a mouse
+sees are the same string, and a button can't have one without the other. The feed title's
+info icon carries the same tooltip. The tooltip is a `bg-muted` pill in `text-caption`
+(`px-xs py-2xs`, `rounded-xl`), **no ring and no shadow** — `bg-muted`, not `bg-elevated`,
+because it floats over cards that are elevated themselves, and `shadow-elevated`'s edge would
+read as a darker outline on muted (the post-card rule below). Set once in `app.config.ts`;
+`<UApp>` gives it a 400ms delay and `ignoreNonKeyboardFocus`, so on touch — where a tap also
+focuses the button — it never pops up over the thing just pressed.
+
 **The post card is the carve-out from "label only."** Unlike a list row, a card already rests
 on a surface (`bg-elevated`), so stepping that surface is the cue that reads: on hover it goes
 to `bg-muted` — the selected surface, so **hovered equals selected, on purpose** — with no

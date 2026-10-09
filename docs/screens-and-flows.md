@@ -208,8 +208,8 @@ its description and sources — is a different screen, number 6, reached from th
   ("Search *{this list's name}*"), and the list narrows **as they type** to the posts in this
   same `uid` that match — a partial word is enough, newest first. Results page like the list
   does. The search is part of the URL (`?q=`), so a reload, a shared link and **back from a
-  post** all return to the same results; the X on the row (or leaving for another list) clears
-  it. Same row on both viewports — the desktop posts pane has no navbar, so the entry lives on
+  post** all return to the same results; the X on the row — or **Escape** in the box
+  _(2026-10-09)_, or leaving for another list — clears it and closes the box. Same row on both viewports — the desktop posts pane has no navbar, so the entry lives on
   the list itself.
 - **Tap a post** → open the Post page (`/feed/[uid]/post/[postUid]`).
 - Go **back** → Feeds list.

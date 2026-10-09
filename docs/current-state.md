@@ -3,7 +3,7 @@
 A snapshot of what's actually built vs. what the spec (these docs) describes. The goal is to
 make the gap visible so implementation has a clear backlog. Update this as work lands.
 
-_Last reviewed: 2026-10-08._
+_Last reviewed: 2026-10-09._
 
 ## Summary
 
@@ -504,6 +504,12 @@ own status: **read that file's § Status for what to build next.**
   cached), and a Reddit `preview.redd.it` thumbnail becomes the `i.redd.it` original
   (`external-preview.redd.it` is left alone). `FeedPostImage` has a `noUpscale` prop, used on
   the post page, capping the box at the image's natural width.
+- **Tooltips and Escape** _(2026-10-09)_ — every `IconButton` shows its `aria-label` as a
+  hover tooltip (`UTooltip`, styled once in `app.config.ts` as a `bg-muted` caption pill;
+  `<UApp>` sets a 400ms delay and keyboard-focus-only, so touch never shows one), and so does
+  the feed title's info icon. **Escape** in the post list's search box closes it and clears
+  the search, like its X. The card excerpt also strips Hacker News's text-post footer
+  ("Comments URL: … Points: … # Comments: …" with no Article URL in front), which used to show.
 - **Polish pass** _(2026-10-08)_ — frontend only; no new feature. Post card surfaces, the shared
   meta row and the post page order are under PostCard v2 and Post page v1 above. **Desktop sticky
   pane-top rows** (the posts list's title/search row, the post pane's action strip) end in

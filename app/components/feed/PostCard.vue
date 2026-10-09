@@ -15,9 +15,11 @@ const settings = useSettingsStore()
 // their own footers, which say nothing on a card: Reddit's "submitted by /u/…
 // [link] [comments]", and Hacker News's "Article URL: … Comments URL: …
 // Points: … # Comments: …" — which is the whole summary there, so none shows.
+// A text post (Ask HN, Show HN) has no article, so its footer starts at
+// "Comments URL:" after the post's own words, which do show.
 const excerpt = computed(() => stripHtml(props.post.summary)
   .replace(/\s*submitted by \/u\/\S+\s*\[link\]\s*\[comments\]\s*$/, '')
-  .replace(/\s*Article URL: \S+\s*Comments URL: \S+\s*Points: \d+\s*# Comments: \d+\s*$/, ''))
+  .replace(/\s*(?:Article URL: \S+\s*)?Comments URL: \S+\s*Points: \d+\s*# Comments: \d+\s*$/, ''))
 </script>
 
 <template>

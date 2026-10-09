@@ -16,7 +16,10 @@ onMounted(() => {
 </script>
 
 <template>
-  <UApp>
+  <!-- Tooltips (ui/IconButton.vue): a short wait so a passing pointer doesn't
+       flash them, and keyboard focus only — a tap focuses the button too, and
+       on touch that would pop the label up over the thing just pressed. -->
+  <UApp :tooltip="{ delayDuration: 400, ignoreNonKeyboardFocus: true }">
     <NuxtLayout>
       <!-- Reader-flow slide transitions come from route meta, set by middleware/page-slide.global.ts. -->
       <NuxtPage />

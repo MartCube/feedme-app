@@ -9,6 +9,9 @@ export default defineAppConfig({
           theme: {
             spacing: ['2xs', 'xs', 'sm', 'md', 'lg', 'xl'],
             text: ['caption', 'body', 'subtitle', 'title'],
+            // main.css's one shadow token — so shadow-elevated replaces a default
+            // like shadow-sm instead of both landing and the default winning
+            shadow: ['elevated'],
           },
         },
       },
@@ -55,6 +58,16 @@ export default defineAppConfig({
     card: {
       slots: {
         root: 'rounded-2xl',
+      },
+    },
+    // The icon buttons' labels (ui/IconButton.vue), in the house vocabulary
+    // instead of Nuxt UI's ring + text-xs. bg-muted, not bg-elevated: a tooltip
+    // floats over cards, which are elevated themselves and would swallow it.
+    // No shadow-elevated either — its edge is drawn in bg-elevated, a darker
+    // outline on muted (design-system.md § Hover state).
+    tooltip: {
+      slots: {
+        content: 'h-auto rounded-xl bg-muted px-xs py-2xs text-caption text-default shadow-none ring-0',
       },
     },
   },

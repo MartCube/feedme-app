@@ -148,20 +148,27 @@ const { selectedUid, select } = useTapSelection()
         <h1 class="min-w-0 truncate text-title tracking-tight">
           {{ title }}
         </h1>
-        <NuxtLink
+        <!-- Same tooltip as the icon buttons (ui/IconButton.vue). -->
+        <UTooltip
           v-if="infoTo"
-          :to="infoTo"
-          :aria-label="`About ${title}`"
-          class="group/icon flex size-10 shrink-0 items-center justify-center rounded-full"
+          :text="`About ${title}`"
         >
-          <UIcon
-            name="i-ph-info-bold"
-            class="size-5 text-muted transition-colors [@media(hover:hover)]:group-hover/icon:text-primary"
-          />
-        </NuxtLink>
+          <NuxtLink
+            :to="infoTo"
+            :aria-label="`About ${title}`"
+            class="group/icon flex size-10 shrink-0 items-center justify-center rounded-full"
+          >
+            <UIcon
+              name="i-ph-info-bold"
+              class="size-5 text-muted transition-colors [@media(hover:hover)]:group-hover/icon:text-primary"
+            />
+          </NuxtLink>
+        </UTooltip>
       </div>
       <!-- The title's job moves into the placeholder: it names the list you're
-           searching, without a noun that would be wrong for a feed or Saved. -->
+           searching, without a noun that would be wrong for a feed or Saved.
+           Escape is the X from the keyboard: it closes the box and clears the
+           search. The keydown bubbles from the input to SearchInput's form. -->
       <SearchInput
         v-else
         v-model="draft"
@@ -170,6 +177,7 @@ const { selectedUid, select } = useTapSelection()
         autofocus
         :submit="false"
         class="min-w-0 flex-1"
+        @keydown.esc="toggle"
       />
       <IconButton
         :icon="open ? 'i-ph-x-bold' : 'i-ph-magnifying-glass-bold'"
