@@ -30,8 +30,9 @@ FeedMe has one active developer and no production branch yet. Keep git ceremony 
   `docs: …`.
 - Subject line imperative, lowercase, no trailing period. Add a body only when it gives
   real context beyond the subject.
-- End every commit message with the trailer:
-  `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`
+- End every commit message with the `Co-Authored-By:` trailer **exactly as the delegating
+  session gives it** in its request — it names the model doing the work, which changes. Only if
+  the request gives none, ask rather than invent one.
 
 ## Push discipline
 
