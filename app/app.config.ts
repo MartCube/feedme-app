@@ -44,16 +44,33 @@ export default defineAppConfig({
         base: 'rounded-xl',
       },
     },
+    // Focus is one primary line: the stock theme stacks a 3px primary/25
+    // outline outside the ring, which read as two green lines. Only the
+    // compound variant can drop it — it's where the outline comes from.
     input: {
       slots: {
         base: 'rounded-xl',
       },
+      compoundVariants: [
+        {
+          color: 'primary',
+          variant: ['outline', 'subtle'],
+          class: 'focus-visible:outline-0',
+        },
+      ],
     },
     // Mirror input so a textarea (report, future forms) shares the same shape.
     textarea: {
       slots: {
         base: 'rounded-xl',
       },
+      compoundVariants: [
+        {
+          color: 'primary',
+          variant: ['outline', 'subtle'],
+          class: 'focus-visible:outline-0',
+        },
+      ],
     },
     card: {
       slots: {

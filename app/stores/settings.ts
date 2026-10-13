@@ -45,6 +45,17 @@ export const paneSplits: { name: PaneSplit, label: string }[] = [
   { name: 'post', label: 'Wider post' },
 ]
 
+// Which side the post's actions (Copy link, Open source, Save) sit on — left
+// by default, with the post page's back button taking the other side. Only
+// those: every other action row keeps its place. Local only for now (the
+// cookie, not the account): a trial before it earns a backend field.
+export type ActionSide = 'left' | 'right'
+
+export const actionSides: { name: ActionSide, label: string }[] = [
+  { name: 'left', label: 'Left' },
+  { name: 'right', label: 'Right' },
+]
+
 // App-wide user preferences. These live on the account (GET/PUT /settings) so
 // they follow the user across devices; the cookie persistence stays as a local
 // cache, which is what renders the chosen theme server-side without a flash
@@ -59,6 +70,8 @@ export const useSettingsStore = defineStore('settings', () => {
   const scrollbarStyle = ref<ScrollbarStyle>('thin')
   const postCardStyle = ref<PostCardStyle>('image')
   const paneSplit = ref<PaneSplit>('equal')
+  // Outside `payload` on purpose — see ActionSide.
+  const actionSide = ref<ActionSide>('left')
 
   const payload = computed<Settings>(() => ({
     theme: theme.value,
@@ -121,10 +134,10 @@ export const useSettingsStore = defineStore('settings', () => {
     return Boolean(b) && (Object.keys(a) as (keyof Settings)[]).every(key => a[key] === b![key])
   }
 
-  return { theme, feedListStyle, scrollbarStyle, postCardStyle, paneSplit, loaded, load, reset }
+  return { theme, feedListStyle, scrollbarStyle, postCardStyle, paneSplit, actionSide, loaded, load, reset }
 }, {
   // The values only — never `loaded`. Restoring that from the cookie would skip
   // the GET on the next load and let the sync watcher fire against an empty
   // snapshot, turning every page load into a PUT.
-  persist: { pick: ['theme', 'feedListStyle', 'scrollbarStyle', 'postCardStyle', 'paneSplit'] },
+  persist: { pick: ['theme', 'feedListStyle', 'scrollbarStyle', 'postCardStyle', 'paneSplit', 'actionSide'] },
 })

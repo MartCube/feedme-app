@@ -1,20 +1,15 @@
 <script setup lang="ts">
 useHead({ title: 'Settings — FeedMe' })
 
-// `activePath` is the desktop master–detail selection: the section open in the
-// detail pane keeps the elevated row. The mobile sheet passes none — there the
-// list slides away behind the section anyway.
-const props = defineProps<{ activePath?: string }>()
-
 const closeDrawer = inject(settingsDrawerCloseKey, () => {})
 
 const { selectedUid, select } = useTapSelection()
 
-// Mobile tap flash OR persistent desktop selection — same rule as the feed
-// list's rows, and the same treatment: the label goes primary and the row
-// takes the elevated surface.
+// The tap flash — same treatment as the feed list's rows: the label goes
+// primary and the row takes the elevated surface. A section replaces this
+// list on both phone and desktop, so there's no standing selection to show.
 function isActive(to: string) {
-  return selectedUid.value === to || props.activePath === to
+  return selectedUid.value === to
 }
 </script>
 

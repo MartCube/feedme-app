@@ -101,3 +101,16 @@ html[data-theme='claude'] {
     }
   }
 }
+
+/* Inline link hover, desktop only: a link that already rests in primary (a
+   post's source link) can't light up to primary like hover-accent, so it
+   steps down instead — the accent mixed toward black. Derived from
+   --ui-primary, so each theme gets its own darker accent with no new token.
+   Same touch gate as hover-accent. */
+@utility hover-darken {
+  @media (hover: hover) {
+    &:hover {
+      color: color-mix(in oklab, var(--ui-primary) 70%, black);
+    }
+  }
+}

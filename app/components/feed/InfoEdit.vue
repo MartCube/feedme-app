@@ -2,7 +2,7 @@
 import type { Feed } from '~/assets/types'
 
 // Edit a feed: its name and description, committed together by Save. Deleting
-// it goes through a confirm, like every destructive action.
+// it is the feed page's own button (feed/Info.vue), not part of this form.
 const props = defineProps<{ feed: Feed, back: string }>()
 
 const { updateFeed } = useFeedsStore()
@@ -67,11 +67,5 @@ function save() {
         @keydown.enter="save"
       />
     </section>
-
-    <DangerButton
-      class="mt-xl"
-      label="Delete feed"
-      :to="`/feed/${feed.uid}/info/delete`"
-    />
   </div>
 </template>

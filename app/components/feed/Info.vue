@@ -51,12 +51,24 @@ const savedRows = computed(() => [
         aria-label="Back to posts"
         class="lg:invisible"
       />
-      <IconButton
+      <!-- Delete is its own button rather than the foot of the edit form:
+           the two are different jobs. Edit, the common one, takes the outer
+           edge. Delete still goes through its confirm. -->
+      <div
         v-if="feed"
-        icon="i-ph-pencil-simple-bold"
-        :to="`/feed/${uid}/info/edit`"
-        aria-label="Edit feed"
-      />
+        class="flex items-center gap-xs"
+      >
+        <IconButton
+          icon="i-ph-trash-bold"
+          :to="`/feed/${uid}/info/delete`"
+          aria-label="Delete feed"
+        />
+        <IconButton
+          icon="i-ph-pencil-simple-bold"
+          :to="`/feed/${uid}/info/edit`"
+          aria-label="Edit feed"
+        />
+      </div>
     </header>
 
     <template v-if="feed">

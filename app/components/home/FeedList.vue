@@ -39,6 +39,11 @@ function rowClass(uid: string) {
   ]
 }
 
+// Spins beside the wordmark while any API call is in flight. Debounced so a
+// call that answers inside 150ms never flashes it.
+const { $apiPending } = useNuxtApp()
+const busy = refDebounced(computed(() => $apiPending.value > 0), 150)
+
 const savedTotal = computed(() => savedCounts.value.bookmarks + savedCounts.value.favorites + savedCounts.value.later)
 </script>
 
@@ -54,10 +59,18 @@ const savedTotal = computed(() => savedCounts.value.bookmarks + savedCounts.valu
          title and the post pane's actions share, and the sidebar's inset is
          pulled into its own padding (box-content, so h-12 stays the row) so
          rows scroll away under an opaque sunken strip rather than past it. -->
-    <h1 class="text-logo tracking-tight lg:sticky lg:-top-lg lg:z-10 lg:-mx-lg lg:-mt-lg lg:box-content lg:flex lg:h-12 lg:items-center lg:bg-sunken lg:px-lg lg:pt-lg">
+    <h1 class="flex items-center gap-sm text-logo tracking-tight lg:sticky lg:-top-lg lg:z-10 lg:-mx-lg lg:-mt-lg lg:box-content lg:h-12 lg:bg-sunken lg:px-lg lg:pt-lg">
       <NuxtLink to="/feed/all">
         <span class="text-primary">FEED</span>ME
       </NuxtLink>
+      <!-- Stock spinner as a stand-in until the app has its own
+           (pending_tasks/custom-spinner.md). -->
+      <UIcon
+        v-if="busy"
+        name="i-ph-circle-notch-bold"
+        aria-hidden="true"
+        class="size-5 animate-spin text-muted"
+      />
     </h1>
 
     <!-- Cards-mode spacing is per-row margins, md between cards. List mode runs

@@ -27,10 +27,23 @@
     font-weight: 600;
   }
 
+  /* A link resting in primary darkens on hover — the hover-darken rule
+     (themes.css), restated here because these elements carry no classes.
+     Keep the mix in step with that utility. The bare transition-property
+     picks up motion.css's default timing like transition-colors does. */
   & a {
     color: var(--ui-primary);
     text-decoration: underline;
     text-underline-offset: 0.15em;
+    transition-property: color;
+    transition-duration: var(--default-transition-duration);
+    transition-timing-function: var(--default-transition-timing-function);
+  }
+
+  @media (hover: hover) {
+    & a:hover {
+      color: color-mix(in oklab, var(--ui-primary) 70%, black);
+    }
   }
 
   /* The hairline role, as every other divider in the app; the muted text is

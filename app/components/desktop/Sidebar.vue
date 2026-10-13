@@ -1,9 +1,9 @@
 <script setup lang="ts">
 // Desktop sidebar: the shared home feed list, then the two standing entries —
 // Add feed and Settings. Both are plain rows shaped like a feed row. The
-// settings sections themselves are NOT listed here: the content area renders
-// them in its master pane (desktop/ContentOverlay.vue), and having the same
-// four links in both places put one list beside its own copy.
+// settings sections themselves are NOT listed here: Settings opens on its own
+// section list in the post pane (desktop/Shell.vue), and having the same four
+// links in both places put one list beside its own copy.
 // bg-sunken is what separates the sidebar from the reading panes — one step
 // below the page, so the elevated selected row still reads on top of it.
 // vue-router's live route (see Shell.vue — Nuxt's useRoute() doesn't update

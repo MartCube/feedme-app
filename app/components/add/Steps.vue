@@ -6,10 +6,12 @@
 // Hosts own resetting the wizard once the flow is dismissed.
 // `slide` is the host's call, not the wizard's: the mobile sheet is a single
 // pane where motion is the only thing saying which way the flow moved, while
-// the desktop content area is a page and its steps just replace each other.
+// on desktop the wizard fills the post pane and its steps just replace each
+// other.
 const props = withDefaults(defineProps<{ slide?: boolean }>(), { slide: true })
 
-const emit = defineEmits<{ close: [], done: [] }>()
+// `done` carries the feed the add landed in — the hosts open it.
+const emit = defineEmits<{ close: [], done: [feedUid: string] }>()
 
 const wizard = useAddFeedWizard()
 const { step, direction } = wizard
@@ -25,11 +27,13 @@ const slideVars = computed(() => panelSlideVars(
 // The sheet closes only if the add actually landed — otherwise the step stays
 // up with the server's reason on it.
 async function onChoose(feedUid: string) {
-  if (await wizard.addTo(feedUid)) emit('done')
+  const landed = await wizard.addTo(feedUid)
+  if (landed) emit('done', landed)
 }
 
 async function onCreate(name: string) {
-  if (await wizard.addToNewFeed(name)) emit('done')
+  const landed = await wizard.addToNewFeed(name)
+  if (landed) emit('done', landed)
 }
 
 // Opened from a feed page, the feed is already chosen: the search step's

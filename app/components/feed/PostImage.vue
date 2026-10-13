@@ -13,12 +13,17 @@ const props = defineProps<{
   eager?: boolean
   square?: boolean
   // Never wider than the image's own pixels. A 640px Reddit preview stretched
-  // across a 1100px post pane is a blur; capped, it sits centred at its size.
+  // across a 1100px post pane is a blur; it sits centred in the box at its own
+  // size instead.
   noUpscale?: boolean
 }>()
 
 const hidden = ref(false)
-const naturalWidth = ref<number>()
+// Pulses until the bytes land, the same animation as the article's loading
+// lines (PostView.vue), so the box reads as "an image is coming".
+const loaded = ref(false)
+// Narrower than the box it was laid out in — only acted on under noUpscale.
+const small = ref(false)
 
 // A blown-up thumbnail reads worse than no image at all: a tracking pixel or a
 // 140px Reddit thumb is hidden instead. imgproxy never enlarges, so a small
@@ -43,7 +48,8 @@ function measure(event: Event) {
     // after the swap measured the previous post's image.
     if (img.currentSrc !== src) return
     hidden.value = probe.naturalWidth < MIN_WIDTH
-    naturalWidth.value = probe.naturalWidth
+    small.value = probe.naturalWidth < img.clientWidth
+    loaded.value = true
   }
   probe.src = src
 }
@@ -52,16 +58,19 @@ function measure(event: Event) {
 // one post would otherwise stay hidden for the next.
 watch(() => props.image.src, () => {
   hidden.value = false
-  naturalWidth.value = undefined
+  loaded.value = false
+  small.value = false
 })
 </script>
 
 <template>
+  <!-- The box never changes size once laid out: an image too small to fill
+       it sits at its own size in the middle instead of shrinking the box
+       around it, which moved the text below on every post. -->
   <div
     v-if="!hidden"
     class="overflow-hidden rounded-xl bg-muted"
-    :class="[square ? 'aspect-square' : 'aspect-video', noUpscale && 'mx-auto w-full']"
-    :style="noUpscale && naturalWidth ? { maxWidth: `${naturalWidth}px` } : undefined"
+    :class="[square ? 'aspect-square' : 'aspect-video', !loaded && 'animate-pulse']"
   >
     <img
       :src="image.src"
@@ -70,7 +79,8 @@ watch(() => props.image.src, () => {
       alt=""
       :loading="eager ? 'eager' : 'lazy'"
       :fetchpriority="eager ? 'high' : undefined"
-      class="size-full object-cover"
+      class="size-full"
+      :class="noUpscale && small ? 'object-scale-down' : 'object-cover'"
       @load="measure"
       @error="hidden = true"
     >

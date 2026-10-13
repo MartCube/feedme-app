@@ -15,7 +15,6 @@ export function infoBack(uid: string, rest: string[]): string {
   const root = `/feed/${uid}/info`
   switch (infoView(rest)) {
     case 'info': return `/feed/${uid}`
-    case 'delete': return `${root}/edit`
     case 'remove': return `${root}/source/${rest[1]}`
     default: return root
   }

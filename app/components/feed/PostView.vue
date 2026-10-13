@@ -27,7 +27,10 @@ function openLink(event: MouseEvent) {
 </script>
 
 <template>
-  <div class="flex flex-col">
+  <!-- isolate, like PostCard: the meta row's source link is relative z-10
+       (lifted for the card's stretched link), and without its own stacking
+       context it paints over the desktop pane's sticky action strip. -->
+  <div class="isolate flex flex-col">
     <template v-if="post">
       <!-- Title and meta first, then the picture: what it is and where it's
            from read before the largest thing on the screen. mt-lg clears the
@@ -98,7 +101,7 @@ function openLink(event: MouseEvent) {
           :href="post.post_url"
           target="_blank"
           rel="noopener noreferrer"
-          class="mt-md self-start text-body text-primary"
+          class="mt-md self-start text-body text-primary transition-colors hover-darken"
         >
           Read the full post
         </a>

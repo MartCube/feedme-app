@@ -39,9 +39,15 @@ const surface = computed(() => {
 </script>
 
 <template>
+  <!-- Above, not Nuxt UI's default below: the buttons sit on the top row, and
+       below put the label over the content the button acts on. The top row
+       is only lg (32px) from the window edge, and the stock 8px offset + 8px
+       collision padding need ~41px with the label's own height, so it always
+       flipped back below. 4 + 2 fits in the inset. -->
   <UTooltip
     :text="label"
     :disabled="!label"
+    :content="{ side: 'top', sideOffset: 4, collisionPadding: 2 }"
   >
     <UButton
       v-bind="$attrs"
@@ -51,13 +57,14 @@ const surface = computed(() => {
       :ui="{ base: `group/icon rounded-full justify-center ${buttonSize} transition-colors ${surface}` }"
       @pointerdown="handlePress"
     >
-      <!-- Hover lights the icon primary, the same cue hover-accent gives a list
-         row's label (themes.css) — gated to hover-capable pointers for the
-         same reason: :hover sticks after a tap, and the flash already covers
-         touch. -->
+      <!-- The icon rests muted, so a row of actions sits quieter than the
+         text it acts on. Hover lights it primary, the same cue hover-accent
+         gives a list row's label (themes.css) — gated to hover-capable
+         pointers for the same reason: :hover sticks after a tap, and the
+         flash already covers touch. -->
       <UIcon
         :name="icon"
-        :class="[iconSize, 'transition-colors [@media(hover:hover)]:group-hover/icon:text-primary', flashing ? 'text-primary' : 'text-default']"
+        :class="[iconSize, 'transition-colors [@media(hover:hover)]:group-hover/icon:text-primary', flashing ? 'text-primary' : 'text-muted']"
       />
     </UButton>
   </UTooltip>

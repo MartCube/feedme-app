@@ -23,7 +23,7 @@ const sourceIcon = computed(() => props.post.source.type === 'website'
       :href="post.source.site_url || undefined"
       target="_blank"
       rel="noopener noreferrer"
-      class="relative z-10 flex min-w-0 items-center gap-2xs text-primary"
+      class="relative z-10 flex min-w-0 items-center gap-2xs text-primary transition-colors hover-darken"
     >
       <UIcon
         :name="sourceIcon!"

@@ -10,7 +10,7 @@ export default defineNuxtPlugin((nuxtApp) => {
   const config = useRuntimeConfig()
   const auth = useAuthStore()
 
-  const api = $fetch.create({
+  const request = $fetch.create({
     baseURL: config.public.apiBase,
     onRequest({ options }) {
       // ofetch resolves `headers` to a real Headers instance before the hook
@@ -39,5 +39,20 @@ export default defineNuxtPlugin((nuxtApp) => {
     },
   })
 
-  return { provide: { api } }
+  // How many calls are in flight — the wordmark's spinner (HomeFeedList).
+  // Counted around the call rather than in the hooks: a body that fails to
+  // read skips onResponse, and a missed decrement would spin forever.
+  const pending = ref(0)
+
+  async function api<T = unknown>(...args: Parameters<typeof request>): Promise<T> {
+    pending.value++
+    try {
+      return await request<T>(...args)
+    }
+    finally {
+      pending.value--
+    }
+  }
+
+  return { provide: { api, apiPending: readonly(pending) } }
 })

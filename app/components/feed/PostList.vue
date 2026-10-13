@@ -18,11 +18,12 @@ const { feeds } = storeToRefs(useFeedsStore())
 
 const title = computed(() => feedTitle(props.uid, feeds.value))
 
-// The info icon beside the title is the way into the feed page — its sources,
+// The Feed info button beside Search is the way into the feed page — its sources,
 // their on/off, its edit. On a phone that's its own page; on desktop the feed
-// page already sits in the post pane whenever no post is open, so the icon
-// just closes the post. All feeds has no page of its own, so it has no icon.
+// page already sits in the post pane whenever no post is open, so the button
+// just closes the post. All feeds has no page of its own, so it has no button.
 const isDesktop = useIsDesktop()
+
 const infoTo = computed(() => {
   if (props.uid === 'all') return undefined
   return isDesktop.value ? `/feed/${props.uid}` : `/feed/${props.uid}/info`
@@ -66,7 +67,7 @@ const isReaderPath = (path: string) => path === '/' || path.startsWith('/feed/')
 
 function commit(term: string) {
   // The debounce can outlive the route: without this, a keystroke landing just
-  // after the desktop content overlay opened would stamp ?q= onto /settings.
+  // after desktop Settings opened would stamp ?q= onto /settings.
   if (!isReaderPath(route.value.path)) return
   if (((route.value.query.q as string | undefined) ?? '') === term) return
 
@@ -139,32 +140,12 @@ const { selectedUid, select } = useTapSelection()
          strip runs sm past the row too, so a card never scrolls flush against
          the search button; the list's top margin gives that sm back. -->
     <div class="mt-lg flex h-12 items-center gap-sm lg:sticky lg:-top-lg lg:z-10 lg:-mx-lg lg:-mt-lg lg:box-content lg:bg-default lg:px-lg lg:pt-lg lg:pb-sm">
-      <!-- The icon sits right after the title, not at the row's end: it's
-           about this feed, and the row's end belongs to search. -->
-      <div
+      <h1
         v-if="!open"
-        class="flex min-w-0 flex-1 items-center gap-xs"
+        class="min-w-0 flex-1 truncate text-title tracking-tight"
       >
-        <h1 class="min-w-0 truncate text-title tracking-tight">
-          {{ title }}
-        </h1>
-        <!-- Same tooltip as the icon buttons (ui/IconButton.vue). -->
-        <UTooltip
-          v-if="infoTo"
-          :text="`About ${title}`"
-        >
-          <NuxtLink
-            :to="infoTo"
-            :aria-label="`About ${title}`"
-            class="group/icon flex size-10 shrink-0 items-center justify-center rounded-full"
-          >
-            <UIcon
-              name="i-ph-info-bold"
-              class="size-5 text-muted transition-colors [@media(hover:hover)]:group-hover/icon:text-primary"
-            />
-          </NuxtLink>
-        </UTooltip>
-      </div>
+        {{ title }}
+      </h1>
       <!-- The title's job moves into the placeholder: it names the list you're
            searching, without a noun that would be wrong for a feed or Saved.
            Escape is the X from the keyboard: it closes the box and clears the
@@ -179,12 +160,23 @@ const { selectedUid, select } = useTapSelection()
         class="min-w-0 flex-1"
         @keydown.esc="toggle"
       />
-      <IconButton
-        :icon="open ? 'i-ph-x-bold' : 'i-ph-magnifying-glass-bold'"
-        :aria-label="open ? 'Close search' : 'Search posts'"
-        :aria-expanded="open"
-        @click="toggle"
-      />
+      <!-- A bound pair, like the post's actions. Feed info is a real button
+           rather than a glyph on the title, so it reads as pressable; it gives
+           way to the search box along with the title. -->
+      <div class="flex shrink-0 items-center gap-xs">
+        <IconButton
+          v-if="infoTo && !open"
+          icon="i-ph-info-bold"
+          :to="infoTo"
+          aria-label="Feed info"
+        />
+        <IconButton
+          :icon="open ? 'i-ph-x-bold' : 'i-ph-magnifying-glass-bold'"
+          :aria-label="open ? 'Close search' : 'Search posts'"
+          :aria-expanded="open"
+          @click="toggle"
+        />
+      </div>
     </div>
 
     <ul class="mt-md flex flex-col space-y-sm lg:mt-xs">

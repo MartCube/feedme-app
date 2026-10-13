@@ -46,17 +46,40 @@ const {
   toggleSave: toggleReaderSave,
 } = usePost(readerPostUid)
 
-// The reused settings panels close themselves via this injected key (on
-// mobile it collapses the sheet); here closing means returning to the frozen
-// reading position.
-provide(settingsDrawerCloseKey, () => {
-  navigateTo(feedsStore.readerPath)
+// Settings and Add open in the post pane, over whatever it was showing, so the
+// posts list stays in view beside them. A section or the next step replaces
+// the pane, and the panels' own back buttons walk it — the same single-pane
+// stack the phone has, minus the slide. /settings alone maps to the section
+// list (utils/settings-panels.ts).
+const settingsPanel = computed(() => settingsPanels[route.value.path])
+const onAdd = computed(() => route.value.path === '/add')
+const contentOpen = computed(() => onAdd.value || Boolean(settingsPanel.value))
+
+// The mobile sheet resets the wizard when it finishes closing; here the
+// equivalent moment is leaving /add by any exit (done, close, sidebar click,
+// browser back).
+const wizard = useAddFeedWizard()
+watch(onAdd, (on, was) => {
+  if (was && !on) wizard.reset()
 })
+
+// Closing returns to the frozen reading position; the reused settings panels
+// close themselves via the injected key (on mobile it collapses the sheet).
+function closeContent() {
+  navigateTo(feedsStore.readerPath)
+}
+provide(settingsDrawerCloseKey, closeContent)
+
+// A finished add opens the feed it landed in — the route sync above selects
+// it in the sidebar.
+function openLanded(feedUid: string) {
+  navigateTo(`/feed/${feedUid}`)
+}
 
 useHead({
   title: () => {
-    if (route.value.path.startsWith('/settings')) return 'Settings'
-    if (route.value.path === '/add') return 'Add feed'
+    if (settingsPanel.value) return 'Settings'
+    if (onAdd.value) return 'Add feed'
     return readerPost.value?.title ?? feedTitle(readerFeedUid.value, feeds.value)
   },
 })
@@ -66,36 +89,61 @@ useHead({
   <div class="flex h-dvh">
     <DesktopSidebar class="w-sidebar shrink-0" />
 
-    <!-- Reading panes. The content area (settings/add) mounts over these
-         without unmounting them — relative is its positioning context. -->
-    <div class="relative flex min-w-0 flex-1">
-      <template v-if="hasFeeds">
-        <!-- The split of everything right of the sidebar: 50/50, or 60/40
-             toward whichever pane the account chose (Appearance). -->
-        <section
-          class="shrink-0 scroll-host page-inset"
-          :class="postsPaneBasis"
-        >
-          <FeedPostList
-            :uid="readerFeedUid"
-            :q="readerQuery"
-            :active-post-uid="readerPostUid"
-          />
-        </section>
+    <!-- Reading panes. Settings/Add mount over the post pane only, so the
+         posts list stays beside them. -->
+    <div class="flex min-w-0 flex-1">
+      <!-- The split of everything right of the sidebar: 50/50, or 60/40
+           toward whichever pane the account chose (Appearance). -->
+      <section
+        v-if="hasFeeds"
+        class="shrink-0 scroll-host page-inset"
+        :class="postsPaneBasis"
+      >
+        <FeedPostList
+          :uid="readerFeedUid"
+          :q="readerQuery"
+          :active-post-uid="readerPostUid"
+        />
+      </section>
+      <!-- No feeds: the empty state takes the whole area, or the posts pane's
+           place while Settings/Add are open beside it. -->
+      <section
+        v-else-if="loaded || unreachable"
+        class="flex shrink-0"
+        :class="contentOpen ? postsPaneBasis : 'w-full'"
+      >
+        <HomeEmptyState class="h-full w-full" />
+      </section>
 
-        <section class="min-w-0 flex-1 scroll-host page-inset">
+      <!-- relative: the positioning context Settings/Add lay over. -->
+      <div
+        v-if="hasFeeds || contentOpen"
+        class="relative min-w-0 flex-1"
+      >
+        <!-- Stays mounted under Settings/Add, which is what keeps the open
+             post and its scroll for the way back. inert while covered, so
+             Tab can't walk into what's hidden. -->
+        <section
+          v-if="hasFeeds"
+          class="h-full scroll-host page-inset"
+          :inert="contentOpen"
+        >
           <template v-if="readerPostUid">
             <!-- Sits on the top-row axis with the sidebar wordmark and the posts
                  pane's title row, pinned the same way so the actions stay in
-                 reach through a long read. Right-aligned within the reading
-                 measure so it stays beside the text, not the pane. Height
-                 reserved (an IconButton's) so the title doesn't drop when the
-                 post arrives and the actions appear. The strip runs sm past the
-                 row, so text never scrolls flush against the buttons. -->
+                 reach through a long read. Aligned to the actions' side within
+                 the reading measure so it stays beside the text, not the pane.
+                 The actions stay up from one post to the next (they wait
+                 for nothing, see PostActions), so the row never blinks. The
+                 strip runs sm past the row, so text never scrolls flush
+                 against the buttons. -->
             <div class="sticky -top-lg z-10 -mx-lg -mt-lg bg-default px-lg pt-lg pb-sm">
-              <div class="flex h-12 max-w-post items-center justify-end">
+              <div
+                class="flex h-12 max-w-post items-center"
+                :class="settings.actionSide === 'left' ? 'justify-start' : 'justify-end'"
+              >
                 <FeedPostActions
-                  v-if="readerPost"
+                  v-if="!readerPostFailed"
                   :post="readerPost"
                   :saved="readerPostSaved"
                   @toggle-save="toggleReaderSave"
@@ -128,13 +176,29 @@ useHead({
             </p>
           </div>
         </section>
-      </template>
-      <HomeEmptyState
-        v-else-if="loaded || unreachable"
-        class="h-full w-full"
-      />
 
-      <DesktopContentOverlay />
+        <!-- Each panel brings its own scroll-host and page-inset; this only
+             covers the pane and holds them to the form measure. Nothing
+             animates — on desktop a step or a section just replaces the last. -->
+        <section
+          v-if="contentOpen"
+          class="absolute inset-0 z-20 bg-default"
+        >
+          <div class="h-full max-w-reading">
+            <AddSteps
+              v-if="onAdd"
+              :slide="false"
+              @close="closeContent"
+              @done="openLanded"
+            />
+            <component
+              :is="settingsPanel"
+              v-else
+              :key="route.path"
+            />
+          </div>
+        </section>
+      </div>
     </div>
   </div>
 </template>

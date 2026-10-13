@@ -99,21 +99,20 @@ export function useAddFeedWizard() {
     step.value = 'destination'
   }
 
-  // Every add awaits and reports whether it worked: the host only closes on
-  // success, because a URL that isn't a feed comes back as a 422 the step has
-  // to show. The candidates go in one at a time — a refusal stops the rest,
-  // and the ones already in stay in.
-  async function run(work: () => Promise<unknown>, fallback: string): Promise<boolean> {
-    if (!selectedFeeds.value.length || adding.value) return false
+  // Every add awaits and answers with the feed it landed in, or null: the host
+  // only closes on success — and then opens that feed — because a URL that
+  // isn't a feed comes back as a 422 the step has to show. The candidates go
+  // in one at a time — a refusal stops the rest, and the ones already in stay in.
+  async function run(work: () => Promise<string>, fallback: string): Promise<string | null> {
+    if (!selectedFeeds.value.length || adding.value) return null
     adding.value = true
     error.value = null
     try {
-      await work()
-      return true
+      return await work()
     }
     catch (failure) {
       error.value = detailOf(failure, fallback)
-      return false
+      return null
     }
     finally {
       adding.value = false
@@ -124,6 +123,7 @@ export function useAddFeedWizard() {
   function addTo(feedUid: string) {
     return run(async () => {
       for (const candidate of selectedFeeds.value) await feedsStore.addSource(feedUid, candidate)
+      return feedUid
     }, 'Couldn\'t add that source.')
   }
 
@@ -135,6 +135,7 @@ export function useAddFeedWizard() {
       const [first, ...rest] = selectedFeeds.value
       const feed = await feedsStore.addFeed({ name, candidate: first })
       for (const candidate of rest) await feedsStore.addSource(feed.uid, candidate)
+      return feed.uid
     }, 'Couldn\'t create that feed.')
   }
 
