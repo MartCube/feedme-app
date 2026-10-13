@@ -51,10 +51,8 @@ Layout follows the **viewport**, not the platform:
   Settings and Add open as bottom drawers.
 - **Desktop / wide** (≥ 1024px) — **three columns**: a persistent sidebar (the feed list, plus
   standing Add feed / Settings links, always visible), a posts pane, and a post pane — which
-  shows the feed's own page until a post is opened. Settings and Add present as a content area
-  over the two reading panes instead of drawers — a master–detail pair where there's a list to
-  sit beside (Settings), single-pane where there isn't (Add); the sidebar stays interactive
-  alongside them.
+  shows the feed's own page until a post is opened. Settings and Add open inside the post
+  pane instead of drawers, beside the posts list; the sidebar stays interactive alongside them.
 
 This is why content uses **nested routes** (post under feed, subpage under settings): the route
 encodes the navigation context. The routes themselves don't change between viewports — only how
@@ -80,9 +78,7 @@ These are non-negotiable constraints that every screen should honor:
   `app/pages/design.vue` and the theme tokens in `app/assets/css/main.css`.
 - **Overlay secondary actions.** Add feed and Settings layer over the current screen as a
   bottom drawer (`UDrawer`) on mobile, but they're route-backed (`/add`, `/settings/*`), so on
-  desktop they present as a content area over the reading panes rather than drawers — a
-  master–detail pair where there's a list to sit beside (Settings), single-pane where there
-  isn't (Add). Editing a feed is not an overlay: a feed's page is a screen in the reader flow,
+  desktop they open inside the post pane rather than as drawers, beside the posts list. Editing a feed is not an overlay: a feed's page is a screen in the reader flow,
   reached by the info icon beside its title.
 
 ## Theme tokens (reference)

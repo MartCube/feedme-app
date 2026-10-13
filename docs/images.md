@@ -6,7 +6,7 @@ user's avatar. Peer to [backend.md](./backend.md) (which owns the tables and end
 ride on); the build order is [backend-roadmap.md](./backend-roadmap.md) T15a–T15e.
 
 _Decided 2026-09-15. **T15a — the proxy, post images, the card toggle — shipped 2026-09-22.
-T15c — article images — shipped 2026-09-23. T15b — feed icons — shipped 2026-09-28.** T15d and T15e are still ahead._
+T15c — article images — shipped 2026-09-23. T15b — feed icons — shipped 2026-09-28. T15f — the loading placeholder — shipped 2026-10-13.** T15d and T15e are still ahead._
 
 ## The one rule
 
@@ -79,7 +79,7 @@ with global sources it grows with the source count, not the reader count.
 
 | Image | Where the URL comes from | Shown | Recipe | When it can't | Task |
 | --- | --- | --- | --- | --- | --- |
-| **Post image, card** | `Post.image_url` — ingest's `media:thumbnail` → image enclosure pick | the *image* style of PostCard, a square beside the text | 16:9 fill, widths 480 / 960 / 1440 / 1920, WebP — the box crops it square | the card is *compact* | T15a |
+| **Post image, card** | `Post.image_url` — ingest's `media:thumbnail` → `media:content` → image enclosure → first `<img>` in the entry's content or summary pick | the *image* style of PostCard, a square beside the text | 16:9 fill, widths 480 / 960 / 1440 / 1920, WebP — the box crops it square | the card is *compact* | T15a |
 | **Post image, hero** | same | the post page, below the title and meta row | same family, `sizes` for the reading measure | no hero | T15a |
 | **Feed icon** | `Source.icon_url` — see § Feed icons below | add-wizard rows for every type; other surfaces when the design says so | 64 × 64 fill-down, centre crop (ICO and SVG in) | `UAvatar` initials | T15b |
 | **Article images** | `<img src>` inside `article_html` (T10) | the reader | fit to the reading width, no crop, rewritten at read time | dropped from the markup (no key, an unproxiable `src`); a proxy fetch failure at render time is the browser's own broken image | T15c |
@@ -168,6 +168,10 @@ types:api` plus typecheck finds every consumer — `PostCard.vue` and `PostView.
   _(measured 2026-09-22)_. Only `width`, and only when it parses as a number — a parameter we
   can't read is not evidence, and dropping an image we could have shown is the worse mistake.
   `core/images.py`'s `_declared_too_small`.
+- **The box is honest from first paint** _(2026-10-13)_: it is fixed at its aspect and pulses
+  until the image loads, so nothing shifts and the wait reads as "coming". Under `noUpscale`, an
+  image smaller than the box sits centred at its own size instead of shrinking the box. This is
+  roadmap T15f.
 - **A failed load removes the box.** The card collapses to its compact shape, the hero
   disappears; no broken-image icon, no grey square left behind. The same happens when an image
   loads narrower than 320px — a tracking pixel, a thumbnail whose URL declared nothing — because
@@ -337,3 +341,21 @@ Decided 2026-09-28, while building T15b:
   favicon are identical for every channel, which would make every YouTube feed look the same.
 - **The `/favicon.ico` guess is unverified.** It costs nothing, and a 404 ends as the same
   initials the feed would have shown anyway.
+
+Decided 2026-10-13, after WordPress feeds showed no images:
+
+- **Ingest falls back to the first `<img>` in the entry's content, then its summary.** Many
+  WordPress feeds declare no `media:*` and no enclosure and put the picture in the body (9to5mac
+  went from 0 to 100 of 132 posts with an image). The pick tries `media:thumbnail`,
+  `media:content`, an image enclosure, then the body, in that order. An `<img>` is skipped when
+  its declared `width` is under 480 (the smallest size we serve — the same floor as
+  § Rendering) or its `src` isn't `http(s)`.
+- **Article extraction drops image-wrapping links to other sites.** Before the text is
+  extracted, an `<a>` with no text of its own that wraps an image and points to another site
+  (compared by base domain) is removed, unless the link targets an image file. This drops
+  badges and ads, such as 9to5mac's "preferred source" badges. Articles already cached keep their
+  old markup until re-extracted.
+- **The article's copy of the lead image is dropped at read time** when the post page already
+  shows that image as its hero. Matched on host and path, ignoring the query, so a differently
+  sized URL of the same picture still counts. Only when the post has a proxied image to show.
+- **The loading placeholder shipped** with the frontend box (§ Rendering) — T15f.

@@ -49,10 +49,9 @@ navigates. File references point at `app/pages/` and `app/components/`.
 >   Nuxt's `useRoute()` only resyncs when a `<NuxtPage/>` resolves and the shell renders none)
 >   and composes three columns directly from it and the `feeds`/`settings` stores: a sidebar
 >   (feed list, plus standing Add feed / Settings links), a posts pane, and a post pane.
->   Settings/Add render as a content area laid over the two reading panes instead of a
->   drawer (no slide — nothing on desktop animates, see [current-state.md](./current-state.md)
->   § Resolved decisions → Desktop motion) — as a master–detail pair where there's a list to
->   sit beside (Settings) and single-pane where there isn't (Add). The post pane shows the
+>   Settings/Add open inside the post pane instead of a drawer, over the reader and beside the
+>   posts list (no slide — nothing on desktop animates, see [current-state.md](./current-state.md)
+>   § Resolved decisions → Desktop motion); a section or step replaces the pane, as on a phone. The post pane shows the
 >   feed page (screen 6) whenever no post is open. The sidebar's wordmark, the posts pane's
 >   title/search row, and the post pane's actions row each stay pinned to the top of their own
 >   column, reachable while that column scrolls beneath them. **The routes and
@@ -79,10 +78,10 @@ navigates. File references point at `app/pages/` and `app/components/`.
 >                                (utils/feed-info.ts)
 >
 > pages:extend (nuxt.config.ts) adds these paths, all rendering the SAME index.vue component
-> (the home page, kept mounted behind a drawer on mobile / behind the content overlay on
-> desktop) — there are no separate settings.vue / settings/*.vue page files:
->   /settings/:panel?          → SettingsDrawer (mobile) / DesktopContentOverlay (desktop)
->   /add                       → AddDrawer (mobile) / DesktopContentOverlay (desktop)
+> (the home page, kept mounted behind a drawer on mobile / beside the post pane's
+> content on desktop) — there are no separate settings.vue / settings/*.vue page files:
+>   /settings/:panel?          → SettingsDrawer (mobile) / post pane (desktop)
+>   /add                       → AddDrawer (mobile) / post pane (desktop)
 > ```
 >
 > **The post list is polymorphic.** Its `[uid]` resolves to one of three things, and the same
@@ -276,7 +275,9 @@ error); the route `uid` is the feed context it was opened in.
 **Desktop:** until a post is tapped, the post pane shows the feed page (screen 6) instead of
 this screen — or, on **All feeds**, which has no page of its own, a placeholder ("Select a
 post"). There is no auto-selected first or last-read post. The actions row (Copy link · Open
-source · Save) stays pinned to the top of the pane the same way — see the Routing note.
+source · Save) stays pinned to the top of the pane the same way, on the side Settings →
+Appearance → *Post actions* picks, and stays up from one post to the next while the new one
+loads (hidden only if that post failed to load) — see the Routing note.
 
 ---
 
@@ -353,32 +354,36 @@ the `useAddFeedWizard()` composable. **Not yet built:** keyword search for subre
 catalog (T11c, T11d), a candidate's latest posts before adding it (T14, `GET /discover/posts` —
 planned), sub counts, and form validation via the installed **VeeValidate + Zod** stack.
 
-**Desktop:** `/add` presents as a single-pane content area over the two reading panes (sidebar
-stays usable) instead of a bottom sheet — there is no master beside it, since the wizard is
-linear steps with nothing to list; the wizard itself is unchanged except that its steps cut
-rather than slide there. Settings, by contrast, splits the same content area into a
-master–detail pair (screen 5).
+**Desktop:** `/add` opens inside the post pane _(2026-10-13)_ instead of a bottom sheet; the
+sidebar and the posts list stay usable beside it, and the reader underneath stays as it was.
+The wizard is unchanged except that its steps cut rather than slide there.
+
+**Enter** submits the new-feed name. **When it finishes**, the app opens the feed the source
+landed in and selects it (on a phone the sheet closes first).
 
 ---
 
-## 5. Settings — `/settings/:panel?` (drawer on mobile, master–detail pane on desktop)
+## 5. Settings — `/settings/:panel?` (drawer on mobile, post pane on desktop)
 
 **Purpose:** account, appearance, app info, and support. Same master/detail shape as feeds: the
 settings nav (the section list) is the **master**, the chosen subpage is the **detail**. On
 mobile both live as panels inside one bottom sheet (`components/settings/Drawer.vue`) that
 slide between each other; there are no separate settings page files — every `/settings/*` path
 renders the home page's component behind the sheet (see the Routing note) and the sheet swaps
-its panel by path. On desktop the section list and the open subpage render side by side as
-**two equal panes**, each the width of the reader's posts pane, with the rest of the area left
-empty — a form has a natural width and doesn't improve by widening the way an article does —
-and `/settings` alone shows the list with a "Select a section" placeholder on the right. The
+its panel by path. On desktop it opens inside the post pane _(2026-10-13; was two panes over the whole reading
+area)_, beside the posts list: `/settings` shows the section list, and a section **replaces**
+it with the panel's own back button returning — the phone's stack without the slide — held to
+the form measure, since a form has a natural width. The
 sidebar carries a single **Settings** link, not a second copy of the section list.
 
 **Subpages:**
 - **Account** — `/settings/account` — how you're signed in, member since, and **Sign out**
   (which ends the session server-side and returns to screen 0).
-- **Appearance** — `/settings/appearance` — theme, feed-list style, scrollbar style, and
-  **Post cards** (Image / Compact, T15a — [images.md](./images.md) § Rendering), and on desktop
+- **Appearance** — `/settings/appearance` — theme, feed-list style, scrollbar style,
+  **Post cards** (Image / Compact, T15a — [images.md](./images.md) § Rendering), **Post
+  actions** _(2026-10-13)_ (Copy link, Open source and Save sit on the **left**, the default, or
+  the **right** of the post's action row — the phone's post navbar and the desktop pane strip
+  both follow; stored on this device only for now, not in the account), and on desktop
   **Reading panes** (posts wider 60/40, equal 50/50, post wider 40/60); font size is
   still planned (see [product-overview.md → Planned](./product-overview.md#planned-not-now)).
 - **About** — `/settings/about` — app info.
@@ -397,7 +402,7 @@ sidebar carries a single **Settings** link, not a second copy of the section lis
 
 **Purpose:** what a feed *is* and what is in it — its name, its description and its sources —
 and the way into every edit to them. A feed is a group of sources, and this is the page that
-shows the group. It is reached by the info icon beside the title above a feed's posts (screen 2); the home
+shows the group. It is reached by the info icon button beside the search in the title row above a feed's posts (screen 2; it gives way to the search box while search is open); the home
 list has no menu for it.
 
 **The user can:**
@@ -413,6 +418,8 @@ list has no menu for it.
 - **Add source** (the dashed row below the list) → the add wizard (screen 4), already pointed
   at this feed.
 - **Edit** (the pencil) → the name and description form (screen 7).
+- **Delete** (the trash can) → the delete confirm (screen 7). Edit and Delete are separate icon
+  buttons in the page's header; backing out of the confirm returns here.
 - Go **back** → the post list (on desktop the list is already beside it, so the button keeps
   its space and hides).
 - A feed with no sources says "No sources yet." and offers **Add source** all the same.
@@ -455,9 +462,10 @@ the one above it.
 and a source is added to an existing feed either there (*Add to* that feed) or from the feed
 page's *Add source*. There is no separate create screen.
 
-**Edit feed** — `/feed/[uid]/info/edit`, from the pencil. A **Name** and a **Description**,
-committed together by a **Save** pill (live once something changed and the name is not empty),
-and a **Delete feed** button at the bottom. Save returns to the feed page.
+**Edit feed** — `/feed/[uid]/info/edit`, from **Edit** on the feed page. A **Name** and a
+**Description**, committed together by a **Save** pill (live once something changed and the
+name is not empty). Save returns to the feed page. Delete is not on this form _(2026-10-13)_;
+it is its own button on the feed page.
 
 **Source page** — `/feed/[uid]/info/source/[sourceUid]`, from a source's row. The source's name,
 "In {feed}" beneath it, then:
@@ -489,7 +497,7 @@ now part of the product's vocabulary ([backend.md](./backend.md) § Vocabulary).
 - **Back navigation** follows the route nesting: Post → Post list → Feeds list (where "Post
   list" is the `/feed/[uid]` it opened from — a feed, `all` or `saved`); Feed page → Post list;
   Edit / Delete / a source's page → Feed page, and a source's remove confirm → that source's
-  page (delete confirm → Edit); and Settings subpage → Settings → wherever it opened from. Add
+  page (delete confirm → Feed page); and Settings subpage → Settings → wherever it opened from. Add
   closes back to `/` on mobile, or to the frozen reading position on desktop (see the Routing
   note).
 - **Master/detail by viewport:** the same routes present as one pane on mobile (nested

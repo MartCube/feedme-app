@@ -72,17 +72,30 @@ Used across the feed list, the sidebar's Add feed/Settings entries, settings' se
 the feed page's source rows (`feed/Info.vue`) and its Saved rows.
 
 The same cue reaches standalone icons that have no row label to carry it: every `IconButton`
-(`app/components/ui/IconButton.vue`) lights the icon itself `primary` on hover, gated the same
+(`app/components/ui/IconButton.vue`) rests in `text-muted` _(2026-10-13)_ and lights the icon itself `primary` on hover and press, gated the same
 way (`@media (hover: hover)`, via `group-hover/icon` rather than `hover-accent`, since there's
 no label doing the work).
+
+**Links that rest in `primary` darken on hover** _(2026-10-13)_. A link that is already
+`primary` at rest can't light up to `primary`, so its hover is the opposite step: the accent
+mixed 30% toward black (`color-mix(in oklab, var(--ui-primary) 70%, black)`), derived from
+`--ui-primary` so each theme gets its own darker shade and there is no extra token. The
+`hover-darken` utility (`app/assets/css/themes.css`) carries it with the same
+`@media (hover: hover)` gate, paired with `transition-colors`. The rule, by what the link
+looks like at rest: **neutral/muted label → `hover-accent` (lights `primary`); `primary` link →
+`hover-darken`**; icon-only → `IconButton`'s own cue; a card → `hover-lift`. Every link gets
+exactly one of these, never two. Today's `primary` links: the post's source link
+(`feed/PostMeta.vue`, on cards and the post page), "Read the full post" (`feed/PostView.vue`),
+and links inside an extracted article (`article.css`, which restates the mix because sanitised
+markup carries no classes; keep the two in step).
 
 **Icon buttons name themselves on hover** _(2026-10-09)_: every `IconButton` shows its
 `aria-label` as a tooltip (`UTooltip`), so the label a screen reader hears and the one a mouse
 sees are the same string, and a button can't have one without the other. The feed title's
-info icon carries the same tooltip. The tooltip is a `bg-muted` pill in `text-caption`
+info button carries the same tooltip. The tooltip is a `bg-muted` pill in `text-caption`
 (`px-xs py-2xs`, `rounded-xl`), **no ring and no shadow** — `bg-muted`, not `bg-elevated`,
 because it floats over cards that are elevated themselves, and `shadow-elevated`'s edge would
-read as a darker outline on muted (the post-card rule below). Set once in `app.config.ts`;
+read as a darker outline on muted (the post-card rule below). It opens **above** the button (side top, offset 4, collision padding 2) _(2026-10-13)_. Set once in `app.config.ts`;
 `<UApp>` gives it a 400ms delay and `ignoreNonKeyboardFocus`, so on touch — where a tap also
 focuses the button — it never pops up over the thing just pressed.
 
@@ -113,6 +126,19 @@ Two ways to separate content, in order of preference:
 **Don't stack both.** A divider *plus* a generous gap *plus* a card edge is three signals
 doing one job — pick one and let it work. The same goes for gloss: elevated controls use
 `shadow-elevated`, never a translucent ring or inner highlight.
+
+### Inputs, loading and image placeholders _(2026-10-13)_
+
+- **Focus is one line.** A focused input or textarea shows a single `primary` line; the extra
+  outline Nuxt UI adds is dropped (`app.config.ts` compound variants). One focus signal, never two.
+- **Loading shows beside the wordmark.** A small spinner sits next to the wordmark (sidebar on
+  desktop, home on mobile) while any API request is in flight. It appears only after 150ms, so
+  fast responses never flash it. The feed and post pages on mobile have none yet; a custom
+  spinner is a backlog item.
+- **An image holds its place.** The image box is fixed at its aspect from first paint and
+  pulses (`animate-pulse`) until the image loads. Where an image is shown without upscaling
+  and is smaller than the box, it sits centred at its own size instead of shrinking the box.
+- **The feed search is `h-12`**, the height of an `IconButton`, so the two line up on the title row.
 
 ## Themes
 
@@ -206,7 +232,7 @@ the same pattern as spacing and the type scale.
 
 | Timing | Value | Used for |
 |---|---|---|
-| Feedback | 300ms, ease-out | Every colour or surface change: hover, selection, the tap flash, the toggle thumb |
+| Feedback | 250ms, ease-out | Every colour or surface change: hover, selection, the tap flash, the toggle thumb |
 | Slide | `--duration-slide` 350ms, `--ease-slide` (iOS's curve, `cubic-bezier(0.32, 0.72, 0, 1)`) | Page and drawer-panel slides — mobile only |
 
 Feedback is Tailwind's own transition default (`--default-transition-duration` and
@@ -231,7 +257,7 @@ six-name `--spacing-*` rule above: defined as `--container-*` in `app/assets/css
 |---|---|---|
 | `--container-sidebar` | 18rem | Sidebar column: the feed list plus the standing Add feed / Settings rows |
 | `--container-postlist` | 24rem | Posts (master) pane's empty-state measure only — the pane itself takes 40, 50 or 60% of the area right of the sidebar, per the *Reading panes* setting (default 50) |
-| `--container-reading` | 42rem | Post content measure cap; also the width of the desktop content area's single-pane screens (`/add` — the wizard is linear steps with no list beside them). Settings and edit split the area into two equal panes instead — each 40% of the area, the last fifth left empty, since a form has a natural width and doesn't get better wider the way an article does |
+| `--container-reading` | 42rem | Post content measure cap; also the width Settings and Add hold to inside the desktop post pane _(2026-10-13; Settings used to split into two 40% panes)_ — a form has a natural width and doesn't get better wider the way an article does |
 | `--container-post` | 56rem | Post body measure — only bites on wide monitors |
 | `--container-signin` | `calc(400px + 2 * var(--spacing-lg))` | The sign-in column on `/login` — the only measure here that isn't a shell one. It is Google's 400px button cap plus the two page-insets, because that button's width can't be raised and a wider column would leave it short of the field below it (see [screens-and-flows.md](./screens-and-flows.md) § 0) |
 

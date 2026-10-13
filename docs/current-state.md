@@ -11,8 +11,7 @@ The **design system** and **navigation/drawer UX** are well developed, and the *
 screens** (feeds list, post list, post page, and a feed's own page) navigate end to end.
 **Desktop (≥1024px) v1** now renders those same screens as a three-column shell — sidebar,
 posts pane, post pane — composed by the layout from the same routes and store state;
-Settings/Add present as a content area over the reading panes instead of drawers — a
-master–detail split where there's a list to sit beside, single-pane where there isn't. **The app
+Settings/Add open in the post pane beside the posts list instead of as drawers. **The app
 runs on real data** _(2026-09-01)_: a `/login` screen gates every route, and the account's own
 feeds, their sources, fetched posts, saved posts and settings all come from the Django API in
 `backend/` (Django + django-ninja, Docker Compose) — the mock data files are deleted and nothing
@@ -238,26 +237,20 @@ own status: **read that file's § Status for what to build next.**
   opaque strip in the column's own surface — `bg-sunken` for the sidebar, `bg-default` for the
   two reading panes — rather than a divider. Mobile is unchanged: the post list's title still
   clears the navbar with `mt-lg`, and mobile navbars aren't pinned.
-  Settings and Add present as a **content area** (`ContentOverlay.vue`) laid over the two
-  reading panes; the sidebar stays interactive and the reading panes stay mounted underneath
-  throughout (feed, selected post, search, and pane scroll all survive a round-trip). **Nothing
-  on desktop slides** — the area appears and disappears like a page replacing a page, and the
-  `.content-slide-*` classes are gone from `transitions.css` (see Resolved decisions → Desktop
-  motion). Settings splits the area into **two equal panes**, each `basis-2/5` — the
-  posts pane's width, with the remaining fifth left empty on the right, because a form has a
-  natural width and doesn't get better by getting wider the way an article does — a master pane
-  (the settings section list) and a detail pane (the open section, with a "Select a section"
-  placeholder until one is open), the master keeping the open item's
-  row persistently **elevated with its label in `primary`** (`activePath` on
-  `SettingsHome` — the same treatment the feed list and post list use). Add has no master to
-  sit beside and takes the area **single-pane**, capped at `--container-reading` (the wizard is
-  four linear steps with no list). Switching what the detail pane shows is a plain swap with no
-  motion, exactly like clicking a different post, and the add wizard's steps cut instead of
-  sliding here (`AddSteps`'s `slide` prop, `false` from this host only). The area reuses the
-  exact mobile panel components (`app/utils/settings-panels.ts`'s route map, `AddSteps`) and
-  resets the add wizard on any exit from `/add`. The
-  two drawer hosts guard their `onMounted` open-on-deep-load with `isDesktopNow()` so a
-  desktop deep-load of `/settings/*` or `/add` never flashes a bottom sheet.
+  Settings and Add open **inside the post pane** _(2026-10-13; was a `ContentOverlay.vue` laid
+  over both reading panes, now deleted)_: the posts list stays visible and interactive beside
+  them, along with the sidebar, and the reader underneath stays mounted but `inert` (open post,
+  search and pane scroll all survive a round-trip). **Nothing on desktop slides** — the pane
+  appears and disappears like a page replacing a page, and the `.content-slide-*` classes are
+  gone from `transitions.css` (see Resolved decisions → Desktop motion). It is the phone's
+  single-pane stack minus the slide: a settings section or the next add step **replaces** the
+  pane, and the panels' own back buttons walk it, with the settings section list at `/settings`
+  and the add wizard at `/add`, both held to `--container-reading`. With no feeds, the empty
+  state takes the posts pane's place while they are open. The area reuses the exact mobile panel
+  components (`app/utils/settings-panels.ts`'s route map, `AddSteps` with `slide` false) and
+  resets the add wizard on any exit from `/add` (the shell watches the route). The two drawer
+  hosts guard their `onMounted` open-on-deep-load with `isDesktopNow()` so a desktop deep-load
+  of `/settings/*` or `/add` never flashes a bottom sheet.
   Layout tokens live in `app/assets/css/layout.css` (`--container-sidebar/postlist/reading/post`,
   a `@theme static` block in its own namespace so it doesn't collide with the six-name
   `--spacing-*` rule) — there is no whole-shell width cap. **v1 is deliberately unpolished:**
@@ -425,6 +418,36 @@ own status: **read that file's § Status for what to build next.**
   navbar's bookmark toggle underneath is unchanged: `PUT`/`DELETE /posts/{uid}/save` into
   **Bookmarks** (Save is a toggle, not a group chooser), reflected in the icon and
   `aria-pressed`.
+- **Polish pass** _(2026-10-13)_ — frontend. **Icon buttons**: the tooltip opens above, icons
+  rest `text-muted` and light `primary` on hover and press. **Inputs** show one `primary` focus
+  line. **Loading**: a spinner beside the sidebar/home wordmark (`home/FeedList.vue`) driven by
+  an in-flight counter on the `$api` plugin (`$apiPending`), debounced 150ms; the mobile feed and
+  post pages have none yet, and a custom spinner is a backlog item. **Post actions side**:
+  Settings → Appearance → *Post actions* puts Copy link / Open source / Save left (default) or
+  right (settings store `actionSide`), cookie-only for now and not in the account payload; the
+  mobile post navbar and the desktop pane strip both follow. The actions stay mounted while the
+  next post loads (inert until it arrives, hidden if it failed), so they don't blink between
+  posts. **Feed info**: an info `IconButton` beside search in the posts title row replaces the
+  glyph on the title; the feed page has separate Delete and Edit buttons, Delete moved out of
+  `InfoEdit`, and back from the delete confirm returns to the feed page. **Add wizard**: Enter
+  submits the new-feed name; on success the app navigates to the landed feed and selects it
+  (mobile closes the sheet first). **Desktop**: Settings and Add open in the post pane (see
+  Desktop shell v1). `PostView`'s root is `isolate` so `PostMeta`'s `z-10` source link no longer
+  paints over the desktop sticky strip; `pages/feed/[uid].vue` wraps `<NuxtPage>` in a plain
+  `div` (fixes a Vue transition warning from a non-element root). New `hover-darken` utility for
+  links resting in `primary` (restated in `article.css`) — see
+  [design-system.md](./design-system.md). **Post images**: `PostImage` fixes its box at the
+  aspect from first paint with `animate-pulse` until load, and under `noUpscale` a smaller
+  image sits centred at its own size — **this delivers roadmap T15f**. The feed search is `h-12`
+  to match `IconButton`.
+- **Image fallback and article cleanup** _(2026-10-13)_ — backend. Ingest's `_pick_image` falls
+  back to the first `<img src>` in the entry's content, then summary, after `media:thumbnail` /
+  `media:content` / image enclosure, skipping declared widths under 480 and non-http sources
+  (fixes WordPress feeds: 9to5mac 0 → 100 of 132 posts with images). `core/extract.py` drops
+  text-less `<a>` elements wrapping an image and linking to another site (unless the link is an
+  image file) before trafilatura; cached articles keep old markup until re-extracted.
+  `proxy_images(html, lead)` drops the article's copy of the post's lead image when the post
+  page shows it. 382 tests passing. See [images.md](./images.md) § Decision log.
 - **Post images (T15a)** — every post image on screen comes from a signed `imgproxy` proxy
   (`docker-compose.yml`'s `imgproxy` service; nothing stored). `backend/core/images.py` is the
   only module that builds or signs such a URL — a containment test fails the suite if a second
@@ -492,7 +515,7 @@ own status: **read that file's § Status for what to build next.**
   40/60. It rides `GET` / `PUT /settings` and the settings store; Settings → Appearance has a
   **Reading panes** section (desktop only), and `desktop/Shell.vue` applies `basis-3/5`,
   `basis-1/2` or `basis-2/5` to the posts pane while the post pane takes the rest. The
-  Settings content area is unaffected (two fixed 40% panes).
+  Settings/Add in the post pane are unaffected (held to `--container-reading`).
 - **YouTube in the reader** _(2026-09-28)_ — the Post API carries `video: {src, vertical} | null`,
   built from `post_url` by `core/youtube.video()`: a `youtube-nocookie.com` embed
   (`playsinline=1`, `rel=0`), `vertical` meaning a `/shorts/` link. `feed/PostVideo.vue`
@@ -515,10 +538,10 @@ own status: **read that file's § Status for what to build next.**
   pane-top rows** (the posts list's title/search row, the post pane's action strip) end in
   `pb-sm`, so content never scrolls flush against the buttons; the content below takes the
   remainder (`lg:mt-xs` on the list, `lg:mt-sm` on the post title). **Motion has one home**,
-  `app/assets/css/motion.css`: Tailwind's transition defaults set to 300ms ease-out (Nuxt UI's
+  `app/assets/css/motion.css`: Tailwind's transition defaults set to 250ms ease-out (Nuxt UI's
   transitions included) and `--duration-slide` / `--ease-slide` for the slides, read by
   `transitions.css` and `utils/panel-slide.ts`; every `duration-*` / `ease-*` class is gone from
-  app code, which now never writes them (the old mix of 200 and 300ms became 300) — see
+  app code, which now never writes them (the old mix of 200 and 300ms became 300, then 250 _(2026-10-13)_) — see
   [design-system.md](./design-system.md) § Motion. **Add wizard**: `.slide-panels` is now
   `position: relative; overflow: hidden`, so a leaving step no longer escapes to the whole
   desktop overlay for a frame, and the desktop wizard renders its step swap with `:css="false"`
@@ -636,7 +659,7 @@ _None currently._
   `push`), which is what makes a deep link, a reload, and Back from a post all land on the same
   results. See Built → Post list v1.
 - **Desktop motion** _(recorded 2026-09-15)_ — **nothing slides on desktop.** The content area
-  (Settings / Add / Edit) replaces the reading panes the way a new page would, the add wizard's
+  (Settings / Add) replaces the post pane's content the way a new page would, the add wizard's
   steps cut, and detail-pane swaps were already plain. Sliding is the mobile stack's language:
   there one pane is the whole screen and the motion says which way you moved; on desktop both
   ends of a move are on screen at once, so it would only be decoration. This closes the "no

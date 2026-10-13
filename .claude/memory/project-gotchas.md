@@ -48,7 +48,7 @@ metadata:
 - **Nuxt's `useRoute()` only re-syncs when a `<NuxtPage>` resolves.** The desktop shell renders
   no NuxtPage, so `useRoute()` there is frozen forever after the first navigation — the URL
   changes but nothing updates. Any component that can render outside NuxtPage (desktop shell,
-  sidebar, content overlay, shared settings/edit panels) must read
+  sidebar, the settings/add panels it hosts in the post pane) must read
   `useRouter().currentRoute` instead. Mobile drawer HOSTS may keep `useRoute()` — the mobile
   tree always renders NuxtPage. (Also triggers a benign dev warning: "pages but `<NuxtPage/>`
   has not been detected".)

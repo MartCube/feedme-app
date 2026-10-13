@@ -530,3 +530,15 @@ Added 2026-10-08 (the feeds remodel, outside the numbered tasks):
 - **Fresh start, no data migration.** Migration `0007_feeds_group_sources` drops `Folder` /
   `FolderMember` and reshapes `Feed`; the old feeds and folders were dropped and saved posts
   kept, so there was nothing to translate.
+
+Decided 2026-10-13:
+
+- **A post's image falls back to the first `<img>` in its entry body.** After `media:thumbnail`,
+  `media:content` and an image enclosure, ingest reads the first `<img src>` in the entry's
+  content, then its summary, skipping ones that declare a width under 480 and non-http sources.
+  WordPress feeds carry their pictures there and nowhere else. Detail: [images.md](./images.md)
+  § Decision log.
+- **Extraction removes text-less image links to other sites** before trafilatura runs (badges,
+  ads), and **`GET /posts/{uid}/article` drops the article's own copy of the lead image** when
+  the post's `image` is non-null, since the post page already shows it. Both in
+  [images.md](./images.md).

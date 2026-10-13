@@ -34,7 +34,7 @@ design discussion — stop and ask. Stock sizes are fine *inside* Nuxt UI `:ui` 
   `page-inset` wraps every screen · `mt-lg` navbar→title · `mt-md` heading→content · `py-sm`
   rows · `p-sm` cards · `gap-sm` icon+label · `gap-xs` label+meta · `gap-2xs` intra-stack.
 - **Motion:** never write `duration-*` / `ease-*` — timing comes from `app/assets/css/motion.css`
-  (a bare `transition-colors` gets 300ms ease-out; slides use `--duration-slide` / `--ease-slide`).
+  (a bare `transition-colors` gets 250ms ease-out; slides use `--duration-slide` / `--ease-slide`).
   A new timing is a design discussion.
 - A new spacing/type token must also be taught to tailwind-merge in `app.config.ts`
   (`ui.tv.twMergeConfig`) or `:ui` overrides silently lose.
@@ -44,6 +44,18 @@ design discussion — stop and ask. Stock sizes are fine *inside* Nuxt UI `:ui` 
 Spacing is the default separator. A hairline `border-default` divider is allowed where spacing
 doesn't carry the grouping. **Never stack** divider + generous gap + card edge. Elevation is
 `shadow-elevated` — no translucent rings, no inner highlights, no gloss.
+
+## Hover (desktop)
+
+Every hoverable thing takes exactly one cue, picked by how it looks at rest, all gated to
+`@media (hover: hover)` so touch never gets a stuck hover:
+
+- Neutral/muted label (rows, nav entries) → `hover-accent` (label lights `primary`).
+- **Link already `primary` at rest → `hover-darken` + `transition-colors`** (accent mixed toward
+  black). Article markup can't take classes: `article.css` restates the mix for `a`.
+- Icon-only → `IconButton` (its icon lights `primary`). A post card → `hover-lift`.
+
+A new kind of hover is a design discussion, not a one-off `hover:` class.
 
 ## Before you call it done
 

@@ -20,8 +20,7 @@ images _(2026-09-23)_ and T15a — Images: proxy, post images, card toggle _(202
 **Next up:** **T14 — Feed preview** _(planned 2026-09-15)_, ungated. **T15d — the bucket**
 builds on T15a, and is
 the one that makes `image: null` truthful and retires T15a's two stand-in floors; **T15f — the
-loading placeholder** is a small frontend task that came out of using T15a for real — build
-whichever the frontend needs first. T11c (Reddit app credentials) and T11d (a catalog worth
+loading placeholder** shipped 2026-10-13. T11c (Reddit app credentials) and T11d (a catalog worth
 searching) each wait on something outside the code; T15e waits on a deploy target.
 **Roadmap written:** 2026-08-19
 **Also landed, outside the numbered tasks** _(2026-09-28)_: the reading-pane split
@@ -78,7 +77,7 @@ reading order.
 | T15c | Images — article images | ✅ done _(2026-09-23)_ |
 | T15d | Images — the bucket (stage 2) | ⬜ after T15a |
 | T15e | Images — CDN, then paid (stage 3) | ⬜ needs a deploy target |
-| T15f | Images — the loading placeholder | ⬜ ungated, frontend only |
+| T15f | Images — the loading placeholder | ✅ done _(2026-10-13)_ |
 
 ## Current state
 
@@ -2081,6 +2080,18 @@ is deliberately small: the cheap version is worth having now and does not block 
 **Done when.** A card with a slow image shows a live placeholder rather than a grey block, and
 a card whose image is already cached shows no placeholder flash at all. `verify` screenshots,
 mobile and desktop, reviewed by `design-reviewer`.
+
+**Done _(2026-10-13)_.** `feed/PostImage.vue` fixes its box at the image's aspect from first
+paint and pulses it (`animate-pulse`, the same vocabulary as `USkeleton`) until `@load`. Under
+`noUpscale` a smaller image sits centred at its own size instead of shrinking the box. The
+colour-accurate placeholder stays with T15d, as scoped above.
+
+**Image fallback, same day.** Not part of this task, but found while looking at real feeds:
+ingest's `_pick_image` now falls back to the first `<img>` in the entry's content or summary
+(declared width under 480 and non-http sources skipped), which took 9to5mac from 0 to 100 of
+132 posts with images. Extraction also drops text-less image links to other sites (badges,
+ads), and the article's copy of the post's lead image is dropped at read time. See
+[images.md](./images.md) § Decision log.
 
 ## Housekeeping
 
