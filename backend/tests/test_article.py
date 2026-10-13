@@ -303,3 +303,55 @@ def test_the_endpoint_needs_a_token(client, post, monkeypatch):
     serve(monkeypatch)
 
     assert article_request(client, post.uid).status_code == 401
+
+
+def page_with(markup):
+    """ARTICLE_PAGE with `markup` added to the end of the article body."""
+    return ARTICLE_PAGE.replace(b'</article>', markup + b'</article>')
+
+
+def test_a_picture_linking_to_another_site_is_left_out():
+    """A badge, an ad, a follow-us button: an image linked off-site inside the article column.
+    trafilatura keeps the image and drops the link, so it has to go before extraction."""
+    html = extract.extract_html(
+        page_with(
+            b'<a href="https://google.com/preferences/source?q=blog" aria-label="Add us">'
+            b'<img src="/badge-dark.png" alt="Add us"><img src="/badge-light.png" alt="Add us">'
+            b'</a>'
+        ),
+        'https://blog.example.com/p/one',
+    )
+
+    assert 'badge' not in html
+    assert 'https://blog.example.com/img/one.png' in html
+
+
+@pytest.mark.parametrize(
+    'link',
+    [
+        # within the site, a subdomain included
+        b'<a href="/p/two"><img src="/img/two.png" alt="x"></a>',
+        b'<a href="https://shop.example.com/x"><img src="/img/two.png" alt="x"></a>',
+        # click to enlarge, onto a CDN host
+        b'<a href="https://i0.wp.com/blog.example.com/two-full.png"><img src="/img/two.png"></a>',
+        # a link with words in it is a link, not decoration
+        b'<p><a href="https://other.example.org/">Their <img src="/img/two.png"> post</a></p>',
+    ],
+)
+def test_an_authors_own_picture_stays(link):
+    html = extract.extract_html(page_with(link), 'https://blog.example.com/p/one')
+
+    assert 'https://blog.example.com/img/two.png' in html
+
+
+@proxy_on
+def test_the_lead_picture_is_not_repeated_in_the_text():
+    """Matched on the file, so the text's copy goes even when it asks for another size."""
+    html = extract.proxy_images(
+        '<img src="https://www.blog.example.com/lead.jpg?w=1600"><p>Text</p>'
+        '<img src="https://blog.example.com/other.jpg">',
+        lead='https://blog.example.com/lead.jpg?w=800',
+    )
+
+    assert html.count('<img') == 1
+    assert encoded('https://blog.example.com/other.jpg') in html

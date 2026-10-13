@@ -18,7 +18,7 @@ reason this does.
 import logging
 import re
 from dataclasses import dataclass
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 import nh3
 import requests
@@ -61,6 +61,10 @@ ARTICLE_ATTRIBUTES = {'a': {'href', 'title'}, 'img': {'src', 'alt', 'title'}}
 # it, so a tag ends at the first `>` and ` src="` can only ever be the attribute itself.
 # Sound only over nh3's own output, which is why proxy_images runs it on the second pass.
 IMG_TAG = re.compile(r'<img\b[^>]*>')
+
+# What a link to a bigger copy of a picture ends in. A "click to enlarge" link often lives on
+# a CDN host, so a link that lands on an image file is the author's picture, never decoration.
+IMAGE_SUFFIXES = ('.jpg', '.jpeg', '.png', '.gif', '.webp', '.avif')
 
 OK = 'ok'
 EMPTY = 'empty'
@@ -124,8 +128,13 @@ def extract_html(body, url):
     Handed the raw bytes rather than a decoded string: trafilatura does its own charset
     detection, which beats leaning on requests' guess for pages that mislabel themselves.
     """
+    tree = trafilatura.load_html(body)
+    if tree is None:
+        return ''
+    _drop_offsite_image_links(tree, url)
+
     extracted = trafilatura.extract(
-        body,
+        tree,
         # relative href/src are absolutised against this; it is never fetched
         url=url,
         output_format='html',
@@ -146,7 +155,43 @@ def extract_html(body, url):
     ).strip()
 
 
-def proxy_images(html):
+def _drop_offsite_image_links(tree, url):
+    """Remove the page's linked-out pictures before trafilatura reads it.
+
+    A badge, an ad or a follow-us button is an image wrapped in a link to somebody else's
+    site, sitting inside the article column — and trafilatura keeps the image while dropping
+    the link, so on our side it turns into a big unexplained picture (9to5mac's "add as a
+    preferred source on Google", a retina file served at twice the size it's drawn at). An
+    author's own picture is either unlinked, linked within the site, or linked to its own
+    full-size file, and none of those match. Done here, on the page, because the link is the
+    only evidence and it's gone by the time trafilatura is done.
+    """
+    for link in tree.xpath('//a[@href][.//img]'):
+        if link.text_content().strip():
+            continue
+        target = urlsplit(urljoin(url, link.get('href')))
+        if _same_site(target.hostname, urlsplit(url).hostname):
+            continue
+        if target.path.lower().endswith(IMAGE_SUFFIXES):
+            continue
+        link.drop_tree()
+
+
+def _same_site(host, other):
+    """Both hosts belong to one site: blog.example.com, cdn.example.com and example.com do."""
+    return bool(host and other) and _site(host) == _site(other)
+
+
+def _site(host):
+    """The domain a host was registered under — its last two labels, or three under a
+    two-letter country suffix with a short second level (`bbc.co.uk`, `abc.net.au`). A rule
+    of thumb rather than the public suffix list, which is a dependency for a cosmetic call."""
+    labels = host.lower().split('.')
+    keep = 3 if len(labels) > 2 and len(labels[-1]) == 2 and len(labels[-2]) <= 3 else 2
+    return '.'.join(labels[-keep:])
+
+
+def proxy_images(html, lead=''):
     """The article with every `<img src>` pointed at the image proxy, for serving.
 
     Done at read time and never written back: the column keeps the source's URLs, so a key
@@ -158,21 +203,34 @@ def proxy_images(html):
     `src` for the browser to draw as broken: a src that isn't an absolute http(s) URL (a
     relative one trafilatura couldn't resolve; a data: URI was already dropped at
     extraction), and every image when the proxy has no key — images are off, as on the cards.
+
+    `lead` is the picture the post page already shows above the title, when it shows one. A
+    blog's lead image is usually the article's first picture too, so its copy in the text goes
+    — matched on the file, not the whole URL, since the two often ask for different sizes.
     """
+    lead_file = _file(lead) if lead else None
+
+    def proxy_src(tag, attribute, value):
+        if (tag, attribute) != ('img', 'src'):
+            return value
+        parts = urlsplit(value)
+        if parts.scheme not in ALLOWED_SCHEMES or not parts.netloc:
+            return None
+        if _file(value) == lead_file:
+            return None
+        return images.article_image(value)
+
     cleaned = nh3.clean(
         html,
         tags=ARTICLE_TAGS,
         attributes=ARTICLE_ATTRIBUTES,
         url_schemes=ALLOWED_SCHEMES,
-        attribute_filter=_proxy_src,
+        attribute_filter=proxy_src,
     )
     return IMG_TAG.sub(lambda tag: tag[0] if ' src="' in tag[0] else '', cleaned)
 
 
-def _proxy_src(tag, attribute, value):
-    if (tag, attribute) != ('img', 'src'):
-        return value
-    parts = urlsplit(value)
-    if parts.scheme not in ALLOWED_SCHEMES or not parts.netloc:
-        return None
-    return images.article_image(value)
+def _file(url):
+    """Which file a URL names, whatever size its query asks for: host and path."""
+    parts = urlsplit(url)
+    return ((parts.hostname or '').removeprefix('www.'), parts.path)

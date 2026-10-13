@@ -15,6 +15,7 @@ import random
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from html import unescape
+from html.parser import HTMLParser
 from urllib.parse import urlsplit
 
 import feedparser
@@ -24,7 +25,7 @@ from django.db.models import Q
 from django.utils import timezone
 from django.utils.html import strip_tags
 
-from . import icons, youtube
+from . import icons, images, youtube
 from .fetch import ALLOWED_SCHEMES, USER_AGENT, PageUnavailable, check_public, read_capped
 from .models import Post, Source
 from .retention import age_cutoff
@@ -261,7 +262,8 @@ def _http_or_blank(url):
 
 
 def _pick_image(entry):
-    """media:thumbnail (YouTube, some Reddit posts), then any image enclosure."""
+    """media:thumbnail (YouTube, some Reddit posts), then any image enclosure, then the first
+    picture in the post's own HTML."""
     for thumbnail in entry.get('media_thumbnail') or ():
         if thumbnail.get('url'):
             return _full_size(thumbnail['url'])
@@ -271,7 +273,42 @@ def _pick_image(entry):
     for link in entry.get('links') or ():
         if link.get('rel') == 'enclosure' and link.get('type', '').startswith('image/'):
             return link.get('href') or ''
+    return _inline_image(entry)
+
+
+def _inline_image(entry):
+    """The first real picture in the entry's HTML — full content first, then the summary.
+
+    WordPress, which is most of the blogs there are, declares no image anywhere a feed reader
+    is meant to look: the lead picture is just the first `<img>` of the description. A picture
+    whose `width` says it's below the smallest card size is passed over — a tracking pixel
+    (`width="1"`) or a thumbnail — and the next one is tried. Same evidence rule as
+    images._declared_too_small: a width we can't read is not a reason to skip.
+    """
+    for html in [part.get('value') for part in entry.get('content') or ()] + [entry.get('summary')]:
+        finder = _ImageFinder()
+        finder.feed(html or '')
+        if finder.src:
+            return finder.src
     return ''
+
+
+class _ImageFinder(HTMLParser):
+    """Collects the first `<img src>` worth a card. HTMLParser unescapes the attribute values
+    (`&#038;` in a WordPress query string), which a regex over the raw text would not."""
+
+    def __init__(self):
+        super().__init__()
+        self.src = ''
+
+    def handle_starttag(self, tag, attrs):
+        if tag != 'img' or self.src:
+            return
+        attrs = dict(attrs)
+        width = (attrs.get('width') or '').strip()
+        if width.isdigit() and int(width) < images.WIDTHS[0]:
+            return
+        self.src = _http_or_blank((attrs.get('src') or '').strip())
 
 
 def _full_size(url):

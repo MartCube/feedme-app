@@ -177,8 +177,10 @@ def post_article(request, uid: str):
     post = _visible_post(request.auth, uid)
     if not post.article_html:
         extract_article(post)
-    # the proxy rewrite happens here, on the way out, and never reaches the column
-    html = proxy_images(post.article_html) if post.article_html else ''
+    # the proxy rewrite happens here, on the way out, and never reaches the column. The lead
+    # image only counts when the reader will actually show it above the title.
+    lead = post.image_url if images.post_image(post.image_url) else ''
+    html = proxy_images(post.article_html, lead) if post.article_html else ''
     return {'status': 'ok' if html else 'unavailable', 'article_html': html or None}
 
 

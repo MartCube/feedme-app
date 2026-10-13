@@ -657,3 +657,48 @@ def test_a_feed_within_the_cap_is_read_whole(db, monkeypatch):
     assert result.created == 2
     source.refresh_from_db()
     assert source.etag == '"v1"'
+
+
+@pytest.mark.parametrize(
+    ('entry', 'stored'),
+    [
+        # WordPress: the lead picture is the description's first <img>, query escaped
+        (
+            {
+                'summary': '<div class="feat-image"><img src="https://9to5mac.com/a.jpg?'
+                'quality=82&#038;strip=all&#038;w=1600" /></div><p>Apple announced</p>'
+            },
+            'https://9to5mac.com/a.jpg?quality=82&strip=all&w=1600',
+        ),
+        # the full content wins over the summary when the feed carries both
+        (
+            {
+                'content': [{'value': '<p><img src="https://cdn.example.com/full.jpg"></p>'}],
+                'summary': '<img src="https://cdn.example.com/short.jpg">',
+            },
+            'https://cdn.example.com/full.jpg',
+        ),
+        # a tracking pixel or a thumbnail is passed over for the next picture
+        (
+            {
+                'summary': '<img src="https://pixel.example.com/t.gif" width="1" height="1">'
+                '<img src="https://cdn.example.com/thumb.jpg" width="150">'
+                '<img src="https://cdn.example.com/real.jpg">'
+            },
+            'https://cdn.example.com/real.jpg',
+        ),
+        # a relative src can't be put in front of the proxy
+        ({'summary': '<img src="/uploads/a.jpg">'}, ''),
+        ({'summary': '<p>No pictures here</p>'}, ''),
+    ],
+)
+def test_with_no_declared_image_the_first_picture_in_the_post_is_used(entry, stored):
+    assert ingest._pick_image(entry) == stored
+
+
+def test_a_declared_image_beats_the_one_in_the_text():
+    entry = {
+        'media_thumbnail': [{'url': 'https://cdn.example.com/declared.jpg'}],
+        'summary': '<img src="https://cdn.example.com/inline.jpg">',
+    }
+    assert ingest._pick_image(entry) == 'https://cdn.example.com/declared.jpg'
