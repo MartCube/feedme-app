@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: c763d233-28e4-471e-ba38-8eb696e2ebc4
-  modified: 2026-08-04T19:33:19.722Z
+  modified: 2026-10-20T21:47:59.807Z
 ---
 
 **pnpm / tooling:**
@@ -89,6 +89,14 @@ metadata:
   too, or it silently regresses. Verify by reading the rendered `className` — the loser class is
   still present when merging failed.
 - vaul emits `animationEnd(false)` once for its initial *closed* state after mount.
+- **A height fold with nothing visible below it reads as stutter** even at a perfect 60fps: the
+  rows don't move, they're just wiped at the clip edge. Frame timing / long-animation-frame
+  checks can't see this; judge it as perception. What fixed it: the rows themselves move — the
+  `fold-rows` utility (motion.css) translates them by `--reka-collapsible-content-height` on the
+  fold's own timing, so they slide up under the header. A line on the clip edge did NOT help
+  (reads as the line erasing rows); a separate element below did, but couples the fold to a
+  footer. Don't use an opacity/transform *transition* on the content — Reka zeroes
+  `transition-duration` while it measures, so it snaps; use keyframes.
 - vaul's `should-scale-background` mutates `<body>` inline styles — see
   [[feedback-no-global-visual-side-effects]].
 
