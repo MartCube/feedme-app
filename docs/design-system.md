@@ -68,8 +68,8 @@ dimmed by opacity rather than `text-muted` for the same reason; an icon that set
 follows by the same gate (`group-hover`), or the label would light beside a muted icon. The
 `hover-accent` utility (`app/assets/css/themes.css`) carries this, wrapped in
 `@media (hover: hover)` so touch pointers — where `:hover` sticks after a tap — get nothing.
-Used across the feed list, the sidebar's Add feed/Settings entries, settings' section rows, and
-the feed page's source rows (`feed/Info.vue`) and its Saved rows.
+Used across the feed list, the sidebar's New Feed row and settings sections, settings' section rows, and
+the feed page's source rows (`feed/Info.vue`).
 
 The same cue reaches standalone icons that have no row label to carry it: every `IconButton`
 (`app/components/ui/IconButton.vue`) rests in `text-muted` _(2026-10-13)_ and lights the icon itself `primary` on hover and press, gated the same
@@ -227,13 +227,14 @@ buttons; the content below gives that `sm` back rather than stacking on it.
 
 ## Motion
 
-Two timings, defined as theme tokens in `app/assets/css/motion.css` (imported by `main.css`) —
+Three timings, defined as theme tokens in `app/assets/css/motion.css` (imported by `main.css`) —
 the same pattern as spacing and the type scale.
 
 | Timing | Value | Used for |
 |---|---|---|
 | Feedback | 250ms, ease-out | Every colour or surface change: hover, selection, the tap flash, the toggle thumb |
 | Slide | `--duration-slide` 350ms, `--ease-slide` (iOS's curve, `cubic-bezier(0.32, 0.72, 0, 1)`) | Page and drawer-panel slides — mobile only |
+| Fold | 200ms, ease-out (`fold-rows` utility) | The desktop sidebar's Feeds and Settings groups folding — an intentional third timing that matches Nuxt UI's collapsible, so the rows slide in step with the box |
 
 Feedback is Tailwind's own transition default (`--default-transition-duration` and
 `--default-transition-timing-function`), so a bare `transition` or `transition-colors` gets it —
@@ -255,9 +256,9 @@ six-name `--spacing-*` rule above: defined as `--container-*` in `app/assets/css
 
 | Token | Size | Use for |
 |---|---|---|
-| `--container-sidebar` | 18rem | Sidebar column: the feed list plus the standing Add feed / Settings rows |
+| `--container-sidebar` | 18rem | Sidebar column: the pinned rows, the Feeds group and the Settings sections group |
 | `--container-postlist` | 24rem | Posts (master) pane's empty-state measure only — the pane itself takes 40, 50 or 60% of the area right of the sidebar, per the *Reading panes* setting (default 50) |
-| `--container-reading` | 42rem | Post content measure cap; also the width Settings and Add hold to inside the desktop post pane _(2026-10-13; Settings used to split into two 40% panes)_ — a form has a natural width and doesn't get better wider the way an article does |
+| `--container-reading` | 42rem | Post content measure cap; also the width the feed page, Settings and Add hold their content to inside the desktop post pane _(2026-10-13; Settings used to split into two 40% panes)_ — the pane itself spans full width so its scrollbar sits at the edge. A form has a natural width and doesn't get better wider the way an article does |
 | `--container-post` | 56rem | Post body measure — only bites on wide monitors |
 | `--container-signin` | `calc(400px + 2 * var(--spacing-lg))` | The sign-in column on `/login` — the only measure here that isn't a shell one. It is Google's 400px button cap plus the two page-insets, because that button's width can't be raised and a wider column would leave it short of the field below it (see [screens-and-flows.md](./screens-and-flows.md) § 0) |
 

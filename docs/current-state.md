@@ -3,7 +3,7 @@
 A snapshot of what's actually built vs. what the spec (these docs) describes. The goal is to
 make the gap visible so implementation has a clear backlog. Update this as work lands.
 
-_Last reviewed: 2026-10-09._
+_Last reviewed: 2026-10-21._
 
 ## Summary
 
@@ -203,9 +203,9 @@ own status: **read that file's § Status for what to build next.**
   rather than a `text-inset` margin on the list, so row text lines up with the heading.
   **Mobile:** an info icon beside the post list's title (`feed/PostList.vue`) links to `/feed/:uid/info`; the
   middleware's depth rule makes that a push with the page slide, and `useSwipeBack` pops it.
-  All feeds has no icon. **Desktop:** the post pane renders `FeedInfoPanels` (body
-  capped at `max-w-reading`) whenever no post is open and the feed isn't All feeds — replacing
-  the "Select a post" placeholder, which All feeds keeps — and the icon links to `/feed/:uid`,
+  Home and Saved have no icon. **Desktop:** the post pane renders `FeedInfoPanels` (body
+  capped at `max-w-reading`) whenever no post is open and the uid is a `feed_*` — replacing
+  the "Select a post" placeholder, which Home and Saved keep — and the icon links to `/feed/:uid`,
   which closes the post. The store mirrors the view as `readerInfo` (the path tail, or null)
   beside `readerFeedUid`/`readerPostUid`, so it survives Settings or Add opening over the
   reader. **Deleted with it:** `edit/Drawer.vue`, `Panels.vue`, `FolderPanel.vue`,
@@ -219,11 +219,13 @@ own status: **read that file's § Status for what to build next.**
   `DesktopShell`. `isDesktopNow()` is the synchronous twin for imperative guards.
 - **Desktop shell v1** (`app/components/desktop/`) — ≥1024px renders three columns composed
   straight from the route and the `feeds` store, not a nested-route tree: `Sidebar.vue` (18rem)
-  — the shared `HomeFeedList` (wordmark, Home, Saved, feeds — see Feeds list v1,
-  below), then two standing rows, **Add feed** (→ `/add`) and **Settings** (→ `/settings`); a
+  — the shared `HomeFeedList` in `grouped` mode (wordmark, Home, Saved, a **New Feed** row
+  (→ `/add`) slotted after Saved, then the feeds folded under a **Feeds** header — see Feeds
+  list v1, below), then a **Settings** group listing the settings sections directly (see
+  Sidebar groups _(2026-10-21)_); a
   posts pane (`FeedPostList`, 50% by default — the Appearance split); and a post pane (the rest, body capped at 56rem, a `FeedPostActions` bar — Copy link, Open source and Save — right-aligned above
   `FeedPostView` once a post is loaded; with no post open, the **feed page** — see Feed page,
-  above — or, on All feeds, a dimmed "Select a post" placeholder — **no auto-select**).
+  above — or, on Home and Saved, a dimmed "Select a post" placeholder — **no auto-select**).
   `Shell.vue` reads `useRouter().currentRoute` rather than Nuxt's `useRoute()` (Nuxt's route
   object only resyncs when a `NuxtPage` resolves, and the shell renders none), syncing the
   feeds store's `readerFeedUid`/`readerPostUid`/`readerInfo`/`readerQuery`/`readerPath` on reader routes only
@@ -337,11 +339,11 @@ own status: **read that file's § Status for what to build next.**
   link sized to the text so the row's dead space isn't a target; on desktop the row is pinned to
   the top of the sidebar, on the top-row axis it shares with the posts pane's title row and the
   post pane's actions — see Desktop shell v1), then **Home** as an ordinary list row —
-  same height and surface as every other row, inline `Home` + an `All feeds` caption — linking
+  same height and surface as every other row, just `Home` (the `all` feed's display title; was
+  `All feeds` until 2026-10-21) — linking
   to `/feed/all` (the merged read of every source that's on in some feed), then a pinned
-  **Saved** row (links to `/feed/saved`, with the total of `/home`'s `saved_counts` beside it
-  when non-zero; its three groups — Bookmarks / Favorites / Later from `app/utils/saved.ts`,
-  each → `/feed/saved_*` — live on its feed page, see Feed page above), then one row per
+  **Saved** row (links to `/feed/saved`; the total count beside it is gone from the list as of
+  2026-10-21 — the code no longer renders it, while screens-and-flows.md still specs it), then one row per
   feed: the name, and a count of its sources beside it unless it has exactly one (so a
   multi-source or empty feed shows its count), linking to `/feed/[uid]`. **The list is flat**
   _(2026-10-08)_: no expand chevrons, no trailing ⋯ buttons, no long-press, and the options
@@ -440,6 +442,21 @@ own status: **read that file's § Status for what to build next.**
   aspect from first paint with `animate-pulse` until load, and under `noUpscale` a smaller
   image sits centred at its own size — **this delivers roadmap T15f**. The feed search is `h-12`
   to match `IconButton`.
+- **Sidebar groups** _(2026-10-21)_ — frontend. The desktop sidebar is three groups: pinned
+  rows (Home, Saved, **New Feed**), a foldable **Feeds** group, and a foldable **Settings**
+  group that lists the settings sections directly (one click opens a section; the post pane's
+  own section list is no longer reached on desktop, and a section's top button is **Close**
+  rather than Back). Folds use `UCollapsible` with the new `ui/GroupToggle.vue` header
+  (caption-styled, hairline, caret) and a 200ms fade/slide (`fold-rows` in `motion.css`). Three
+  new **local-only** settings (cookie-persisted, not in the account payload, like `actionSide`):
+  `sidebarIcons` (`shown` default | `hidden`; desktop only; Appearance → *Sidebar icons*) and
+  `feedsGroupOpen` / `settingsGroupOpen`. The `all` feed's display title is now **Home**
+  (was "All feeds"). **Home and Saved have no feed page**: `FeedInfoPanels`/the info icon apply
+  to `feed_*` uids only, and `feed/Info.vue` no longer lists Saved's groups. The feed page's
+  header follows the post-actions side (actions left, Back right when `actionSide` is `left`).
+  Add wizard steps gain a Close button beside Back on desktop, and Add/Settings/feed-page
+  panels hold their content to `max-w-reading` inside a full-width scroll (scrollbar at the
+  pane edge). Continue in the wizard blinks `primary` once when first enabled.
 - **Image fallback and article cleanup** _(2026-10-13)_ — backend. Ingest's `_pick_image` falls
   back to the first `<img src>` in the entry's content, then summary, after `media:thumbnail` /
   `media:content` / image enclosure, skipping declared widths under 480 and non-http sources
@@ -586,7 +603,7 @@ own status: **read that file's § Status for what to build next.**
 - **Desktop polish** — v1 (see Built → Desktop shell v1) ships the structural three columns
   only: keyboard focus rings still globally suppressed. Auto-selecting
   a detail post (e.g. the last-read one) on entering a feed is also deferred — v1 always starts
-  with no post open: the feed page in the post pane, or on All feeds the "Select a post"
+  with no post open: the feed page in the post pane, or on Home and Saved the "Select a post"
   placeholder.
 - **Settings content** — the drawer, its four subpages, and transitions are built, and
   Appearance and Account are real, including the Post cards switch (see Built); About's version
@@ -1076,6 +1093,8 @@ _None currently._
   them into the add-wizard destination list and the loose-feed computation.
   **Amended _(2026-10-08)_:** there are no folders and the Saved row no longer expands — its
   groups are listed on Saved's feed page. They are still app structure, not store `Feed`s.
+  **Amended _(2026-10-21)_:** Saved's feed page is gone too; the groups are not linked from
+  any screen (the `/feed/saved_*` lists still resolve). Undecided where they surface.
 - **Folder reads through the feed page** _(2026-07-01)_ — a folder is **not** its own route.
   The feed page (`/feed/[uid]`) is polymorphic: `uid` resolves in a fixed order — `saved` →
   folder (`folder_*`) → feed (`feed_*`) — exactly the pattern `saved` already established.

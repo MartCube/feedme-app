@@ -48,7 +48,8 @@ navigates. File references point at `app/pages/` and `app/components/`.
 >   `<NuxtPage/>` at all. The shell reads the live route (`useRouter().currentRoute`, since
 >   Nuxt's `useRoute()` only resyncs when a `<NuxtPage/>` resolves and the shell renders none)
 >   and composes three columns directly from it and the `feeds`/`settings` stores: a sidebar
->   (feed list, plus standing Add feed / Settings links), a posts pane, and a post pane.
+>   (pinned Home / Saved / New Feed rows, a foldable **Feeds** group, a foldable **Settings**
+>   group listing the settings sections), a posts pane, and a post pane.
 >   Settings/Add open inside the post pane instead of a drawer, over the reader and beside the
 >   posts list (no slide — nothing on desktop animates, see [current-state.md](./current-state.md)
 >   § Resolved decisions → Desktop motion); a section or step replaces the pane, as on a phone. The post pane shows the
@@ -147,7 +148,7 @@ other screen loads anything until this one has been passed.
 **Purpose:** the home screen. Shows the pinned **Saved** row and the user's **feeds** — a flat
 list, nothing nested: a feed is already a group of sources, so there is nothing to expand. A
 **FEEDME** wordmark leads the list (the mark itself is a link to `/feed/all`), then **Home** is
-an ordinary list row like the rest (same height and surface, an inline **All feeds** caption) —
+an ordinary list row like the rest (same height and surface, just the name) —
 tapping it opens the merged read of every source that's on in some feed (`/feed/all`).
 
 **List order:** **Home** → pinned **Saved** → **feeds**, in the order `GET /home` returns them.
@@ -156,7 +157,8 @@ tapping it opens the merged read of every source that's on in some feed (`/feed/
 - See a pinned **Saved** row, with the total number of saved posts beside it (once there are
   any) → tapping it lists
   all posts the user has saved (`/feed/saved`). Its three groups — **Bookmarks / Favorites /
-  Later** (`/feed/saved_*`) — are on its feed page (screen 6), not on this list.
+  Later** (`/feed/saved_*`) — are not on this list, and Saved has no feed page of its own
+  (see screen 6).
 - See each **feed** as a row: its name, and a count of its sources beside it when it holds
   anything but exactly one (so a multi-source or empty feed shows its count, a one-source feed
   is just its name) → **tap** → read it (`/feed/[uid]`, screen 2).
@@ -182,7 +184,13 @@ account. Neither appears while the request is still in flight.
 
 **Desktop:** this same list renders in the sidebar, persistent beside the posts/post panes
 (not behind a drawer); the wordmark leading it stays pinned to the top of the sidebar while
-the list scrolls beneath it — see the Routing note.
+the list scrolls beneath it — see the Routing note. The sidebar has three groups: the
+**pinned rows** (Home, Saved, **New Feed** → `/add`), the **Feeds** group, and the **Settings**
+group, which lists the settings sections directly so one click opens one. Feeds and Settings
+fold under a caption header with a caret (200ms); the open/closed state is remembered on the
+device, not the account. Settings → Appearance → *Sidebar icons* (desktop only, on the device
+too) shows or hides an icon beside the fixed rows — Home, Saved, New Feed and the settings
+sections; feeds never carry one.
 
 ---
 
@@ -202,7 +210,7 @@ its description and sources — is a different screen, number 6, reached from th
   dismissed with swipe-back; on desktop the feed page already fills the post pane while no
   post is open, so the icon just links to `/feed/[uid]` — which closes the open post. The
   title itself is plain text: a visible icon instead of a hidden tap target _(2026-10-08)_.
-  **All feeds** has no page of its own, so it has no icon.
+  **Home** and **Saved** have no page of their own, so they have no icon.
 - **Search** this list: a magnifying glass on the title row swaps the title for a search box
   ("Search *{this list's name}*"), and the list narrows **as they type** to the posts in this
   same `uid` that match — a partial word is enough, newest first. Results page like the list
@@ -273,7 +281,7 @@ the article text (`status: ok | unavailable` — `unavailable` is the fallback a
 error); the route `uid` is the feed context it was opened in.
 
 **Desktop:** until a post is tapped, the post pane shows the feed page (screen 6) instead of
-this screen — or, on **All feeds**, which has no page of its own, a placeholder ("Select a
+this screen — or, on **Home** and **Saved**, which have no page of their own, a placeholder ("Select a
 post"). There is no auto-selected first or last-read post. The actions row (Copy link · Open
 source · Save) stays pinned to the top of the pane the same way, on the side Settings →
 Appearance → *Post actions* picks, and stays up from one post to the next while the new one
@@ -374,7 +382,9 @@ its panel by path. On desktop it opens inside the post pane _(2026-10-13; was tw
 area)_, beside the posts list: `/settings` shows the section list, and a section **replaces**
 it with the panel's own back button returning — the phone's stack without the slide — held to
 the form measure, since a form has a natural width. The
-sidebar carries a single **Settings** link, not a second copy of the section list.
+sidebar lists the sections itself (its Settings group), so on desktop a section opens in one
+click and the panel's top button is a **close** (back to the reading position), not a back
+to a section list.
 
 **Subpages:**
 - **Account** — `/settings/account` — how you're signed in, member since, and **Sign out**
@@ -424,10 +434,8 @@ list has no menu for it.
   its space and hides).
 - A feed with no sources says "No sources yet." and offers **Add source** all the same.
 
-**Saved** has a feed page of the same shape in place of sources: **All saved**, **Bookmarks**,
-**Favorites** and **Later**, each with its count and linking to its post list (`/feed/saved`,
-`/feed/saved_*`). It has no description, no edit and no sources — the groups are fixed app
-structure — and it replaces the expand chevron the Saved row used to carry on the home list.
+**Saved** and **Home** have no feed page (as of 2026-10-21). Saved's three groups
+(`/feed/saved_*`) remain valid post lists, but no screen links to them yet.
 
 **Mobile:** `/feed/[uid]/info` is a page of its own. It pushes in with the page slide from the
 post list and has swipe-back; so does each deeper view (screen 7), one level at a time — a
@@ -435,8 +443,8 @@ source's remove confirm goes back to the source, which goes back to the feed pag
 back to the posts.
 
 **Desktop:** the post pane shows the feed page — or whichever of its deeper views is open —
-whenever no post is. It replaces the "Select a post" placeholder, except on **All feeds**, which
-has no page of its own and keeps the placeholder. Opening a post replaces it; the list's title
+whenever no post is. It replaces the "Select a post" placeholder on **Home** and **Saved**, which
+have no page of their own and keep the placeholder. Opening a post replaces it; the list's title
 links to `/feed/[uid]`, which closes the post and brings it back. The view is remembered with
 the rest of the reading position, so opening Settings or Add over the reader and coming back
 finds it as it was.
