@@ -28,14 +28,14 @@ const tail = computed(() => (props.context ? ` from ${props.context}?` : '?'))
       aria-label="Cancel"
     />
 
-    <h1 class="mt-lg text-subtitle tracking-tight text-inset">
+    <h1 class="mt-lg text-subtitle tracking-tight">
       {{ action }}
     </h1>
 
-    <p class="mt-md text-body text-inset">
+    <p class="mt-md text-body">
       {{ verb }} <span class="font-semibold">{{ subject }}</span>{{ tail }}
     </p>
-    <p class="mt-xs text-caption text-muted text-inset">
+    <p class="mt-xs text-caption text-muted">
       {{ note }}
     </p>
 

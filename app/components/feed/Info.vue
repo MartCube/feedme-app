@@ -3,19 +3,18 @@ import type { Feed } from '~/assets/types'
 
 // The feed page: what a feed is and what's in it — its name and description,
 // and its sources, each switched on or off for this feed right here. A source
-// row opens that source's page. For Saved, the same slot lists its three
-// groups. On desktop it fills the post pane whenever no post is open; on a
-// phone it's reached by tapping the feed's title.
+// row opens that source's page. On desktop it fills the post pane whenever
+// no post is open; on a phone it's reached by tapping the feed's title.
 const props = defineProps<{ uid: string, feed?: Feed, back: string }>()
 
 const feedsStore = useFeedsStore()
-const { savedCounts } = storeToRefs(feedsStore)
 const wizard = useAddFeedWizard()
 
-const isSaved = computed(() => props.uid === 'saved' || props.uid.startsWith('saved_'))
 const enabledCount = computed(() => props.feed?.sources.filter(source => source.enabled).length ?? 0)
 
 const { selectedUid, select } = useTapSelection()
+
+const settings = useSettingsStore()
 
 // On = shown in this feed. Immediate, no Save: a toggle is its own commit.
 function setEnabled(sourceUid: string, enabled: boolean) {
@@ -29,22 +28,18 @@ function addSource() {
   wizard.target.value = props.uid
   navigateTo('/add')
 }
-
-const savedRows = computed(() => [
-  {
-    uid: 'saved',
-    name: 'All saved',
-    count: savedCounts.value.bookmarks + savedCounts.value.favorites + savedCounts.value.later,
-  },
-  ...savedGroups.map(group => ({ uid: group.uid, name: group.name, count: savedCounts.value[group.group] })),
-])
 </script>
 
 <template>
   <div class="flex flex-col">
     <!-- Back is the phone's way home to the post list; on desktop that list
-         is already beside it, so the button keeps its space and hides. -->
-    <header class="flex items-center justify-between gap-sm">
+         is already beside it, so the button keeps its space and hides.
+         The actions follow the post's side (Appearance → Post actions): on
+         the left the bar swaps, actions left and Back right. -->
+    <header
+      class="flex items-center justify-between gap-sm"
+      :class="settings.actionSide === 'left' && 'flex-row-reverse'"
+    >
       <IconButton
         icon="i-ph-caret-left-bold"
         :to="back"
@@ -53,10 +48,11 @@ const savedRows = computed(() => [
       />
       <!-- Delete is its own button rather than the foot of the edit form:
            the two are different jobs. Edit, the common one, takes the outer
-           edge. Delete still goes through its confirm. -->
+           edge on either side. Delete still goes through its confirm. -->
       <div
         v-if="feed"
         class="flex items-center gap-xs"
+        :class="settings.actionSide === 'left' && 'flex-row-reverse'"
       >
         <IconButton
           icon="i-ph-trash-bold"
@@ -72,12 +68,12 @@ const savedRows = computed(() => [
     </header>
 
     <template v-if="feed">
-      <h1 class="mt-lg text-title tracking-tight text-inset">
+      <h1 class="mt-lg text-title tracking-tight">
         {{ feed.name }}
       </h1>
       <p
         v-if="feed.description"
-        class="mt-xs text-body text-muted text-inset"
+        class="mt-xs text-body text-muted"
       >
         {{ feed.description }}
       </p>
@@ -141,28 +137,6 @@ const savedRows = computed(() => [
           Add source
         </button>
       </section>
-    </template>
-
-    <template v-else-if="isSaved">
-      <h1 class="mt-lg text-title tracking-tight text-inset">
-        Saved
-      </h1>
-      <ul class="mt-md flex flex-col">
-        <li
-          v-for="row in savedRows"
-          :key="row.uid"
-        >
-          <NuxtLink
-            :to="`/feed/${row.uid}`"
-            class="flex items-baseline gap-xs rounded-2xl p-sm text-body transition-colors"
-            :class="row.uid === uid || selectedUid === row.uid ? 'bg-elevated shadow-elevated text-primary' : 'hover-accent'"
-            @pointerdown="select(row.uid)"
-          >
-            <span class="truncate">{{ row.name }}</span>
-            <span class="text-caption text-muted">{{ row.count }}</span>
-          </NuxtLink>
-        </li>
-      </ul>
     </template>
   </div>
 </template>

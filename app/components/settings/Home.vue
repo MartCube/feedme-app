@@ -23,7 +23,7 @@ function isActive(to: string) {
       @click="closeDrawer"
     />
 
-    <h1 class="mt-lg text-title tracking-tight text-inset">
+    <h1 class="mt-lg text-title tracking-tight">
       Settings
     </h1>
 

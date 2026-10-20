@@ -56,6 +56,16 @@ export const actionSides: { name: ActionSide, label: string }[] = [
   { name: 'right', label: 'Right' },
 ]
 
+// Desktop only: whether the sidebar's fixed rows — Home, Saved, New Feed and
+// the settings sections — carry an icon beside their label. Feeds never do.
+// Local only, like ActionSide.
+export type SidebarIcons = 'shown' | 'hidden'
+
+export const sidebarIconOptions: { name: SidebarIcons, label: string }[] = [
+  { name: 'shown', label: 'Shown' },
+  { name: 'hidden', label: 'Hidden' },
+]
+
 // App-wide user preferences. These live on the account (GET/PUT /settings) so
 // they follow the user across devices; the cookie persistence stays as a local
 // cache, which is what renders the chosen theme server-side without a flash
@@ -72,6 +82,11 @@ export const useSettingsStore = defineStore('settings', () => {
   const paneSplit = ref<PaneSplit>('equal')
   // Outside `payload` on purpose — see ActionSide.
   const actionSide = ref<ActionSide>('left')
+  const sidebarIcons = ref<SidebarIcons>('shown')
+  // Desktop sidebar: whether its Feeds and Settings groups are unfolded. Local
+  // only too — how this screen's sidebar is arranged, not an account choice.
+  const feedsGroupOpen = ref(true)
+  const settingsGroupOpen = ref(true)
 
   const payload = computed<Settings>(() => ({
     theme: theme.value,
@@ -134,10 +149,10 @@ export const useSettingsStore = defineStore('settings', () => {
     return Boolean(b) && (Object.keys(a) as (keyof Settings)[]).every(key => a[key] === b![key])
   }
 
-  return { theme, feedListStyle, scrollbarStyle, postCardStyle, paneSplit, actionSide, loaded, load, reset }
+  return { theme, feedListStyle, scrollbarStyle, postCardStyle, paneSplit, actionSide, sidebarIcons, feedsGroupOpen, settingsGroupOpen, loaded, load, reset }
 }, {
   // The values only — never `loaded`. Restoring that from the cookie would skip
   // the GET on the next load and let the sync watcher fire against an empty
   // snapshot, turning every page load into a PUT.
-  persist: { pick: ['theme', 'feedListStyle', 'scrollbarStyle', 'postCardStyle', 'paneSplit', 'actionSide'] },
+  persist: { pick: ['theme', 'feedListStyle', 'scrollbarStyle', 'postCardStyle', 'paneSplit', 'actionSide', 'sidebarIcons', 'feedsGroupOpen', 'settingsGroupOpen'] },
 })

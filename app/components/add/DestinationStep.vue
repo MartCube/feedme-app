@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const emit = defineEmits<{ back: [], choose: [feedUid: string], newFeed: [] }>()
+const emit = defineEmits<{ back: [], close: [], choose: [feedUid: string], newFeed: [] }>()
 
 const { feeds } = storeToRefs(useFeedsStore())
 
@@ -9,12 +9,19 @@ const { selectedFeeds, adding, error } = useAddFeedWizard()
 <template>
   <!-- touch-none lets vaul own the drag-to-close gesture; revisit once the
        destination list needs real touch scrolling. -->
-  <div class="flex h-full touch-none flex-col scroll-host bg-default page-inset">
-    <IconButton
-      icon="i-ph-caret-left-bold"
-      aria-label="Back"
-      @click="emit('back')"
-    />
+  <div class="flex h-full touch-none flex-col scroll-host bg-default page-inset *:max-w-reading">
+    <header class="flex items-center gap-xs">
+      <IconButton
+        icon="i-ph-x-bold"
+        aria-label="Close add feed"
+        @click="emit('close')"
+      />
+      <IconButton
+        icon="i-ph-caret-left-bold"
+        aria-label="Back"
+        @click="emit('back')"
+      />
+    </header>
 
     <!-- The sources being added, so the choice has context. Deliberately quiet
          (label + plain rows, no card): here cards mean "tappable". -->
@@ -55,7 +62,7 @@ const { selectedFeeds, adding, error } = useAddFeedWizard()
           type="button"
           :disabled="adding"
           class="flex w-full items-center gap-sm rounded-2xl bg-elevated p-sm text-left shadow-elevated transition-colors"
-          :class="adding && 'text-dimmed'"
+          :class="adding ? 'text-dimmed' : 'hover-lift'"
           @click="emit('newFeed')"
         >
           <UIcon
@@ -74,6 +81,7 @@ const { selectedFeeds, adding, error } = useAddFeedWizard()
           type="button"
           :disabled="adding"
           class="flex w-full items-center gap-sm rounded-2xl bg-elevated p-sm text-left shadow-elevated transition-colors"
+          :class="!adding && 'hover-lift'"
           :aria-label="`Add to ${feed.name}`"
           @click="emit('choose', feed.uid)"
         >

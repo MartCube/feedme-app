@@ -159,10 +159,10 @@ useHead({
             />
           </template>
           <!-- No post open: the feed page — what this feed is, its sources and
-               their on/off — or one of the views under it. All feeds has no
-               page of its own, so it keeps the prompt. -->
+               their on/off — or one of the views under it. Home and Saved
+               have no page of their own, so they keep the prompt. -->
           <FeedInfoPanels
-            v-else-if="readerFeedUid !== 'all'"
+            v-else-if="readerFeedUid.startsWith('feed_')"
             :uid="readerFeedUid"
             :rest="readerInfo ?? []"
             class="max-w-reading"
@@ -178,25 +178,25 @@ useHead({
         </section>
 
         <!-- Each panel brings its own scroll-host and page-inset; this only
-             covers the pane and holds them to the form measure. Nothing
+             covers the pane. Not capped here: a capped panel put its
+             scrollbar mid-pane with dead space beyond it, so a panel holds
+             its own content to a measure inside its scroll. Nothing
              animates — on desktop a step or a section just replaces the last. -->
         <section
           v-if="contentOpen"
           class="absolute inset-0 z-20 bg-default"
         >
-          <div class="h-full max-w-reading">
-            <AddSteps
-              v-if="onAdd"
-              :slide="false"
-              @close="closeContent"
-              @done="openLanded"
-            />
-            <component
-              :is="settingsPanel"
-              v-else
-              :key="route.path"
-            />
-          </div>
+          <AddSteps
+            v-if="onAdd"
+            :slide="false"
+            @close="closeContent"
+            @done="openLanded"
+          />
+          <component
+            :is="settingsPanel"
+            v-else
+            :key="route.path"
+          />
         </section>
       </div>
     </div>

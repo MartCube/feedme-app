@@ -46,7 +46,9 @@ function onForward() {
 
 <template>
   <!-- Full-bleed panels that slide as whole slabs, exactly like the
-       settings drawer. Each step owns its scroll/padding/background. -->
+       settings drawer. Each step owns its scroll/padding/background, and
+       holds its children to the form measure (*:max-w-reading) so the
+       scroll — and its scrollbar — still spans the whole desktop pane. -->
   <div
     class="slide-panels h-full"
     :style="slideVars"
@@ -67,12 +69,14 @@ function onForward() {
         v-else-if="step === 'input'"
         key="input"
         @back="wizard.back"
+        @close="emit('close')"
         @forward="onForward"
       />
       <AddDestinationStep
         v-else-if="step === 'destination'"
         key="destination"
         @back="wizard.back"
+        @close="emit('close')"
         @choose="onChoose"
         @new-feed="wizard.goToNewFeed"
       />
@@ -80,6 +84,7 @@ function onForward() {
         v-else
         key="new-feed"
         @back="wizard.back"
+        @close="emit('close')"
         @create="onCreate"
       />
     </Transition>

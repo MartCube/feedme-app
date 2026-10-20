@@ -21,11 +21,11 @@ const title = computed(() => feedTitle(props.uid, feeds.value))
 // The Feed info button beside Search is the way into the feed page — its sources,
 // their on/off, its edit. On a phone that's its own page; on desktop the feed
 // page already sits in the post pane whenever no post is open, so the button
-// just closes the post. All feeds has no page of its own, so it has no button.
+// just closes the post. Home and Saved have no page of their own, so no button.
 const isDesktop = useIsDesktop()
 
 const infoTo = computed(() => {
-  if (props.uid === 'all') return undefined
+  if (props.uid === 'all' || props.uid.startsWith('saved')) return undefined
   return isDesktop.value ? `/feed/${props.uid}` : `/feed/${props.uid}/info`
 })
 

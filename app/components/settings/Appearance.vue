@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { actionSides, feedListStyles, paneSplits, postCardStyles, scrollbarStyles, themes } from '~/stores/settings'
+import { actionSides, feedListStyles, paneSplits, postCardStyles, scrollbarStyles, sidebarIconOptions, themes } from '~/stores/settings'
 
 const settings = useSettingsStore()
 
-// The scrollbar variants only apply to fine pointers and the panes only exist
-// on desktop, so both controls are dead weight on a phone.
+// The scrollbar variants only apply to fine pointers, and the panes and the
+// sidebar only exist on desktop, so those controls are dead weight on a phone.
 const isDesktop = useIsDesktop()
 </script>
 
@@ -49,6 +49,29 @@ const isDesktop = useIsDesktop()
           <span>{{ option.label }}</span>
           <UIcon
             v-if="settings.paneSplit === option.name"
+            name="i-ph-check-bold"
+            class="size-5 text-primary"
+          />
+        </button>
+      </div>
+    </section>
+
+    <section v-if="isDesktop">
+      <h3 class="text-caption font-semibold uppercase tracking-wide text-muted text-inset">
+        Sidebar icons
+      </h3>
+      <div class="mt-xs flex flex-col gap-px overflow-hidden rounded-2xl">
+        <button
+          v-for="option in sidebarIconOptions"
+          :key="option.name"
+          type="button"
+          :aria-pressed="settings.sidebarIcons === option.name"
+          class="flex items-center justify-between bg-elevated p-sm text-left"
+          @click="settings.sidebarIcons = option.name"
+        >
+          <span>{{ option.label }}</span>
+          <UIcon
+            v-if="settings.sidebarIcons === option.name"
             name="i-ph-check-bold"
             class="size-5 text-primary"
           />

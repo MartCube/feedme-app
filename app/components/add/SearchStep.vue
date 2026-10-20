@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const emit = defineEmits<{ back: [], forward: [] }>()
+const emit = defineEmits<{ back: [], close: [], forward: [] }>()
 
 const wizard = useAddFeedWizard()
 const { type, query, loading, results, searched, error, selectedFeeds } = wizard
@@ -7,6 +7,23 @@ const { type, query, loading, results, searched, error, selectedFeeds } = wizard
 // Heading label/icon and placeholder all come from the type card the user
 // just tapped (website when the type is somehow unset).
 const typeMeta = computed(() => feedTypes.find(option => option.type === type.value) ?? feedTypes[0]!)
+
+// Continue lights primary once, the moment the first pick makes it available,
+// so the eye goes from the card just checked to the way forward. Held as long
+// as the tap flash (useTapSelection); the colour fades in and out on the
+// standard transition.
+const canContinue = computed(() => selectedFeeds.value.length > 0)
+const continueBlink = ref(false)
+let blinkTimer: ReturnType<typeof setTimeout> | undefined
+watch(canContinue, (can) => {
+  if (!can) return
+  continueBlink.value = true
+  clearTimeout(blinkTimer)
+  blinkTimer = setTimeout(() => {
+    continueBlink.value = false
+  }, 450)
+})
+onScopeDispose(() => clearTimeout(blinkTimer))
 
 // Strip the protocol so the URL reads cleanly (css-tricks.com/feed/).
 function displayUrl(url: string) {
@@ -35,30 +52,46 @@ function initials(name: string) {
 <template>
   <!-- touch-none lets vaul own the drag-to-close gesture; revisit once the
        results list needs real touch scrolling. -->
-  <div class="flex h-full touch-none flex-col scroll-host bg-default page-inset">
+  <div class="flex h-full touch-none flex-col scroll-host bg-default page-inset *:max-w-reading">
     <header class="flex items-center justify-between gap-sm">
-      <IconButton
-        icon="i-ph-caret-left-bold"
-        aria-label="Back"
-        @click="emit('back')"
-      />
-      <!-- Same elevated circle as the back button; disabled only dims the icon. -->
-      <button
-        type="button"
-        class="flex size-12 shrink-0 items-center justify-center rounded-full bg-elevated shadow-elevated transition-colors"
-        :disabled="!selectedFeeds.length"
-        aria-label="Continue"
-        @click="emit('forward')"
-      >
-        <UIcon
-          name="i-ph-caret-right-bold"
-          class="size-6 transition-colors"
-          :class="selectedFeeds.length ? 'text-default' : 'text-dimmed'"
+      <!-- Close then Back hold the leading side on every step, as a bound
+           pair like the post's actions; Continue stands alone on the far side. -->
+      <div class="flex shrink-0 items-center gap-xs">
+        <IconButton
+          icon="i-ph-x-bold"
+          aria-label="Close add feed"
+          @click="emit('close')"
         />
-      </button>
+        <IconButton
+          icon="i-ph-caret-left-bold"
+          aria-label="Back"
+          @click="emit('back')"
+        />
+      </div>
+      <!-- Same elevated circle and tooltip as an IconButton (not one itself:
+           disabled only dims the icon, and enabled it rests text-default, a
+           step louder than an IconButton's muted icon). -->
+      <UTooltip
+        text="Continue"
+        :content="{ side: 'top', sideOffset: 4, collisionPadding: 2 }"
+      >
+        <button
+          type="button"
+          class="flex size-12 shrink-0 items-center justify-center rounded-full bg-elevated shadow-elevated transition-colors"
+          :disabled="!canContinue"
+          aria-label="Continue"
+          @click="emit('forward')"
+        >
+          <UIcon
+            name="i-ph-caret-right-bold"
+            class="size-6 transition-colors"
+            :class="continueBlink ? 'text-primary' : canContinue ? 'text-default' : 'text-dimmed'"
+          />
+        </button>
+      </UTooltip>
     </header>
 
-    <h1 class="mt-lg flex items-center gap-sm text-title tracking-tight text-inset">
+    <h1 class="mt-lg flex items-center gap-sm text-title tracking-tight">
       <UIcon
         :name="typeMeta.icon"
         class="size-6 text-muted"
@@ -102,7 +135,7 @@ function initials(name: string) {
       <li
         v-for="result in results"
         :key="result.feed_url"
-        class="relative isolate flex items-center gap-sm rounded-2xl bg-elevated p-sm shadow-elevated"
+        class="relative isolate flex items-center gap-sm rounded-2xl bg-elevated p-sm shadow-elevated transition-colors hover-lift"
       >
         <button
           type="button"

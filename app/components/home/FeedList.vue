@@ -8,14 +8,26 @@
 // keeps the elevated treatment persistently.
 // No top margin of its own — the gap above the wordmark is page context (the
 // mobile page clears its navbar; the desktop sidebar starts flush).
-const props = defineProps<{ activeUid?: string | null }>()
+// `grouped` is the desktop sidebar's shape: a slot after Saved for its own
+// entries, and the feeds folded under a Feeds header. `icons` puts an icon on
+// the pinned rows (Appearance → Sidebar icons); the feeds never carry one.
+const props = defineProps<{ activeUid?: string | null, grouped?: boolean, icons?: boolean }>()
 
-const { feeds, savedCounts } = storeToRefs(useFeedsStore())
+const { feeds } = storeToRefs(useFeedsStore())
 
 const settings = useSettingsStore()
 // Cards mode: every row keeps the elevated surface permanently — the tap
 // flash merges into it, and the name's accent is the cue.
 const isCards = computed(() => settings.feedListStyle === 'cards')
+// md between cards; list mode runs the rows on the smallest step, so a
+// selected row's rounded surface doesn't fuse with the row above it.
+const rowGap = computed(() => isCards.value ? 'gap-md' : 'gap-2xs')
+// Ungrouped, the feeds continue the pinned rows on the same rhythm; grouped,
+// they hang off their label at the label→group step.
+const feedsGap = computed(() => isCards.value ? 'mt-md' : 'mt-2xs')
+// The rows' fold slide (fold-rows, motion.css) waits for the first toggle:
+// the group mounts open on page load, and the rows would slide in.
+const feedsFolded = ref(false)
 
 const { selectedUid, select } = useTapSelection()
 
@@ -31,20 +43,26 @@ function isActive(uid: string) {
 // still — and adds the elevated surface; everything else takes the desktop
 // hover accent (themes.css). Selection rides the name rather than the surface
 // because in cards mode every row already has a surface, so the name is the
-// only cue left there.
-function rowClass(uid: string) {
+// only cue left there. A slotted row that isn't a feed (the sidebar's New
+// feed) passes its own `active`.
+function rowClass(uid: string, active = isActive(uid)) {
   return [
-    isCards.value || isActive(uid) ? 'bg-elevated shadow-elevated' : '',
-    isActive(uid) ? 'text-primary' : 'hover-accent',
+    isCards.value || active ? 'bg-elevated shadow-elevated' : '',
+    active ? 'text-primary' : 'hover-accent',
   ]
+}
+
+// The icons rest muted, a step quieter than their labels, so they follow the
+// row's hover accent by the same gate instead of inheriting it (as in
+// settings/Home.vue).
+function iconClass(uid: string) {
+  return isActive(uid) ? 'text-primary' : 'text-muted [@media(hover:hover)]:group-hover:text-primary'
 }
 
 // Spins beside the wordmark while any API call is in flight. Debounced so a
 // call that answers inside 150ms never flashes it.
 const { $apiPending } = useNuxtApp()
 const busy = refDebounced(computed(() => $apiPending.value > 0), 150)
-
-const savedTotal = computed(() => savedCounts.value.bookmarks + savedCounts.value.favorites + savedCounts.value.later)
 </script>
 
 <template>
@@ -58,8 +76,10 @@ const savedTotal = computed(() => savedCounts.value.bookmarks + savedCounts.valu
          Desktop pins it: the h-12 row is the top-row axis the posts pane's
          title and the post pane's actions share, and the sidebar's inset is
          pulled into its own padding (box-content, so h-12 stays the row) so
-         rows scroll away under an opaque sunken strip rather than past it. -->
-    <h1 class="flex items-center gap-sm text-logo tracking-tight lg:sticky lg:-top-lg lg:z-10 lg:-mx-lg lg:-mt-lg lg:box-content lg:h-12 lg:bg-sunken lg:px-lg lg:pt-lg">
+         rows scroll away under an opaque sunken strip rather than past it.
+         shrink-0: an overflowing sidebar column would otherwise squeeze the
+         row to its text, and every fold that ends the overflow would jump. -->
+    <h1 class="flex items-center gap-sm text-logo tracking-tight lg:sticky lg:-top-lg lg:z-10 lg:-mx-lg lg:-mt-lg lg:box-content lg:h-12 lg:shrink-0 lg:bg-sunken lg:px-lg lg:pt-lg">
       <NuxtLink to="/feed/all">
         <span class="text-primary">FEED</span>ME
       </NuxtLink>
@@ -73,71 +93,113 @@ const savedTotal = computed(() => savedCounts.value.bookmarks + savedCounts.valu
       />
     </h1>
 
-    <!-- Cards-mode spacing is per-row margins, md between cards. List mode runs
-         the rows on the smallest step, so a selected row's rounded surface
-         doesn't fuse with the row above it. -->
     <ul
-      v-auto-animate
       class="mt-md flex flex-col"
-      :class="!isCards && 'gap-2xs'"
+      :class="rowGap"
     >
-      <!-- items-center, not items-baseline like the counted rows: "All feeds"
-           is a word, and on a shared baseline a 12px word beside a 16px one
-           reads as sagging — centring the two line boxes lifts it the ~1px
-           that fixes it, without a magic offset. -->
+      <!-- items-center, not items-baseline like the counted feed rows: these
+           carry no count, and an icon centres on its label. -->
       <li
         class="-mx-sm rounded-2xl transition-colors"
         :class="rowClass('all')"
       >
         <NuxtLink
           to="/feed/all"
-          class="flex min-w-0 items-center gap-xs p-sm"
+          class="group flex min-w-0 items-center gap-sm p-sm"
           @pointerdown="select('all')"
         >
+          <UIcon
+            v-if="icons"
+            name="i-ph-house-bold"
+            class="size-5 shrink-0 transition-colors"
+            :class="iconClass('all')"
+          />
           <span class="truncate text-body">Home</span>
-          <span class="text-caption text-muted">All feeds</span>
         </NuxtLink>
       </li>
 
-      <!-- Pinned Saved row. Its three groups are on its feed page, the same
-           place a feed lists its sources. -->
       <li
         class="-mx-sm rounded-2xl transition-colors"
-        :class="[rowClass('saved'), isCards && 'mt-md']"
+        :class="rowClass('saved')"
       >
         <NuxtLink
           to="/feed/saved"
-          class="flex min-w-0 items-baseline gap-xs p-sm"
+          class="group flex min-w-0 items-center gap-sm p-sm"
           @pointerdown="select('saved')"
         >
+          <UIcon
+            v-if="icons"
+            name="i-ph-bookmark-simple-bold"
+            class="size-5 shrink-0 transition-colors"
+            :class="iconClass('saved')"
+          />
           <span class="truncate text-body">Saved</span>
-          <span
-            v-if="savedTotal"
-            class="text-caption text-muted"
-          >{{ savedTotal }}</span>
         </NuxtLink>
       </li>
 
-      <li
-        v-for="feed in feeds"
-        :key="feed.uid"
-        class="-mx-sm rounded-2xl transition-colors"
-        :class="[rowClass(feed.uid), isCards && 'mt-md']"
-      >
-        <!-- A group carries its source count, the way the Saved row carries
-             its total; a one-source feed is just its name. -->
-        <NuxtLink
-          :to="`/feed/${feed.uid}`"
-          class="flex min-w-0 items-baseline gap-xs p-sm"
-          @pointerdown="select(feed.uid)"
-        >
-          <span class="truncate text-body">{{ feed.name }}</span>
-          <span
-            v-if="feed.sources.length !== 1"
-            class="text-caption text-muted"
-          >{{ feed.sources.length }}</span>
-        </NuxtLink>
-      </li>
+      <slot
+        name="pinned"
+        :row-class="rowClass"
+      />
     </ul>
+
+    <!-- Ungrouped it's always open and has no header. The collapsible
+         animates the fold in CSS; auto-animate only the rows coming and going.
+         The content box takes the rows' -mx-sm bleed back as padding: it
+         clips while it folds, and would shave the row surfaces' edges.
+         Grouped, the rows also fade with the fold: a height fold alone only
+         wipes static rows off at the clip edge, and when nothing below the
+         group moves with it (the sidebar's last group) that wipe reads as
+         stutter. It's Nuxt UI's own fold animation with its own fade-in/out
+         keyframes added on the same 200ms — keyframes, not a transition,
+         because Reka zeroes transitions while it measures the rows. The rows
+         also slide with the fold (fold-rows, motion.css), so they move
+         instead of being wiped; pt-xs, not mt-xs, since the slide moves by
+         the box's height and a margin would collapse out of it. -->
+    <UCollapsible
+      :open="!grouped || settings.feedsGroupOpen"
+      class="flex flex-col"
+      :class="grouped ? 'mt-lg' : feedsGap"
+      :ui="{ content: grouped ? '-mx-sm px-sm data-[state=open]:animate-[collapsible-down_200ms_var(--ease-out),fade-in_200ms_var(--ease-out)] data-[state=closed]:animate-[collapsible-up_200ms_var(--ease-out),fade-out_200ms_var(--ease-out)]' : '-mx-sm px-sm' }"
+      @update:open="settings.feedsGroupOpen = $event; feedsFolded = true"
+    >
+      <template
+        v-if="grouped"
+        #default="{ open }"
+      >
+        <GroupToggle
+          label="Feeds"
+          :open="open"
+        />
+      </template>
+      <template #content>
+        <ul
+          v-auto-animate
+          class="flex flex-col"
+          :class="[rowGap, grouped && 'pt-xs', feedsFolded && 'fold-rows']"
+        >
+          <li
+            v-for="feed in feeds"
+            :key="feed.uid"
+            class="-mx-sm rounded-2xl transition-colors"
+            :class="rowClass(feed.uid)"
+          >
+            <!-- A group carries its source count; a one-source feed is just
+               its name. -->
+            <NuxtLink
+              :to="`/feed/${feed.uid}`"
+              class="flex min-w-0 items-baseline gap-xs p-sm"
+              @pointerdown="select(feed.uid)"
+            >
+              <span class="truncate text-body">{{ feed.name }}</span>
+              <span
+                v-if="feed.sources.length !== 1"
+                class="text-caption text-muted"
+              >{{ feed.sources.length }}</span>
+            </NuxtLink>
+          </li>
+        </ul>
+      </template>
+    </UCollapsible>
   </div>
 </template>

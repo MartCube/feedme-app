@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const emit = defineEmits<{ back: [], create: [name: string] }>()
+const emit = defineEmits<{ back: [], close: [], create: [name: string] }>()
 
 const { selectedFeeds, adding, error } = useAddFeedWizard()
 
@@ -17,14 +17,21 @@ function submit() {
 
 <template>
   <!-- touch-none lets vaul own the drag-to-close gesture. -->
-  <div class="flex h-full touch-none flex-col scroll-host bg-default page-inset">
-    <IconButton
-      icon="i-ph-caret-left-bold"
-      aria-label="Back"
-      @click="emit('back')"
-    />
+  <div class="flex h-full touch-none flex-col scroll-host bg-default page-inset *:max-w-reading">
+    <header class="flex items-center gap-xs">
+      <IconButton
+        icon="i-ph-x-bold"
+        aria-label="Close add feed"
+        @click="emit('close')"
+      />
+      <IconButton
+        icon="i-ph-caret-left-bold"
+        aria-label="Back"
+        @click="emit('back')"
+      />
+    </header>
 
-    <h1 class="mt-lg text-title tracking-tight text-inset">
+    <h1 class="mt-lg text-title tracking-tight">
       New feed
     </h1>
 

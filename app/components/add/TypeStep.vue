@@ -22,14 +22,14 @@ onScopeDispose(() => clearTimeout(flashTimer))
 <template>
   <!-- touch-none lets vaul own the drag-to-close gesture; revisit once a
        step's content needs real touch scrolling. -->
-  <div class="h-full touch-none scroll-host bg-default page-inset">
+  <div class="h-full touch-none scroll-host bg-default page-inset *:max-w-reading">
     <IconButton
       icon="i-ph-x-bold"
       aria-label="Close add feed"
       @click="emit('close')"
     />
 
-    <h1 class="mt-lg text-title tracking-tight text-inset">
+    <h1 class="mt-lg text-title tracking-tight">
       Add feed
     </h1>
 
@@ -40,7 +40,7 @@ onScopeDispose(() => clearTimeout(flashTimer))
       >
         <button
           type="button"
-          class="flex w-full items-center gap-sm rounded-2xl bg-elevated p-sm text-left shadow-elevated transition-colors"
+          class="flex w-full items-center gap-sm rounded-2xl bg-elevated p-sm text-left shadow-elevated transition-colors hover-lift"
           @pointerdown="flash(option.type)"
           @click="emit('select', option.type)"
         >

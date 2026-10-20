@@ -20,8 +20,7 @@ const source = computed(() => feed.value?.sources.find(s => s.uid === props.rest
 // bounce mid-load.
 const missing = computed(() => {
   if (!loaded.value && !unreachable.value) return false
-  if (props.uid.startsWith('saved')) return view.value !== 'info'
-  // All feeds has no page of its own, so /feed/all/info is a dead link too
+  // Home and Saved have no page of their own, so their info links are dead too
   if (!feed.value) return true
   return (view.value === 'source' || view.value === 'remove') && !source.value
 })

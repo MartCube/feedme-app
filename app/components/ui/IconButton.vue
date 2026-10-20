@@ -43,8 +43,13 @@ const surface = computed(() => {
        below put the label over the content the button acts on. The top row
        is only lg (32px) from the window edge, and the stock 8px offset + 8px
        collision padding need ~41px with the label's own height, so it always
-       flipped back below. 4 + 2 fits in the inset. -->
+       flipped back below. 4 + 2 fits in the inset.
+       Keyed on `to` because Reka takes the trigger element once, on mount: a
+       button whose `to` arrives later (Open source, before its post loads)
+       swaps <button> for <a> under it, and the tooltip would keep tracking
+       the detached button and never close when the pointer leaves. -->
   <UTooltip
+    :key="to ? 'link' : 'button'"
     :text="label"
     :disabled="!label"
     :content="{ side: 'top', sideOffset: 4, collisionPadding: 2 }"

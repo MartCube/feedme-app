@@ -7,7 +7,7 @@
 @theme static {
   --container-sidebar: 18rem; /* feed/settings nav pane */
   --container-postlist: 24rem; /* empty-state measure (the pane itself is 40–60%, by setting) */
-  --container-reading: 42rem; /* form measure: settings/add/edit content pages */
+  --container-reading: 42rem; /* form measure: the feed page and settings content in the post pane */
   --container-post: 56rem; /* post body measure — only bites on wide monitors */
   /* sign-in column: the width cap Google enforces on its own button, plus the
      two page-insets around it. Derived rather than written out, so retuning the

@@ -63,10 +63,10 @@ async function save() {
       />
     </header>
 
-    <h1 class="mt-lg truncate text-subtitle tracking-tight text-inset">
+    <h1 class="mt-lg truncate text-subtitle tracking-tight">
       {{ source.name }}
     </h1>
-    <p class="mt-2xs text-caption text-muted text-inset">
+    <p class="mt-2xs text-caption text-muted">
       In {{ feed.name }}
     </p>
 
