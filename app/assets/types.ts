@@ -26,8 +26,8 @@ export type FeedType = Source['type']
 // /posts/{uid}/article.
 export type Post = Schemas['PostSchema']
 
-// Which saved pile a post is in. Named …Name because `SavedGroup` in
-// app/utils/saved.ts is the home-list row that shows one.
+// Which saved pile a post is in. The backend keeps three; the app shows one
+// Saved list and files every save under the default (composables/usePost.ts).
 export type SavedGroupName = NonNullable<Post['saved_group']>
 
 // Ready <img> attributes for a post image (docs/images.md § Wire contract):

@@ -9,23 +9,6 @@ export const themes: { name: ThemeName, label: string }[] = [
   { name: 'claude', label: 'Claude' },
 ]
 
-export type FeedListStyle = Settings['feed_list_style']
-
-export const feedListStyles: { name: FeedListStyle, label: string }[] = [
-  { name: 'list', label: 'List' },
-  { name: 'cards', label: 'Cards' },
-]
-
-// Desktop scrollbar treatment (assets/css/scrollbars.css). `auto` writes no
-// rules — it's the native baseline to compare the variants against.
-export type ScrollbarStyle = Settings['scrollbar_style']
-
-export const scrollbarStyles: { name: ScrollbarStyle, label: string }[] = [
-  { name: 'thin', label: 'Thin' },
-  { name: 'comfortable', label: 'Comfortable' },
-  { name: 'auto', label: 'System' },
-]
-
 // Which version of a post card to render: a 16:9 image on top, or date and
 // title alone. A post with no image renders compact under either
 // (docs/images.md § Rendering).
@@ -76,8 +59,6 @@ export const useSettingsStore = defineStore('settings', () => {
   const nuxtApp = useNuxtApp()
 
   const theme = ref<ThemeName>('ink')
-  const feedListStyle = ref<FeedListStyle>('list')
-  const scrollbarStyle = ref<ScrollbarStyle>('thin')
   const postCardStyle = ref<PostCardStyle>('image')
   const paneSplit = ref<PaneSplit>('equal')
   // Outside `payload` on purpose — see ActionSide.
@@ -90,8 +71,6 @@ export const useSettingsStore = defineStore('settings', () => {
 
   const payload = computed<Settings>(() => ({
     theme: theme.value,
-    feed_list_style: feedListStyle.value,
-    scrollbar_style: scrollbarStyle.value,
     post_card_style: postCardStyle.value,
     pane_split: paneSplit.value,
   }))
@@ -112,8 +91,6 @@ export const useSettingsStore = defineStore('settings', () => {
     try {
       const remote = await nuxtApp.$api<Settings>('/settings')
       theme.value = remote.theme
-      feedListStyle.value = remote.feed_list_style
-      scrollbarStyle.value = remote.scrollbar_style
       postCardStyle.value = remote.post_card_style
       paneSplit.value = remote.pane_split
       synced = remote
@@ -149,10 +126,10 @@ export const useSettingsStore = defineStore('settings', () => {
     return Boolean(b) && (Object.keys(a) as (keyof Settings)[]).every(key => a[key] === b![key])
   }
 
-  return { theme, feedListStyle, scrollbarStyle, postCardStyle, paneSplit, actionSide, sidebarIcons, feedsGroupOpen, settingsGroupOpen, loaded, load, reset }
+  return { theme, postCardStyle, paneSplit, actionSide, sidebarIcons, feedsGroupOpen, settingsGroupOpen, loaded, load, reset }
 }, {
   // The values only — never `loaded`. Restoring that from the cookie would skip
   // the GET on the next load and let the sync watcher fire against an empty
   // snapshot, turning every page load into a PUT.
-  persist: { pick: ['theme', 'feedListStyle', 'scrollbarStyle', 'postCardStyle', 'paneSplit', 'actionSide', 'sidebarIcons', 'feedsGroupOpen', 'settingsGroupOpen'] },
+  persist: { pick: ['theme', 'postCardStyle', 'paneSplit', 'actionSide', 'sidebarIcons', 'feedsGroupOpen', 'settingsGroupOpen'] },
 })

@@ -16,40 +16,24 @@ const props = defineProps<{ activeUid?: string | null, grouped?: boolean, icons?
 const { feeds } = storeToRefs(useFeedsStore())
 
 const settings = useSettingsStore()
-// Cards mode: every row keeps the elevated surface permanently — the tap
-// flash merges into it, and the name's accent is the cue.
-const isCards = computed(() => settings.feedListStyle === 'cards')
-// md between cards; list mode runs the rows on the smallest step, so a
-// selected row's rounded surface doesn't fuse with the row above it.
-const rowGap = computed(() => isCards.value ? 'gap-md' : 'gap-2xs')
-// Ungrouped, the feeds continue the pinned rows on the same rhythm; grouped,
-// they hang off their label at the label→group step.
-const feedsGap = computed(() => isCards.value ? 'mt-md' : 'mt-2xs')
 // The rows' fold slide (fold-rows, motion.css) waits for the first toggle:
 // the group mounts open on page load, and the rows would slide in.
 const feedsFolded = ref(false)
 
 const { selectedUid, select } = useTapSelection()
 
-// Mobile tap flash OR persistent desktop selection. The Saved row also stays
-// lit while one of its groups is open.
+// Mobile tap flash OR persistent desktop selection.
 function isActive(uid: string) {
   return selectedUid.value === uid || props.activeUid === uid
-    || (uid === 'saved' && Boolean(props.activeUid?.startsWith('saved_')))
 }
 
-// The row treatment every row shares. Selected lights the row's *name*
-// primary — the tap flash on the way out, the master–detail selection standing
-// still — and adds the elevated surface; everything else takes the desktop
-// hover accent (themes.css). Selection rides the name rather than the surface
-// because in cards mode every row already has a surface, so the name is the
-// only cue left there. A slotted row that isn't a feed (the sidebar's New
-// feed) passes its own `active`.
+// The row treatment every row shares. Selected lights the row's name primary
+// and adds the elevated surface — the tap flash on the way out, the
+// master–detail selection standing still; everything else takes the desktop
+// hover accent (themes.css). A slotted row that isn't a feed (the sidebar's
+// New feed) passes its own `active`.
 function rowClass(uid: string, active = isActive(uid)) {
-  return [
-    isCards.value || active ? 'bg-elevated shadow-elevated' : '',
-    active ? 'text-primary' : 'hover-accent',
-  ]
+  return active ? 'bg-elevated shadow-elevated text-primary' : 'hover-accent'
 }
 
 // The icons rest muted, a step quieter than their labels, so they follow the
@@ -93,10 +77,9 @@ const busy = refDebounced(computed(() => $apiPending.value > 0), 150)
       />
     </h1>
 
-    <ul
-      class="mt-md flex flex-col"
-      :class="rowGap"
-    >
+    <!-- The rows run on the smallest step, so a selected row's rounded
+         surface doesn't fuse with the row above it. -->
+    <ul class="mt-md flex flex-col gap-2xs">
       <!-- items-center, not items-baseline like the counted feed rows: these
            carry no count, and an icon centres on its label. -->
       <li
@@ -159,7 +142,7 @@ const busy = refDebounced(computed(() => $apiPending.value > 0), 150)
     <UCollapsible
       :open="!grouped || settings.feedsGroupOpen"
       class="flex flex-col"
-      :class="grouped ? 'mt-lg' : feedsGap"
+      :class="grouped ? 'mt-lg' : 'mt-2xs'"
       :ui="{ content: grouped ? '-mx-sm px-sm data-[state=open]:animate-[collapsible-down_200ms_var(--ease-out),fade-in_200ms_var(--ease-out)] data-[state=closed]:animate-[collapsible-up_200ms_var(--ease-out),fade-out_200ms_var(--ease-out)]' : '-mx-sm px-sm' }"
       @update:open="settings.feedsGroupOpen = $event; feedsFolded = true"
     >
@@ -175,8 +158,8 @@ const busy = refDebounced(computed(() => $apiPending.value > 0), 150)
       <template #content>
         <ul
           v-auto-animate
-          class="flex flex-col"
-          :class="[rowGap, grouped && 'pt-xs', feedsFolded && 'fold-rows']"
+          class="flex flex-col gap-2xs"
+          :class="[grouped && 'pt-xs', feedsFolded && 'fold-rows']"
         >
           <li
             v-for="feed in feeds"

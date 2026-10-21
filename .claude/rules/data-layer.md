@@ -23,7 +23,7 @@ paths:
   creates (`addFeed`, `addSource`, `relinkSource`), which await the server. **No wrapper
   composables around stores** — use them directly.
 - Uids are prefixed and backend-minted: `feed_*`, `source_*`, `post_*`, the fixed `saved_*`
-  groups (`app/utils/saved.ts`), plus the literals `all` / `saved`. The resolver reads them in
+  groups (backend-only for now — the app shows one Saved list), plus the literals `all` / `saved`. The resolver reads them in
   that order — one polymorphic `/feeds/{uid}/posts` serves a feed, `all` and `saved`. A
   new public noun is a discussion (`docs/backend.md` § Vocabulary), never a unilateral call.
 - Justify every new composable or util, or cut it — say which part is moved code and which is

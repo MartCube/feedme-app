@@ -12,7 +12,6 @@ export const useFeedsStore = defineStore('feeds', () => {
   const nuxtApp = useNuxtApp()
 
   const feeds = ref<Feed[]>([])
-  const savedCounts = ref<Home['saved_counts']>({ bookmarks: 0, favorites: 0, later: 0 })
 
   // Gates the home render: without it the first paint flashes the "nothing
   // followed yet" empty state before /home answers.
@@ -38,7 +37,6 @@ export const useFeedsStore = defineStore('feeds', () => {
       const home = await nuxtApp.$api<Home>('/home')
       // Already in display order — the server sorts by the one order column.
       feeds.value = home.feeds
-      savedCounts.value = home.saved_counts
       loaded.value = true
       unreachable.value = false
     }
@@ -88,7 +86,6 @@ export const useFeedsStore = defineStore('feeds', () => {
   // next account looking at the previous one's feeds.
   function reset() {
     feeds.value = []
-    savedCounts.value = { bookmarks: 0, favorites: 0, later: 0 }
     loaded.value = false
     unreachable.value = false
     readerFeedUid.value = 'all'
@@ -236,5 +233,5 @@ export const useFeedsStore = defineStore('feeds', () => {
     )
   }
 
-  return { feeds, savedCounts, loaded, unreachable, load, reload, reset, hasFeeds, postsRevision, readerFeedUid, readerPostUid, readerQuery, readerInfo, readerPath, addFeed, addSource, relinkSource, updateFeed, deleteFeed, updateSource, removeSource }
+  return { feeds, loaded, unreachable, load, reload, reset, hasFeeds, postsRevision, readerFeedUid, readerPostUid, readerQuery, readerInfo, readerPath, addFeed, addSource, relinkSource, updateFeed, deleteFeed, updateSource, removeSource }
 })

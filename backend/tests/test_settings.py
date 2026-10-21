@@ -10,15 +10,11 @@ from core.models import UserSettings
 
 DEFAULTS = {
     'theme': 'ink',
-    'feed_list_style': 'list',
-    'scrollbar_style': 'thin',
     'post_card_style': 'image',
     'pane_split': 'equal',
 }
 CHANGED = {
     'theme': 'claude',
-    'feed_list_style': 'cards',
-    'scrollbar_style': 'auto',
     'post_card_style': 'compact',
     'pane_split': 'posts',
 }
@@ -81,12 +77,6 @@ def test_the_schemas_literals_match_the_models_choices():
     fields = SettingsSchema.model_fields
 
     assert set(get_args(fields['theme'].annotation)) == set(UserSettings.Theme.values)
-    assert set(get_args(fields['feed_list_style'].annotation)) == set(
-        UserSettings.FeedListStyle.values
-    )
-    assert set(get_args(fields['scrollbar_style'].annotation)) == set(
-        UserSettings.ScrollbarStyle.values
-    )
     assert set(get_args(fields['post_card_style'].annotation)) == set(
         UserSettings.PostCardStyle.values
     )

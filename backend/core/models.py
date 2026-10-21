@@ -201,16 +201,6 @@ class UserSettings(models.Model):
         INK = 'ink'
         CLAUDE = 'claude'
 
-    class FeedListStyle(models.TextChoices):
-        LIST = 'list'
-        CARDS = 'cards'
-
-    class ScrollbarStyle(models.TextChoices):
-        THIN = 'thin'
-        COMFORTABLE = 'comfortable'
-        # the Appearance panel calls this one "System" — it writes no scrollbar rules at all
-        AUTO = 'auto', 'System'
-
     class PostCardStyle(models.TextChoices):
         # a 16:9 image on top, or date + title alone. A post with no image renders compact
         # under either (docs/images.md § Rendering).
@@ -226,12 +216,6 @@ class UserSettings(models.Model):
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='settings')
     theme = models.CharField(max_length=10, choices=Theme.choices, default=Theme.INK)
-    feed_list_style = models.CharField(
-        max_length=10, choices=FeedListStyle.choices, default=FeedListStyle.LIST
-    )
-    scrollbar_style = models.CharField(
-        max_length=11, choices=ScrollbarStyle.choices, default=ScrollbarStyle.THIN
-    )
     post_card_style = models.CharField(
         max_length=7, choices=PostCardStyle.choices, default=PostCardStyle.IMAGE
     )

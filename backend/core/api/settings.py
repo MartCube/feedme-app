@@ -22,10 +22,6 @@ router = Router(tags=['user'])
 
 class SettingsSchema(Schema):
     theme: Literal['ink', 'claude']
-    feed_list_style: Literal['list', 'cards']
-    # 'auto' is the native baseline the app writes no scrollbar rules for; the Appearance
-    # panel labels it "System"
-    scrollbar_style: Literal['thin', 'comfortable', 'auto']
     # which version of a post card to render: a square image beside the text, or date + title alone
     # (docs/images.md § Rendering)
     post_card_style: Literal['image', 'compact']

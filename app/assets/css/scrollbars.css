@@ -1,7 +1,6 @@
 /* ---- Scrollbars -----------------------------------------------------------
-   Desktop-only chrome. Variants are switched by `data-scrollbar` on <html>
-   (app.vue, from the settings store) exactly like `data-theme` drives
-   themes.css; the `auto` value writes no rules, so it's the native baseline.
+   Desktop-only chrome: one treatment, no setting — a 6px pill floating in a
+   14px gutter, on the existing roles.
 
    Two mutually exclusive styling APIs:
      - ::-webkit-scrollbar*         Chromium + Safari. Width, radius, inset.
@@ -13,8 +12,8 @@
    branches, or Chromium silently falls back to native.
 
    Colours are the existing roles only: --ui-bg-muted is already the
-   hover/pressed surface, and the hover step is mixed toward --ui-text rather
-   than adding a palette entry (docs/design-system.md: 9 roles, no more). */
+   hover/pressed surface, and the thumb is mixed toward --ui-text rather than
+   adding a palette entry (docs/design-system.md: 9 roles, no more). */
 
 /* overflow-y-auto + a reserved gutter, which always travel together: the
    gutter is what stops a pane reflowing sideways the moment its content grows
@@ -30,74 +29,42 @@
 @media (pointer: fine) {
   /* ---- Chromium (Chrome, Brave, Edge) + Safari --------------------------- */
   @supports selector(::-webkit-scrollbar) {
-    html[data-scrollbar='thin'] *::-webkit-scrollbar {
-      width: 10px;
-      height: 10px;
-    }
-
-    html[data-scrollbar='comfortable'] *::-webkit-scrollbar {
+    *::-webkit-scrollbar {
       width: 14px;
       height: 14px;
     }
 
     /* The track is the page; only the thumb is ours. */
-    html[data-scrollbar='thin'] *::-webkit-scrollbar-track,
-    html[data-scrollbar='comfortable'] *::-webkit-scrollbar-track,
-    html[data-scrollbar='thin'] *::-webkit-scrollbar-corner,
-    html[data-scrollbar='comfortable'] *::-webkit-scrollbar-corner {
+    *::-webkit-scrollbar-track,
+    *::-webkit-scrollbar-corner {
       background: transparent;
     }
 
     /* Chromium on Windows/Linux paints stepper arrows otherwise. */
-    html[data-scrollbar='thin'] *::-webkit-scrollbar-button,
-    html[data-scrollbar='comfortable'] *::-webkit-scrollbar-button {
+    *::-webkit-scrollbar-button {
       display: none;
     }
 
     /* Transparent border + content-box clip is what insets the thumb inside
        the gutter, so the pill floats instead of touching the pane edge. */
-    html[data-scrollbar='thin'] *::-webkit-scrollbar-thumb,
-    html[data-scrollbar='comfortable'] *::-webkit-scrollbar-thumb {
+    *::-webkit-scrollbar-thumb {
+      border: 4px solid transparent; /* 6px of visible thumb */
       border-radius: 9999px;
       background-clip: content-box;
-    }
-
-    html[data-scrollbar='thin'] *::-webkit-scrollbar-thumb {
-      border: 3px solid transparent; /* 4px of visible thumb */
-    }
-
-    html[data-scrollbar='comfortable'] *::-webkit-scrollbar-thumb {
-      border: 4px solid transparent; /* 6px of visible thumb */
-    }
-
-    html[data-scrollbar='thin'] *::-webkit-scrollbar-thumb {
-      background-color: var(--ui-bg-muted);
+      background-color: color-mix(in oklab, var(--ui-bg-muted), var(--ui-text) 8%);
     }
 
     /* Hovering the thumb itself DOES restyle it; hovering the scroller does
        not — Chromium ignores :hover on the scrolling element when resolving
-       scrollbar pseudo-elements, which is why there's no hover-reveal variant. */
-    html[data-scrollbar='thin'] *::-webkit-scrollbar-thumb:hover {
-      background-color: color-mix(in oklab, var(--ui-bg-muted), var(--ui-text) 15%);
-    }
-
-    html[data-scrollbar='comfortable'] *::-webkit-scrollbar-thumb {
-      background-color: color-mix(in oklab, var(--ui-bg-muted), var(--ui-text) 8%);
-    }
-
-    html[data-scrollbar='comfortable'] *::-webkit-scrollbar-thumb:hover {
+       scrollbar pseudo-elements, which is why there's no hover-reveal. */
+    *::-webkit-scrollbar-thumb:hover {
       background-color: color-mix(in oklab, var(--ui-bg-muted), var(--ui-text) 20%);
     }
   }
 
   /* ---- Firefox ----------------------------------------------------------- */
   @supports not selector(::-webkit-scrollbar) {
-    html[data-scrollbar='thin'] * {
-      scrollbar-width: thin;
-      scrollbar-color: var(--ui-bg-muted) transparent;
-    }
-
-    html[data-scrollbar='comfortable'] * {
+    * {
       scrollbar-width: auto;
       scrollbar-color: color-mix(in oklab, var(--ui-bg-muted), var(--ui-text) 8%) transparent;
     }

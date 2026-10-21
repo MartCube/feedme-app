@@ -619,16 +619,6 @@ export interface components {
              */
             theme: "ink" | "claude";
             /**
-             * Feed List Style
-             * @enum {string}
-             */
-            feed_list_style: "list" | "cards";
-            /**
-             * Scrollbar Style
-             * @enum {string}
-             */
-            scrollbar_style: "thin" | "comfortable" | "auto";
-            /**
              * Post Card Style
              * @enum {string}
              */

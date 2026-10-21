@@ -1,8 +1,7 @@
 <script setup lang="ts">
-// data-theme drives the theme blocks in assets/css/themes.css, data-scrollbar
-// the variants in assets/css/scrollbars.css.
-const { theme, scrollbarStyle } = storeToRefs(useSettingsStore())
-useHead({ htmlAttrs: { 'data-theme': theme, 'data-scrollbar': scrollbarStyle } })
+// data-theme drives the theme blocks in assets/css/themes.css.
+const { theme } = storeToRefs(useSettingsStore())
+useHead({ htmlAttrs: { 'data-theme': theme } })
 
 // The account's data is loaded here, on mount, rather than in the route
 // middleware: every API call is client-only, so the server renders on empty
