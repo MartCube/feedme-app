@@ -92,7 +92,7 @@ navigates. File references point at `app/pages/` and `app/components/`.
 > 1. `all` → posts from every source that is on in at least one feed, merged (the home header's
 >    target).
 > 2. `saved` → all saved posts merged, or a **saved-group** uid (`saved_*`:
->    Bookmarks / Favorites / Later, defined in `app/utils/saved.ts`) → that group's posts.
+>    Bookmarks / Favorites / Later, API-only — the app does not link them) → that group's posts.
 > 3. otherwise a **feed** uid (`feed_*`) → that feed's merged stream: its **enabled** sources,
 >    newest first.
 >
@@ -156,8 +156,7 @@ tapping it opens the merged read of every source that's on in some feed (`/feed/
 **The user can:**
 - See a pinned **Saved** row, with the total number of saved posts beside it (once there are
   any) → tapping it lists
-  all posts the user has saved (`/feed/saved`). Its three groups — **Bookmarks / Favorites /
-  Later** (`/feed/saved_*`) — are not on this list, and Saved has no feed page of its own
+  all posts the user has saved (`/feed/saved`). The app shows one Saved list — no groups — and Saved has no feed page of its own
   (see screen 6).
 - See each **feed** as a row: its name, and a count of its sources beside it when it holds
   anything but exactly one (so a multi-source or empty feed shows its count, a one-source feed
@@ -389,7 +388,7 @@ to a section list.
 **Subpages:**
 - **Account** — `/settings/account` — how you're signed in, member since, and **Sign out**
   (which ends the session server-side and returns to screen 0).
-- **Appearance** — `/settings/appearance` — theme, feed-list style, scrollbar style,
+- **Appearance** — `/settings/appearance` — theme,
   **Post cards** (Image / Compact, T15a — [images.md](./images.md) § Rendering), **Post
   actions** _(2026-10-13)_ (Copy link, Open source and Save sit on the **left**, the default, or
   the **right** of the post's action row — the phone's post navbar and the desktop pane strip
@@ -434,8 +433,8 @@ list has no menu for it.
   its space and hides).
 - A feed with no sources says "No sources yet." and offers **Add source** all the same.
 
-**Saved** and **Home** have no feed page (as of 2026-10-21). Saved's three groups
-(`/feed/saved_*`) remain valid post lists, but no screen links to them yet.
+**Saved** and **Home** have no feed page (as of 2026-10-21). The backend still keeps
+three saved groups (`/feed/saved_*` resolve), but the app does not surface them.
 
 **Mobile:** `/feed/[uid]/info` is a page of its own. It pushes in with the page slide from the
 post list and has swipe-back; so does each deeper view (screen 7), one level at a time — a

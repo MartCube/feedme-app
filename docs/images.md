@@ -180,7 +180,7 @@ types:api` plus typecheck finds every consumer — `PostCard.vue` and `PostView.
   server knows real dimensions, answers `null` for both cases, and the read-time collapse — and
   the flicker it causes — stops happening. See [backend-roadmap.md](./backend-roadmap.md) § T15d.
 - **Two card versions.** Settings → Appearance → *Post cards: Image / Compact*, synced through
-  `/settings` like the theme, feed-list and scrollbar settings (a `UserSettings` column). A post
+  `/settings` like the theme setting (a `UserSettings` column). A post
   with no image renders compact under either setting. The default is *Image* — the card
   [screens-and-flows.md](./screens-and-flows.md) § 2 describes has always shown one.
 - Feed icons render through Nuxt UI's `UAvatar`, whose initials fallback covers the sources

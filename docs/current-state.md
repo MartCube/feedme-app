@@ -72,20 +72,16 @@ own status: **read that file's § Status for what to build next.**
   `settings` store (`pinia-plugin-persistedstate`, cookie — now a local cache in front of
   `GET`/`PUT /settings`, see **Data layer** below, which is what still paints the chosen theme
   server-side without a flash); `app.vue` applies `data-theme` on `<html>` via `useHead`.
-- **Feed-list style switch** — Settings → Appearance → Feed list picks **List** (plain rows,
-  default) or **Cards** (every home row — Home, Saved and the feeds — becomes a permanent
-  `bg-elevated` + `shadow-elevated` card, spaced `md` apart via per-row margins);
-  `settings.feedListStyle`, persisted like the theme. In cards mode the tap flash merges into
-  the card surface — the name's accent stays the cue.
-- **Scrollbar style switch** — Settings → Appearance → Scrollbar (desktop only, hidden on
-  touch via `useIsDesktop()`) picks **Thin** (default), **Comfortable**, or **System** (native,
-  writes no rules); `settings.scrollbarStyle`, persisted like the theme, applied as
-  `data-scrollbar` on `<html>` from `app.vue` (same wiring as `data-theme`). Rules live in
-  `app/assets/css/scrollbars.css` (thumb colors derived from `--ui-bg-muted` / a color-mix
-  toward `--ui-text`, separate webkit and Firefox branches — the two must never target the
-  same element or Chromium 121+ drops the webkit rules). Scroll containers across
-  add/settings/desktop components use the `scroll-host` utility this defines (an
-  `overflow-y-auto` + reserved `scrollbar-gutter` pair) in place of plain `overflow-y-auto`.
+- **Feed list** _(2026-10-21)_ — the home and sidebar list is always the list treatment (the
+  List/Cards setting was removed end to end, `feed_list_style` dropped in migration 0008): rows
+  `2xs` apart, selected row = `bg-elevated` + `shadow-elevated` + `primary` name.
+- **Scrollbar** _(2026-10-21)_ — one desktop-only scrollbar (the Thin/Comfortable/System setting
+  and `data-scrollbar` were removed, `scrollbar_style` dropped in 0008): 6px pill thumb in a 14px
+  gutter, `color-mix` of `--ui-bg-muted` toward `--ui-text` (8%, 20% on hover); Firefox uses
+  `scrollbar-width: auto`. Rules in `app/assets/css/scrollbars.css` (separate webkit and Firefox
+  branches — the two must never target the same element or Chromium 121+ drops the webkit
+  rules). Scroll containers use the `scroll-host` utility (`overflow-y-auto` + reserved
+  `scrollbar-gutter`). See [design-system.md](./design-system.md) § Scrollbar.
 - **Navbar** — `app/components/Navbar.vue` (menu → `/settings`, add → `/add`).
 - **IconButton** — `app/components/ui/IconButton.vue` (round soft-fill button, accent press
   flash). A `quiet` variant blends into the page bg at rest and lifts to the normal
@@ -103,7 +99,7 @@ own status: **read that file's § Status for what to build next.**
   `settingsSections` and reused by the desktop sidebar). Both `settings/Page.vue` and the route
   map that picks a panel per path read `useRouter().currentRoute` rather than Nuxt's `useRoute()`
   so they stay correct when rendered inside the desktop content overlay (see Desktop shell v1,
-  below). Appearance and Account are functional (theme/list/scrollbar/post-card switches; real
+  below). Appearance and Account are functional (theme/post-card switches; real
   profile + Sign out — see **Auth & login** below); About is static info (hardcoded version string) and
   Report is still a mock panel.
 - **Add-feed wizard** — `app/components/add/Drawer.vue` hosts the sheet, like the settings
@@ -168,9 +164,7 @@ own status: **read that file's § Status for what to build next.**
   invalid) that flips it on or off **immediately** through `feedsStore.updateSource`, with no
   Save. Below the list a dashed full-width ghost row, **Add source**, resets the add wizard,
   sets its `target` to this feed and navigates to `/add`; an empty feed says "No sources yet."
-  and keeps the row. For **Saved** (`/feed/saved`, `/feed/saved_*`) the same component lists
-  All saved / Bookmarks / Favorites / Later with their counts, each → its post list — this
-  replaces Saved's expand chevron. `feed/InfoPanels.vue` (`FeedInfoPanels`) is the one switch
+  and keeps the row. `feed/InfoPanels.vue` (`FeedInfoPanels`) is the one switch
   over the views, shared by both hosts (the mobile page and the desktop post pane), so they look
   and behave alike; `utils/feed-info.ts` (`infoView`, `infoBack`, `restOf`) names each view from
   the path's tail and where Back from it goes. The views are routes under `/feed/:uid/info`,
@@ -303,7 +297,7 @@ own status: **read that file's § Status for what to build next.**
 - **Data layer** — the `feeds` store loads `GET /home` once (in-flight-guarded; a failure is
   swallowed rather than raised, so it can never surface as Nuxt's error page, and retries from
   the home screen's **Try again** or the next app boot) into `feeds` — each a group with its
-  sources — and `savedCounts`, behind a `loaded` gate and an `unreachable` flag. The feeds
+  sources — behind a `loaded` gate and an `unreachable` flag. The feeds
   arrive in display order (the server sorts by its one order column) and the response carries no
   order of its own; reordering waits on its UI — see Not started → Home reorder.
   `app/composables/usePostList.ts` cursor-pages `GET /feeds/{uid}/posts` (limit 10) behind a
@@ -350,9 +344,7 @@ own status: **read that file's § Status for what to build next.**
   sheet that Home's 3-dot opened is deleted — everything done to a feed lives on its feed page.
   Names only — no type icons. Every row carries the shared desktop `hover-accent` (label to
   `primary` on hover), and a selected row — the tap flash on mobile, the persistent desktop
-  selection — lights its **name** `primary` on top of the elevated surface, since in cards mode
-  every row already has a surface and the name is the only cue left. The Saved row also stays
-  lit while one of its groups is open. In list mode rows sit `2xs` apart so a selected row's
+  selection — lights its **name** `primary` on top of the elevated surface. Rows sit `2xs` apart so a selected row's
   rounded surface doesn't fuse with its neighbour. See [design-system.md](./design-system.md)
   § Color roles → Hover state.
 - **Post list v1** — `app/components/feed/PostList.vue` (`FeedPostList`, `uid` + `q` +
@@ -1095,6 +1087,9 @@ _None currently._
   groups are listed on Saved's feed page. They are still app structure, not store `Feed`s.
   **Amended _(2026-10-21)_:** Saved's feed page is gone too; the groups are not linked from
   any screen (the `/feed/saved_*` lists still resolve). Undecided where they surface.
+  **Amended _(2026-10-21)_:** the app dropped saved groups entirely (`app/utils/saved.ts` deleted,
+  no `savedCounts` in the feeds store): one Saved list, every save filed under the default group.
+  The backend still keeps the three groups and `/home` still returns `saved_counts`.
 - **Folder reads through the feed page** _(2026-07-01)_ — a folder is **not** its own route.
   The feed page (`/feed/[uid]`) is polymorphic: `uid` resolves in a fixed order — `saved` →
   folder (`folder_*`) → feed (`feed_*`) — exactly the pattern `saved` already established.

@@ -44,7 +44,7 @@ interface Feed {
   that source's name and description unless the user supplies their own; a feed created
   without a source needs a name.
 - Feeds are not nested, and the **Saved** feed is never a feed in this sense — it is app
-  structure (`app/utils/saved.ts`), not a row the user owns.
+  structure, not a row the user owns.
 - The home list is the feeds in display order. (`PUT /home/order` persists a reorder; no UI
   drives it yet — see [current-state.md](./current-state.md).)
 
@@ -137,8 +137,7 @@ interface Post {
 ## Saved state
 
 To support the **Saved** entry on the home list, a user can mark a post as saved — into one
-of three fixed **groups**: Bookmarks, Favorites, Later (`app/utils/saved.ts` maps the home
-rows' uids `saved_bookmarks` / `saved_favorites` / `saved_later` onto the API's group names).
+of three fixed **groups**: Bookmarks, Favorites, Later. The backend keeps all three; the app shows one Saved list and files every save under the default group (Bookmarks).
 
 ```ts
 type SavedGroup = 'bookmarks' | 'favorites' | 'later'
