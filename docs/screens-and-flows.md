@@ -249,6 +249,15 @@ no back navigation for it (nothing to go back to — the sidebar is always there
 title/search row stays pinned to the top of the pane while the list scrolls beneath it — see
 the Routing note.
 
+**Desktop keyboard** _(2026-10-21)_: **Esc** closes the top layer, one per press — Settings/Add
+(back to the frozen reading position), a feed-page sub-view (to where its own back goes), an open
+post (to its feed page, keeping the search); on the bare feed page it does nothing. The search box
+keeps its own Esc (close and clear). **/** opens and focuses the search; **Enter** in it blurs
+("done typing"). **↓/↑** step the open post through the list (↓ with none open opens the first;
+the first open is a history push, later steps replace, so Back leaves the feed) and the pane
+scrolls to follow. Arrows are inactive in an input and while Settings/Add is open. The full list
+is Settings → Keyboard shortcuts.
+
 ---
 
 ## 3. Post page — `pages/feed/[uid]/post/[postUid].vue` (currently `[Post].vue`)
@@ -395,6 +404,8 @@ to a section list.
   both follow; stored on this device only for now, not in the account), and on desktop
   **Reading panes** (posts wider 60/40, equal 50/50, post wider 40/60); font size is
   still planned (see [product-overview.md → Planned](./product-overview.md#planned-not-now)).
+- **Keyboard shortcuts** _(2026-10-21)_ — `/settings/shortcuts`, desktop only (hidden from the
+  phone's section list) — a static reference of the shortcuts, grouped Reading / Search / Anywhere.
 - **About** — `/settings/about` — app info.
 - **Report an issue** — `/settings/report`.
 

@@ -230,6 +230,10 @@ Canonical value per recurring slot — reach for these before inventing spacing:
 A sticky pane-top row ends in `sm` of its own so content never scrolls flush against its
 buttons; the content below gives that `sm` back rather than stacking on it.
 
+`scroll-under-strip` (an `@utility` in `spacing.css`) sets `scroll-margin` on a posts-list card so
+`scrollIntoView` parks it where the first card rests under the pinned strip
+(`lg` + `h-12` + `sm` + `xs`) and `lg` clear of the bottom — used when the posts pane follows the open post.
+
 ## Motion
 
 Three timings, defined as theme tokens in `app/assets/css/motion.css` (imported by `main.css`) —

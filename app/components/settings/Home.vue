@@ -11,6 +11,10 @@ const { selectedUid, select } = useTapSelection()
 function isActive(to: string) {
   return selectedUid.value === to
 }
+
+// Desktop-only sections (keyboard shortcuts) would be dead weight on a phone.
+const isDesktop = useIsDesktop()
+const sections = computed(() => settingsSections.filter(section => isDesktop.value || !section.desktop))
 </script>
 
 <template>
@@ -29,7 +33,7 @@ function isActive(to: string) {
 
     <ul class="mt-md flex flex-col text-inset">
       <li
-        v-for="section in settingsSections"
+        v-for="section in sections"
         :key="section.to"
       >
         <NuxtLink

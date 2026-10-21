@@ -449,6 +449,21 @@ own status: **read that file's § Status for what to build next.**
   Add wizard steps gain a Close button beside Back on desktop, and Add/Settings/feed-page
   panels hold their content to `max-w-reading` inside a full-width scroll (scrollbar at the
   pane edge). Continue in the wizard blinks `primary` once when first enabled.
+- **Desktop keyboard shortcuts** _(2026-10-21)_ — frontend, ≥lg only, on Nuxt UI's
+  `defineShortcuts` (no new composable; each binding lives in the component owning its state).
+  Esc (`DesktopShell`, works from focused fields) closes the top layer one per press: Settings/Add
+  → frozen reading position; feed sub-view → its `infoBack`; open post → feed page (keeps `?q=`);
+  bare feed page → nothing. The posts search keeps its own Esc and stops propagation. In
+  `FeedPostList`: `/` opens and focuses search (`SearchInput` exposes `focus()`); ↓/↑ step the
+  open post (first open = history push, later = replace; inactive in inputs and while
+  Settings/Add is open); Enter in the live search blurs so arrows step results. Arrows chosen over
+  j/k. The pane follows the open post (`scrollIntoView` nearest, smooth, auto under reduced
+  motion) via the `scroll-under-strip` utility, watching the open uid only. New Settings section
+  **Keyboard shortcuts** (`/settings/shortcuts`, after Appearance): `settingsSections` entries can
+  carry `desktop: true`, which the settings Home list filters out on a phone; the panel
+  (`settings/Shortcuts.vue`) is a static list grouped Reading / Search / Anywhere with `UKbd`
+  caps restyled `bg-muted`, no ring. Adding a shortcut = its binding + one row there. Not built:
+  `?` cheat-sheet overlay, key hints in tooltips.
 - **Image fallback and article cleanup** _(2026-10-13)_ — backend. Ingest's `_pick_image` falls
   back to the first `<img src>` in the entry's content, then summary, after `media:thumbnail` /
   `media:content` / image enclosure, skipping declared widths under 480 and non-http sources

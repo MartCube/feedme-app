@@ -70,6 +70,26 @@ function closeContent() {
 }
 provide(settingsDrawerCloseKey, closeContent)
 
+// Esc closes whatever is on top, one layer per press: Settings/Add back to
+// the reading position, a feed-page view back the way its own back button
+// goes, an open post back to its feed page. usingInput, because the add
+// wizard and the feed's edit forms open with a field focused. The posts
+// list's search box stops its own Esc, so there it closes only the search.
+function closeTop() {
+  if (contentOpen.value) return closeContent()
+  const uid = readerFeedUid.value
+  let to: string | undefined
+  if (readerPostUid.value) to = `/feed/${uid}`
+  // An empty tail is the feed page itself, which here is already the bottom.
+  else if (readerInfo.value?.length) to = infoBack(uid, readerInfo.value)
+  if (!to) return
+  navigateTo(readerQuery.value ? `${to}?q=${encodeURIComponent(readerQuery.value)}` : to)
+}
+
+defineShortcuts({
+  escape: { usingInput: true, handler: closeTop },
+})
+
 // A finished add opens the feed it landed in — the route sync above selects
 // it in the sidebar.
 function openLanded(feedUid: string) {

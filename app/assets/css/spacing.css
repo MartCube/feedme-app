@@ -29,3 +29,12 @@
 @utility text-inset {
   margin-inline-start: var(--spacing-sm);
 }
+
+/* Where scrollIntoView parks a post card in the desktop posts pane: below the
+   pinned title/search strip (the pane's lg inset folded into it, the h-12 row,
+   its pb-sm), at the xs gap the first card rests at, and clear of the bottom
+   edge by the screen inset. Retuning that strip means retuning this. */
+@utility scroll-under-strip {
+  scroll-margin-top: calc(var(--spacing-lg) + var(--spacing) * 12 + var(--spacing-sm) + var(--spacing-xs));
+  scroll-margin-bottom: var(--spacing-lg);
+}

@@ -50,6 +50,11 @@ const box = computed(() => [
   canTrail.value ? '' : 'pe-sm!',
 ].join(' '))
 
+// For a caller that moves focus here itself — the desktop `/` shortcut —
+// without waiting out the autofocus delay, which would drop the first letters.
+const input = useTemplateRef('input')
+defineExpose({ focus: () => input.value?.inputRef?.focus() })
+
 // Browsers block silent clipboard reads, so the chip reads on tap (a user
 // gesture). mousedown.prevent (on the button) keeps the input focused through
 // the click, so focusout doesn't remove the chip before the tap lands.
@@ -68,6 +73,7 @@ async function pasteFromClipboard() {
   <form @submit.prevent="emit('submit')">
     <!-- `transition` (not -colors) so the focus ring's box-shadow animates. -->
     <UInput
+      ref="input"
       v-model="model"
       :placeholder="placeholder"
       :size="size"

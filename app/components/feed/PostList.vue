@@ -128,6 +128,54 @@ watch(pending, (busy) => {
 })
 
 const { selectedUid, select } = useTapSelection()
+
+// Desktop keys, live only while a reader route is showing — over Settings/Add
+// the arrows go back to scrolling that pane. `/` opens the search and focuses
+// it at once (the autofocus delay is for the phone's slide). ↓/↑ step the open
+// post through the list, the first open from the feed page a push like a
+// click, each step after it a replace, so Back leaves the feed rather than
+// walking every post passed.
+const searchBox = useTemplateRef('searchBox')
+
+async function focusSearch() {
+  open.value = true
+  await nextTick()
+  searchBox.value?.focus()
+}
+
+function step(by: 1 | -1) {
+  const at = items.value.findIndex(post => post.uid === props.activePostUid)
+  const next = at === -1 ? (by === 1 ? items.value[0] : undefined) : items.value[at + by]
+  if (!next) return
+  if (at === -1) router.push(postTo(next.uid))
+  else router.replace(postTo(next.uid))
+}
+
+defineShortcuts(computed(() => isDesktop.value && isReaderPath(route.value.path)
+  ? { '/': focusSearch, 'arrowdown': () => step(1), 'arrowup': () => step(-1) }
+  : {}))
+
+// Enter in the live search is "done typing": it hands focus back so the arrows
+// step through the results.
+function blurSearch() {
+  (document.activeElement as HTMLElement | null)?.blur()
+}
+
+// The posts pane follows the open post. `nearest` moves only once the card
+// would leave the view, and only far enough to show it; the card's
+// scroll-under-strip margin parks it below the pinned title row. The uid alone
+// is watched — a page loading in must never pull the list back mid-scroll.
+const list = useTemplateRef('list')
+const motion = usePreferredReducedMotion()
+
+watch(() => props.activePostUid, async (uid) => {
+  if (!uid) return
+  await nextTick()
+  list.value?.querySelector(`[data-post-uid="${CSS.escape(uid)}"]`)?.scrollIntoView({
+    block: 'nearest',
+    behavior: motion.value === 'reduce' ? 'auto' : 'smooth',
+  })
+})
 </script>
 
 <template>
@@ -149,16 +197,20 @@ const { selectedUid, select } = useTapSelection()
       <!-- The title's job moves into the placeholder: it names the list you're
            searching, without a noun that would be wrong for a feed or Saved.
            Escape is the X from the keyboard: it closes the box and clears the
-           search. The keydown bubbles from the input to SearchInput's form. -->
+           search. The keydown bubbles from the input to SearchInput's form,
+           and stops there so the desktop shell's Esc doesn't also close the
+           post. -->
       <SearchInput
         v-else
+        ref="searchBox"
         v-model="draft"
         :placeholder="`Search ${title}`"
         size="md"
         autofocus
         :submit="false"
         class="min-w-0 flex-1"
-        @keydown.esc="toggle"
+        @keydown.esc.stop="toggle"
+        @submit="blurSearch"
       />
       <!-- A bound pair, like the post's actions. Feed info is a real button
            rather than a glyph on the title, so it reads as pressable; it gives
@@ -179,10 +231,15 @@ const { selectedUid, select } = useTapSelection()
       </div>
     </div>
 
-    <ul class="mt-md flex flex-col space-y-sm lg:mt-xs">
+    <ul
+      ref="list"
+      class="mt-md flex flex-col space-y-sm lg:mt-xs"
+    >
       <li
         v-for="post in items"
         :key="post.uid"
+        :data-post-uid="post.uid"
+        class="lg:scroll-under-strip"
       >
         <FeedPostCard
           :post="post"
