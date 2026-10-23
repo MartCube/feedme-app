@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const emit = defineEmits<{ back: [], close: [], forward: [] }>()
 
+const isDesktop = useIsDesktop()
 const wizard = useAddFeedWizard()
 const { type, query, loading, results, searched, error, selectedFeeds } = wizard
 
@@ -73,18 +74,19 @@ function initials(name: string) {
            step louder than an IconButton's muted icon). -->
       <UTooltip
         text="Continue"
-        :content="{ side: 'top', sideOffset: 4, collisionPadding: 2 }"
+        :disabled="!isDesktop"
+        :content="{ side: 'top', sideOffset: 2, collisionPadding: 0 }"
       >
         <button
           type="button"
-          class="flex size-12 shrink-0 items-center justify-center rounded-full bg-elevated shadow-elevated transition-colors"
+          class="flex size-12 lg:size-10 shrink-0 items-center justify-center rounded-full bg-elevated shadow-elevated transition-colors"
           :disabled="!canContinue"
           aria-label="Continue"
           @click="emit('forward')"
         >
           <UIcon
             name="i-ph-caret-right-bold"
-            class="size-6 transition-colors"
+            class="size-6 lg:size-5 transition-colors"
             :class="continueBlink ? 'text-primary' : canContinue ? 'text-default' : 'text-dimmed'"
           />
         </button>

@@ -291,8 +291,7 @@ error); the route `uid` is the feed context it was opened in.
 **Desktop:** until a post is tapped, the post pane shows the feed page (screen 6) instead of
 this screen — or, on **Home** and **Saved**, which have no page of their own, a placeholder ("Select a
 post"). There is no auto-selected first or last-read post. The actions row (Copy link · Open
-source · Save) stays pinned to the top of the pane the same way, on the side Settings →
-Appearance → *Post actions* picks, and stays up from one post to the next while the new one
+source · Save) stays pinned to the top of the pane the same way, on the left (Back sits right), and stays up from one post to the next while the new one
 loads (hidden only if that post failed to load) — see the Routing note.
 
 ---

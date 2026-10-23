@@ -19,21 +19,16 @@ defineEmits<{ toggleSave: [] }>()
 // which is how dev:mobile reaches a phone. `copied` resets itself after 1.5s,
 // which is what swaps the icon back.
 const { copy, copied, isSupported } = useClipboard({ legacy: true })
-
-// Mirrored on the left, so Save stays at the outer edge on either side.
-const settings = useSettingsStore()
 </script>
 
 <template>
-  <div
-    class="flex items-center gap-xs"
-    :class="settings.actionSide === 'left' && 'flex-row-reverse'"
-  >
+  <!-- Save, the common one, takes the outer edge. -->
+  <div class="flex items-center gap-xs">
     <IconButton
-      v-if="isSupported"
-      :icon="copied ? 'i-ph-check-bold' : 'i-ph-link-bold'"
-      :aria-label="copied ? 'Link copied' : 'Copy link'"
-      @click="props.post && copy(props.post.post_url)"
+      :icon="saved ? 'i-ph-bookmark-simple-fill' : 'i-ph-bookmark-simple-bold'"
+      :aria-label="saved ? 'Unsave' : 'Save'"
+      :aria-pressed="saved"
+      @click="$emit('toggleSave')"
     />
     <IconButton
       icon="i-ph-arrow-square-out-bold"
@@ -42,10 +37,10 @@ const settings = useSettingsStore()
       aria-label="Open source"
     />
     <IconButton
-      :icon="saved ? 'i-ph-bookmark-simple-fill' : 'i-ph-bookmark-simple-bold'"
-      :aria-label="saved ? 'Unsave' : 'Save'"
-      :aria-pressed="saved"
-      @click="$emit('toggleSave')"
+      v-if="isSupported"
+      :icon="copied ? 'i-ph-check-bold' : 'i-ph-link-bold'"
+      :aria-label="copied ? 'Link copied' : 'Copy link'"
+      @click="props.post && copy(props.post.post_url)"
     />
   </div>
 </template>

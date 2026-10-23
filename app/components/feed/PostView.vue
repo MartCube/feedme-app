@@ -35,8 +35,9 @@ function openLink(event: MouseEvent) {
       <!-- Title and meta first, then the picture: what it is and where it's
            from read before the largest thing on the screen. mt-lg clears the
            mobile navbar; on desktop the pinned action strip above already ends
-           in sm of its own (desktop/Shell.vue), so it takes the rest. -->
-      <h1 class="mt-lg text-title tracking-tight lg:mt-sm">
+           in sm of its own (desktop/Shell.vue), so xs more sits the title
+           close under the actions it belongs to. -->
+      <h1 class="mt-lg text-title tracking-tight lg:mt-xs">
         {{ post.title }}
       </h1>
       <FeedPostMeta

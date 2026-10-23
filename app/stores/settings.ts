@@ -31,20 +31,10 @@ export const paneSplits: { name: PaneSplit, label: string }[] = [
   { name: 'post', label: 'Wider post' },
 ]
 
-// Which side the post's actions (Copy link, Open source, Save) sit on — left
-// by default, with the post page's back button taking the other side. Only
-// those: every other action row keeps its place. Local only for now (the
-// cookie, not the account): a trial before it earns a backend field.
-export type ActionSide = 'left' | 'right'
-
-export const actionSides: { name: ActionSide, label: string }[] = [
-  { name: 'left', label: 'Left' },
-  { name: 'right', label: 'Right' },
-]
-
 // Desktop only: whether the sidebar's fixed rows — Home, Saved, New Feed and
 // the settings sections — carry an icon beside their label. Feeds never do.
-// Local only, like ActionSide.
+// Local only for now (the cookie, not the account): a trial before it earns
+// a backend field.
 export type SidebarIcons = 'shown' | 'hidden'
 
 export const sidebarIconOptions: { name: SidebarIcons, label: string }[] = [
@@ -64,8 +54,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const theme = ref<ThemeName>('ink')
   const postCardStyle = ref<PostCardStyle>('image')
   const paneSplit = ref<PaneSplit>('equal')
-  // Outside `payload` on purpose — see ActionSide.
-  const actionSide = ref<ActionSide>('left')
+  // Outside `payload` on purpose — see SidebarIcons.
   const sidebarIcons = ref<SidebarIcons>('shown')
   // Desktop sidebar: whether its Feeds and Settings groups are unfolded. Local
   // only too — how this screen's sidebar is arranged, not an account choice.
@@ -129,10 +118,10 @@ export const useSettingsStore = defineStore('settings', () => {
     return Boolean(b) && (Object.keys(a) as (keyof Settings)[]).every(key => a[key] === b![key])
   }
 
-  return { theme, postCardStyle, paneSplit, actionSide, sidebarIcons, feedsGroupOpen, settingsGroupOpen, loaded, load, reset }
+  return { theme, postCardStyle, paneSplit, sidebarIcons, feedsGroupOpen, settingsGroupOpen, loaded, load, reset }
 }, {
   // The values only — never `loaded`. Restoring that from the cookie would skip
   // the GET on the next load and let the sync watcher fire against an empty
   // snapshot, turning every page load into a PUT.
-  persist: { pick: ['theme', 'postCardStyle', 'paneSplit', 'actionSide', 'sidebarIcons', 'feedsGroupOpen', 'settingsGroupOpen'] },
+  persist: { pick: ['theme', 'postCardStyle', 'paneSplit', 'sidebarIcons', 'feedsGroupOpen', 'settingsGroupOpen'] },
 })

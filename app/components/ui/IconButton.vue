@@ -27,8 +27,13 @@ function handlePress() {
 const attrs = useAttrs()
 const label = computed(() => attrs['aria-label'] as string | undefined)
 
-const buttonSize = computed(() => props.size === 'sm' ? 'size-10' : 'size-12')
-const iconSize = computed(() => props.size === 'sm' ? 'size-5' : 'size-6')
+// md steps down to sm on desktop: a pointer doesn't need a fingertip target,
+// and the full size outweighed the titles beside it.
+const buttonSize = computed(() => props.size === 'sm' ? 'size-10' : 'size-12 lg:size-10')
+const iconSize = computed(() => props.size === 'sm' ? 'size-5' : 'size-6 lg:size-5')
+
+// Tooltips are a pointer affordance; a phone has no hover to show them on.
+const isDesktop = useIsDesktop()
 
 // quiet: the circle blends into the page at rest and only lifts to the
 // normal elevated look while the press flash runs.
@@ -39,11 +44,10 @@ const surface = computed(() => {
 </script>
 
 <template>
-  <!-- Above, not Nuxt UI's default below: the buttons sit on the top row, and
-       below put the label over the content the button acts on. The top row
-       is only lg (32px) from the window edge, and the stock 8px offset + 8px
-       collision padding need ~41px with the label's own height, so it always
-       flipped back below. 4 + 2 fits in the inset.
+  <!-- Above, not Nuxt UI's default below: below put the label over the
+       content the button acts on. The top row is only md (24px) from the
+       window edge, so it fits on a 2px offset with no collision padding
+       (the label is 15px, app.config.ts) — any more and it flips below.
        Keyed on `to` because Reka takes the trigger element once, on mount: a
        button whose `to` arrives later (Open source, before its post loads)
        swaps <button> for <a> under it, and the tooltip would keep tracking
@@ -51,8 +55,8 @@ const surface = computed(() => {
   <UTooltip
     :key="to ? 'link' : 'button'"
     :text="label"
-    :disabled="!label"
-    :content="{ side: 'top', sideOffset: 4, collisionPadding: 2 }"
+    :disabled="!label || !isDesktop"
+    :content="{ side: 'top', sideOffset: 2, collisionPadding: 0 }"
   >
     <UButton
       v-bind="$attrs"

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { actionSides, paneSplits, postCardStyles, sidebarIconOptions, themes } from '~/stores/settings'
+import { paneSplits, postCardStyles, sidebarIconOptions, themes } from '~/stores/settings'
 
 const settings = useSettingsStore()
 
@@ -72,29 +72,6 @@ const isDesktop = useIsDesktop()
           <span>{{ option.label }}</span>
           <UIcon
             v-if="settings.sidebarIcons === option.name"
-            name="i-ph-check-bold"
-            class="size-5 text-primary"
-          />
-        </button>
-      </div>
-    </section>
-
-    <section>
-      <h3 class="text-caption font-semibold uppercase tracking-wide text-muted text-inset">
-        Post actions
-      </h3>
-      <div class="mt-xs flex flex-col gap-px overflow-hidden rounded-2xl">
-        <button
-          v-for="option in actionSides"
-          :key="option.name"
-          type="button"
-          :aria-pressed="settings.actionSide === option.name"
-          class="flex items-center justify-between bg-elevated p-sm text-left"
-          @click="settings.actionSide = option.name"
-        >
-          <span>{{ option.label }}</span>
-          <UIcon
-            v-if="settings.actionSide === option.name"
             name="i-ph-check-bold"
             class="size-5 text-primary"
           />

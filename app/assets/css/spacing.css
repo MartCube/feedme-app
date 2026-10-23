@@ -17,11 +17,19 @@
 }
 
 /* The one page/drawer content inset. Every top-level page and drawer panel uses
-   this instead of raw padding utilities, so the app-wide shell is one edit. */
+   this instead of raw padding utilities, so the app-wide shell is one edit.
+   Desktop starts every pane at md instead: that's the top-row axis — the
+   wordmark, the posts pane's title row, the post's actions and each panel's
+   first buttons all sit in a 40px row (an IconButton's desktop size) that
+   begins md from the window edge. */
 @utility page-inset {
   padding-inline: var(--spacing-lg);
   padding-top: var(--spacing-lg);
   padding-bottom: var(--spacing-xl);
+
+  @variant lg {
+    padding-top: var(--spacing-md);
+  }
 }
 
 /* Loose text outside cards/inputs indents by the card-padding step so it lines
@@ -31,10 +39,10 @@
 }
 
 /* Where scrollIntoView parks a post card in the desktop posts pane: below the
-   pinned title/search strip (the pane's lg inset folded into it, the h-12 row,
-   its pb-sm), at the xs gap the first card rests at, and clear of the bottom
-   edge by the screen inset. Retuning that strip means retuning this. */
+   pinned title/search strip (the pane's md desktop inset folded into it, the
+   h-10 row, its pb-sm), at the xs gap the first card rests at, and clear of
+   the bottom edge by the screen inset. Retuning that strip means retuning this. */
 @utility scroll-under-strip {
-  scroll-margin-top: calc(var(--spacing-lg) + var(--spacing) * 12 + var(--spacing-sm) + var(--spacing-xs));
+  scroll-margin-top: calc(var(--spacing-md) + var(--spacing) * 10 + var(--spacing-sm) + var(--spacing-xs));
   scroll-margin-bottom: var(--spacing-lg);
 }

@@ -93,10 +93,11 @@ markup carries no classes; keep the two in step).
 **Icon buttons name themselves on hover** _(2026-10-09)_: every `IconButton` shows its
 `aria-label` as a tooltip (`UTooltip`), so the label a screen reader hears and the one a mouse
 sees are the same string, and a button can't have one without the other. The feed title's
-info button carries the same tooltip. The tooltip is a `bg-muted` pill in `text-caption`
-(`px-xs py-2xs`, `rounded-xl`), **no ring and no shadow** — `bg-muted`, not `bg-elevated`,
-because it floats over cards that are elevated themselves, and `shadow-elevated`'s edge would
-read as a darker outline on muted (the post-card rule below). It opens **above** the button (side top, offset 4, collision padding 2) _(2026-10-13)_. Set once in `app.config.ts`;
+info button carries the same tooltip. The tooltip is **bare muted text** _(2026-10-23; was a `bg-muted` pill)_ — no surface, no
+padding, no ring, no shadow — at 11px (`text-[0.6875rem]/[1.4]`), one step under `text-caption`:
+a deliberate, user-chosen exception to the four-size rule, kept to this one component. It opens
+**above** the button (side top, offset 2, no collision padding) and is **desktop only** — off
+below `lg`, where there's no hover. Set once in `app.config.ts`;
 `<UApp>` gives it a 400ms delay and `ignoreNonKeyboardFocus`, so on touch — where a tap also
 focuses the button — it never pops up over the thing just pressed.
 
@@ -144,7 +145,7 @@ doing one job — pick one and let it work. The same goes for gloss: elevated co
 - **An image holds its place.** The image box is fixed at its aspect from first paint and
   pulses (`animate-pulse`) until the image loads. Where an image is shown without upscaling
   and is smaller than the box, it sits centred at its own size instead of shrinking the box.
-- **The feed search is `h-12`**, the height of an `IconButton`, so the two line up on the title row.
+- **The feed search is `h-12` on mobile, `h-10` on desktop**, the height of an `IconButton` at each size, so the two line up on the title row.
 
 ## Themes
 
@@ -201,12 +202,16 @@ and 600** — only those two Sora weights are loaded.
 Tailwind's stock sizes remain available (Nuxt UI needs them internally), but app code uses
 only these four names.
 
-**One standing exception: `text-logo`** (2rem, weight 600, line-height 1.1, defined alongside
+**One standing exception: `text-logo`** (1.625rem, weight 600, line-height 1.1, defined alongside
 the scale in `app/assets/css/typography.css`) is the FeedMe wordmark's size and nothing
 else's — a logo is a mark, not a size app code picks from, so it sits outside the four-size
 rule rather than becoming a fifth general-purpose one. It appears in exactly one place: the
-top of the shared feed list (`home/FeedList.vue`), currently a stand-in until a designer
-supplies a real mark.
+top of the shared feed list (`home/FeedList.vue`), beside the logo mark (`ui/Logo.vue`, below).
+
+**The logo mark** _(2026-10-23)_ is an inline SVG — two stacks of three bars, the left in
+`text-primary`, the right in `text-default`, so it follows the theme — `aria-hidden`, `size-8`,
+sitting beside the wordmark with `gap-xs`; the link wraps mark and wordmark. The favicon is
+`public/favicon.svg`.
 
 ## Spacing
 
@@ -229,7 +234,9 @@ not a new class.
 
 **Screen inset is one class:** every page and drawer panel wraps its content in
 `page-inset` (defined as an `@utility` in `app/assets/css/spacing.css`): `lg` sides and
-top (top clears the navbar / drawer drag-lip), `xl` bottom scroll runway. Never spell
+top (top clears the navbar / drawer drag-lip), `xl` bottom scroll runway. On desktop (`lg`
+breakpoint) the top is `md` instead _(2026-10-23)_: every pane starts `md` from the window edge,
+which is the shared top-row axis (see current-state.md, Desktop shell v1). Never spell
 the inset out with raw padding utilities — changing the app-wide shell must stay a
 one-line edit.
 
@@ -256,7 +263,7 @@ buttons; the content below gives that `sm` back rather than stacking on it.
 
 `scroll-under-strip` (an `@utility` in `spacing.css`) sets `scroll-margin` on a posts-list card so
 `scrollIntoView` parks it where the first card rests under the pinned strip
-(`lg` + `h-12` + `sm` + `xs`) and `lg` clear of the bottom — used when the posts pane follows the open post.
+(`md` + `h-10` + `sm` + `xs`) and `lg` clear of the bottom — used when the posts pane follows the open post.
 
 ## Motion
 

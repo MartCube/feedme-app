@@ -187,7 +187,7 @@ watch(() => props.activePostUid, async (uid) => {
          inset folds into an opaque strip so posts scroll away under it. The
          strip runs sm past the row too, so a card never scrolls flush against
          the search button; the list's top margin gives that sm back. -->
-    <div class="mt-lg flex h-12 items-center gap-sm lg:sticky lg:-top-lg lg:z-10 lg:-mx-lg lg:-mt-lg lg:box-content lg:bg-default lg:px-lg lg:pt-lg lg:pb-sm">
+    <div class="mt-lg flex h-12 items-center gap-sm lg:sticky lg:-top-md lg:z-10 lg:-mx-lg lg:-mt-md lg:h-10 lg:box-content lg:bg-default lg:px-lg lg:pt-md lg:pb-sm">
       <h1
         v-if="!open"
         class="min-w-0 flex-1 truncate text-title tracking-tight"

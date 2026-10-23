@@ -51,21 +51,25 @@ const busy = refDebounced(computed(() => $apiPending.value > 0), 150)
 
 <template>
   <div class="flex flex-col">
-    <!-- Stand-in wordmark until a designer supplies a real one: FEED in the
-         theme's accent, ME in body ink. text-logo is a brand-only size that
+    <!-- The mark (ui/Logo.vue) and the wordmark: Feed in the theme's accent,
+         Me in body ink, like the mark's two stacks. text-logo is a brand-only size that
          sits outside the four-size scale on purpose (typography.css). The
          link is inside the h1 and sized to the text, so only the wordmark is
          a target — a block link would make the whole row's dead space
          clickable. It goes where the Home row goes.
-         Desktop pins it: the h-12 row is the top-row axis the posts pane's
-         title and the post pane's actions share, and the sidebar's inset is
-         pulled into its own padding (box-content, so h-12 stays the row) so
+         Desktop pins it: the h-10 row is the top-row axis every pane's first
+         row shares (page-inset, spacing.css), and the sidebar's inset is
+         pulled into its own padding (box-content, so h-10 stays the row) so
          rows scroll away under an opaque sunken strip rather than past it.
          shrink-0: an overflowing sidebar column would otherwise squeeze the
          row to its text, and every fold that ends the overflow would jump. -->
-    <h1 class="flex items-center gap-sm text-logo tracking-tight lg:sticky lg:-top-lg lg:z-10 lg:-mx-lg lg:-mt-lg lg:box-content lg:h-12 lg:shrink-0 lg:bg-sunken lg:px-lg lg:pt-lg">
-      <NuxtLink to="/feed/all">
-        <span class="text-primary">Feed</span>Me
+    <h1 class="flex items-center gap-sm text-logo tracking-tight lg:sticky lg:-top-md lg:z-10 lg:-mx-lg lg:-mt-md lg:box-content lg:h-10 lg:shrink-0 lg:bg-sunken lg:px-lg lg:pt-md">
+      <NuxtLink
+        to="/feed/all"
+        class="flex items-center gap-xs"
+      >
+        <Logo class="size-8" />
+        <span><span class="text-primary">Feed</span>Me</span>
       </NuxtLink>
       <!-- Stock spinner as a stand-in until the app has its own
            (pending_tasks/custom-spinner.md). -->
@@ -88,7 +92,7 @@ const busy = refDebounced(computed(() => $apiPending.value > 0), 150)
       >
         <NuxtLink
           to="/feed/all"
-          class="group flex min-w-0 items-center gap-sm p-sm"
+          class="group flex min-w-0 items-center gap-sm p-sm lg:py-xs"
           @pointerdown="select('all')"
         >
           <UIcon
@@ -107,7 +111,7 @@ const busy = refDebounced(computed(() => $apiPending.value > 0), 150)
       >
         <NuxtLink
           to="/feed/saved"
-          class="group flex min-w-0 items-center gap-sm p-sm"
+          class="group flex min-w-0 items-center gap-sm p-sm lg:py-xs"
           @pointerdown="select('saved')"
         >
           <UIcon
@@ -171,7 +175,7 @@ const busy = refDebounced(computed(() => $apiPending.value > 0), 150)
                its name. -->
             <NuxtLink
               :to="`/feed/${feed.uid}`"
-              class="flex min-w-0 items-baseline gap-xs p-sm"
+              class="flex min-w-0 items-baseline gap-xs p-sm lg:py-xs"
               @pointerdown="select(feed.uid)"
             >
               <span class="truncate text-body">{{ feed.name }}</span>

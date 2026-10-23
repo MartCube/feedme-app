@@ -17,10 +17,10 @@
   --text-caption: 0.75rem;
   --text-caption--line-height: 1.4;
 
-  /* Brand only — the FEEDME wordmark at the top of the feed list, nothing
-     else. It sits outside the four-size scale on purpose: a logo is a mark,
+  /* Brand only — the FeedMe wordmark beside the mark (ui/Logo.vue) at the top
+     of the feed list, nothing else. It sits outside the four-size scale on purpose: a logo is a mark,
      not a text size app code picks from. */
-  --text-logo: 2rem;
+  --text-logo: 1.625rem;
   --text-logo--line-height: 1.1;
   --text-logo--font-weight: 600;
 }

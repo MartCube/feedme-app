@@ -11,6 +11,8 @@ const props = defineProps<{
 // card is the only thing that acts on it, and both hosts render this component.
 const settings = useSettingsStore()
 
+const hasImage = computed(() => settings.postCardStyle === 'image' && Boolean(props.post.image))
+
 // A few lines of the summary under the title, as text. Feeds pad it with
 // their own footers, which say nothing on a card: Reddit's "submitted by /u/…
 // [link] [comments]", and Hacker News's "Article URL: … Comments URL: …
@@ -28,12 +30,16 @@ const excerpt = computed(() => stripHtml(props.post.summary)
        the feed link sits above that layer. isolate keeps that z-10 inside the
        card, so it can't paint over the desktop pane's sticky title row.
        Two surfaces: bg-elevated at rest, bg-muted when selected or hovered
-       (hover-lift, themes.css). -->
+       (hover-lift, themes.css).
+       Desktop runs tighter: xs above and below, and xs on the image's side
+       too, so the square sits in an even frame; the text keeps sm. -->
   <article
-    class="relative isolate -mx-sm flex gap-sm rounded-2xl p-sm transition-colors"
-    :class="selected ? 'bg-muted' : 'bg-elevated hover-lift'"
+    class="relative isolate -mx-sm flex gap-sm rounded-2xl p-sm transition-colors lg:py-xs"
+    :class="[selected ? 'bg-muted' : 'bg-elevated hover-lift', hasImage && 'lg:pr-xs']"
   >
-    <div class="flex min-w-0 flex-1 flex-col gap-2xs">
+    <!-- Desktop gives the title room on both sides: xs to the meta above
+         and the excerpt below. -->
+    <div class="flex min-w-0 flex-1 flex-col gap-2xs lg:gap-xs">
       <FeedPostMeta :post="post" />
       <NuxtLink
         :to="to"
@@ -49,16 +55,18 @@ const excerpt = computed(() => stripHtml(props.post.summary)
         {{ excerpt }}
       </p>
     </div>
-    <!-- A square beside the text, crowdfeed's steps: 128px on a phone, 160 /
-         176 / 192 as the screen grows. The source is the 16:9 card family
-         cropped to a square by object-cover, so `sizes` asks for the 16:9
-         width that covers the square's height (side × 16/9). -->
+    <!-- A square beside the text: 128px on a phone, 160 from a tablet up, 176
+         on a wide screen. The source is the 16:9 card family cropped to a
+         square by object-cover, so `sizes` asks for the 16:9 width that
+         covers the square's height (side × 16/9).
+         lg:rounded-lg: the card's 16px corner less the xs frame, so the two
+         curves stay concentric. -->
     <FeedPostImage
-      v-if="settings.postCardStyle === 'image' && post.image"
+      v-if="hasImage && post.image"
       :image="post.image"
       square
-      sizes="(min-width: 1280px) 342px, (min-width: 1024px) 313px, (min-width: 768px) 285px, 228px"
-      class="size-32 shrink-0 md:size-40 lg:size-44 xl:size-48"
+      sizes="(min-width: 1280px) 313px, (min-width: 768px) 285px, 228px"
+      class="size-32 shrink-0 md:size-40 lg:rounded-lg xl:size-44"
     />
   </article>
 </template>

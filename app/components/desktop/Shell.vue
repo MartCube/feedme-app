@@ -151,17 +151,14 @@ useHead({
           <template v-if="readerPostUid">
             <!-- Sits on the top-row axis with the sidebar wordmark and the posts
                  pane's title row, pinned the same way so the actions stay in
-                 reach through a long read. Aligned to the actions' side within
-                 the reading measure so it stays beside the text, not the pane.
+                 reach through a long read. Held to the reading measure so it
+                 stays beside the text, not the pane.
                  The actions stay up from one post to the next (they wait
                  for nothing, see PostActions), so the row never blinks. The
                  strip runs sm past the row, so text never scrolls flush
                  against the buttons. -->
-            <div class="sticky -top-lg z-10 -mx-lg -mt-lg bg-default px-lg pt-lg pb-sm">
-              <div
-                class="flex h-12 max-w-post items-center"
-                :class="settings.actionSide === 'left' ? 'justify-start' : 'justify-end'"
-              >
+            <div class="sticky -top-md z-10 -mx-lg -mt-md bg-default px-lg pt-md pb-sm">
+              <div class="flex h-10 max-w-post items-center">
                 <FeedPostActions
                   v-if="!readerPostFailed"
                   :post="readerPost"

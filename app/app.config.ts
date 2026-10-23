@@ -77,14 +77,14 @@ export default defineAppConfig({
         root: 'rounded-2xl',
       },
     },
-    // The icon buttons' labels (ui/IconButton.vue), in the house vocabulary
-    // instead of Nuxt UI's ring + text-xs. bg-muted, not bg-elevated: a tooltip
-    // floats over cards, which are elevated themselves and would swallow it.
-    // No shadow-elevated either — its edge is drawn in bg-elevated, a darker
-    // outline on muted (design-system.md § Hover state).
+    // The icon buttons' labels (ui/IconButton.vue): bare muted text, no
+    // surface, instead of Nuxt UI's ringed chip — the label names the button,
+    // it isn't a thing of its own. One step under caption (11px), so it
+    // doesn't outweigh the small button it sits over; 15px tall, which is
+    // what fits it above the desktop top row.
     tooltip: {
       slots: {
-        content: 'h-auto rounded-xl bg-muted px-xs py-2xs text-caption text-default shadow-none ring-0',
+        content: 'h-auto bg-transparent p-0 text-[0.6875rem]/[1.4] text-muted shadow-none ring-0',
       },
     },
   },

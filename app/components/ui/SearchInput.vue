@@ -42,11 +42,11 @@ const canTrail = computed(() => props.submit || props.paste)
 
 // xl is a hero field (the wizard, the login token). Anything smaller is
 // embedded in a row beside other controls and takes their height — an
-// IconButton's 48px (h-12), so the feed's search lines up with the close
-// button beside it instead of sitting 12px short of it.
+// IconButton's 48px (h-12), 40px on desktop — so the feed's search lines up
+// with the close button beside it instead of sitting short of it.
 const box = computed(() => [
   'px-sm text-body rounded-2xl transition',
-  props.size === 'xl' ? 'py-sm' : 'h-12 py-xs',
+  props.size === 'xl' ? 'py-sm' : 'h-12 py-xs lg:h-10',
   canTrail.value ? '' : 'pe-sm!',
 ].join(' '))
 

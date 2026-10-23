@@ -48,7 +48,7 @@ function iconClass(active: boolean) {
         >
           <NuxtLink
             to="/add"
-            class="group flex min-w-0 items-center gap-sm p-sm"
+            class="group flex min-w-0 items-center gap-sm px-sm py-xs"
           >
             <UIcon
               v-if="icons"
@@ -91,7 +91,7 @@ function iconClass(active: boolean) {
           >
             <NuxtLink
               :to="section.to"
-              class="group -mx-sm flex items-center gap-sm rounded-2xl p-sm text-body transition-colors"
+              class="group -mx-sm flex items-center gap-sm rounded-2xl px-sm py-xs text-body transition-colors"
               :class="route.path === section.to ? 'bg-elevated shadow-elevated text-primary' : 'hover-accent'"
             >
               <UIcon

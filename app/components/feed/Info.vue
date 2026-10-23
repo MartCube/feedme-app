@@ -14,8 +14,6 @@ const enabledCount = computed(() => props.feed?.sources.filter(source => source.
 
 const { selectedUid, select } = useTapSelection()
 
-const settings = useSettingsStore()
-
 // On = shown in this feed. Immediate, no Save: a toggle is its own commit.
 function setEnabled(sourceUid: string, enabled: boolean) {
   if (props.feed) feedsStore.updateSource(props.feed.uid, sourceUid, { enabled })
@@ -32,39 +30,35 @@ function addSource() {
 
 <template>
   <div class="flex flex-col">
-    <!-- Back is the phone's way home to the post list; on desktop that list
-         is already beside it, so the button keeps its space and hides.
-         The actions follow the post's side (Appearance → Post actions): on
-         the left the bar swaps, actions left and Back right. -->
-    <header
-      class="flex items-center justify-between gap-sm"
-      :class="settings.actionSide === 'left' && 'flex-row-reverse'"
-    >
-      <IconButton
-        icon="i-ph-caret-left-bold"
-        :to="back"
-        aria-label="Back to posts"
-        class="lg:invisible"
-      />
+    <!-- Actions left and Back right, like the post page's navbar. Back is the
+         phone's way home to the post list; on desktop that list is already
+         beside it, so the button keeps its space and hides. ml-auto holds it
+         right while the feed (and so the actions) is missing. -->
+    <header class="flex items-center justify-between gap-sm">
       <!-- Delete is its own button rather than the foot of the edit form:
            the two are different jobs. Edit, the common one, takes the outer
-           edge on either side. Delete still goes through its confirm. -->
+           edge. Delete still goes through its confirm. -->
       <div
         v-if="feed"
         class="flex items-center gap-xs"
-        :class="settings.actionSide === 'left' && 'flex-row-reverse'"
       >
-        <IconButton
-          icon="i-ph-trash-bold"
-          :to="`/feed/${uid}/info/delete`"
-          aria-label="Delete feed"
-        />
         <IconButton
           icon="i-ph-pencil-simple-bold"
           :to="`/feed/${uid}/info/edit`"
           aria-label="Edit feed"
         />
+        <IconButton
+          icon="i-ph-trash-bold"
+          :to="`/feed/${uid}/info/delete`"
+          aria-label="Delete feed"
+        />
       </div>
+      <IconButton
+        icon="i-ph-caret-left-bold"
+        :to="back"
+        aria-label="Back to posts"
+        class="ml-auto lg:invisible"
+      />
     </header>
 
     <template v-if="feed">

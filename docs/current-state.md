@@ -66,7 +66,7 @@ own status: **read that file's § Status for what to build next.**
   only), and the
   6-step t-shirt spacing scale (`--spacing-2xs…xl` → `p-sm`, `gap-md`, `mt-lg`, …) in
   `app/assets/css/spacing.css`, alongside the `page-inset` utility every page/drawer
-  wrapper uses for the screen inset (lg sides/top, xl bottom).
+  wrapper uses for the screen inset (lg sides/top — md top on desktop — xl bottom).
   See [design-system.md](./design-system.md).
 - **Theme switch** — Settings → Appearance picks one of the five themes via the persisted Pinia
   `settings` store (`pinia-plugin-persistedstate`, cookie — now a local cache in front of
@@ -226,8 +226,8 @@ own status: **read that file's § Status for what to build next.**
   — they stay frozen while a content route is open (which is what keeps a search alive across a
   trip into Settings).
   **The three columns share a pinned top-row axis** _(2026-09-24)_: the sidebar wordmark, the
-  posts pane's title/search row, and the post pane's actions row all sit in one 48px row at the
-  top inset, and all three are `sticky` at `-top-lg` (not `top-0` — Chrome measures a sticky
+  posts pane's title/search row, and the post pane's actions row all sit in one 40px row (`lg:h-10`) at
+  the top inset — `md` from the window edge on desktop _(2026-10-23; was 48px at `lg`)_ — and all three are `sticky` at `-top-md` (not `top-0` — Chrome measures a sticky
   offset from the scroll container's *padding* edge, not its border box) so each stays reachable
   while its own column scrolls under it. Each pinned row folds its column's `page-inset` into an
   opaque strip in the column's own surface — `bg-sunken` for the sidebar, `bg-default` for the
@@ -327,8 +327,8 @@ own status: **read that file's § Status for what to build next.**
 - **Feeds list v1** — `app/components/home/FeedList.vue` (`HomeFeedList`) renders the home list
   from the `feeds` store's `/home` load — used by the mobile home page (`app/pages/index.vue`)
   and, on desktop, the sidebar (an `activeUid` prop drives the desktop persistent-selection
-  highlight). It leads with a stand-in **FeedMe wordmark** (`text-logo`, Feed in `text-primary`,
-  ME in body ink — a placeholder until a designer supplies a real mark; see
+  highlight). It leads with the **FeedMe logo mark** (`ui/Logo.vue`, `size-8`) and wordmark (`text-logo`, Feed in `text-primary`,
+  ME in body ink; mark and wordmark share one link; see
   [design-system.md](./design-system.md) § Type scale; the mark itself links to `/feed/all`, the
   link sized to the text so the row's dead space isn't a target; on desktop the row is pinned to
   the top of the sidebar, on the top-row axis it shares with the posts pane's title row and the
@@ -416,10 +416,9 @@ own status: **read that file's § Status for what to build next.**
   rest `text-muted` and light `primary` on hover and press. **Inputs** show one `primary` focus
   line. **Loading**: a spinner beside the sidebar/home wordmark (`home/FeedList.vue`) driven by
   an in-flight counter on the `$api` plugin (`$apiPending`), debounced 150ms; the mobile feed and
-  post pages have none yet, and a custom spinner is a backlog item. **Post actions side**:
-  Settings → Appearance → *Post actions* puts Copy link / Open source / Save left (default) or
-  right (settings store `actionSide`), cookie-only for now and not in the account payload; the
-  mobile post navbar and the desktop pane strip both follow. The actions stay mounted while the
+  post pages have none yet, and a custom spinner is a backlog item. **Post actions side**
+  _(removed 2026-10-23: the layout is fixed to actions left, Back right, and `actionSide` is gone
+  from the settings store)_. The actions stay mounted while the
   next post loads (inert until it arrives, hidden if it failed), so they don't blink between
   posts. **Feed info**: an info `IconButton` beside search in the posts title row replaces the
   glyph on the title; the feed page has separate Delete and Edit buttons, Delete moved out of
@@ -433,21 +432,32 @@ own status: **read that file's § Status for what to build next.**
   [design-system.md](./design-system.md). **Post images**: `PostImage` fixes its box at the
   aspect from first paint with `animate-pulse` until load, and under `noUpscale` a smaller
   image sits centred at its own size — **this delivers roadmap T15f**. The feed search is `h-12`
-  to match `IconButton`.
+  to match `IconButton` (`h-10` on desktop).
+- **Desktop density and logo pass** _(2026-10-23)_ — frontend. **Logo**: `ui/Logo.vue` mark
+  beside the wordmark, `text-logo` 2rem → 1.625rem, `public/favicon.svg` replaces the stock
+  favicon. **Top-row axis**: `page-inset` takes `md` top on desktop; sidebar wordmark, posts-pane
+  title row and post-action strip are 40px rows pinned at `-top-md`; `scroll-under-strip` is
+  `md + h-10 + sm + xs`. **Sizes on desktop**: `IconButton` `md` is `size-12` (`lg:size-10`, icon
+  `size-6` / `lg:size-5`), the Add Continue button matches, `PillButton` `lg:h-10`, `SearchInput`
+  `h-12` / `lg:h-10`. **Tooltip**: bare 11px muted text, desktop only (see design-system.md).
+  **Density**: sidebar rows `py-xs`; post cards `lg:py-xs`, image cards `lg:pr-xs` with the image
+  `lg:rounded-lg` (an even `xs` frame, concentric corners); card image `md:size-40` /
+  `xl:size-44` (was `lg:size-44` / `xl:size-48`); post view title `lg:mt-xs`. **Removed**: the
+  Appearance → *Post actions* setting.
 - **Sidebar groups** _(2026-10-21)_ — frontend. The desktop sidebar is three groups: pinned
   rows (Home, Saved, **New Feed**), a foldable **Feeds** group, and a foldable **Settings**
   group that lists the settings sections directly (one click opens a section; the post pane's
   own section list is no longer reached on desktop, and a section's top button is **Close**
   rather than Back). Folds use `UCollapsible` with the new `ui/GroupToggle.vue` header
   (caption-styled, hairline, caret) and a 200ms fade/slide (`fold-rows` in `motion.css`). Three
-  new **local-only** settings (cookie-persisted, not in the account payload, like `actionSide`):
+  new **local-only** settings (cookie-persisted, not in the account payload, like the other local-only settings):
   `sidebarIcons` (`shown` default | `hidden`; desktop only; Appearance → *Sidebar icons*) and
-  `feedsGroupOpen` / `settingsGroupOpen`. All persisted-store cookies (these, `actionSide`, the auth
+  `feedsGroupOpen` / `settingsGroupOpen`. All persisted-store cookies (these and the auth
   token) carry a 1-year `maxAge` _(2026-10-23)_; before, they were session cookies, so closing the
   browser signed you out and reset these. The `all` feed's display title is now **Home**
   (was "All feeds"). **Home and Saved have no feed page**: `FeedInfoPanels`/the info icon apply
   to `feed_*` uids only, and `feed/Info.vue` no longer lists Saved's groups. The feed page's
-  header follows the post-actions side (actions left, Back right when `actionSide` is `left`).
+  header puts actions left and Back right.
   Add wizard steps gain a Close button beside Back on desktop, and Add/Settings/feed-page
   panels hold their content to `max-w-reading` inside a full-width scroll (scrollbar at the
   pane edge). Continue in the wizard blinks `primary` once when first enabled.
@@ -558,7 +568,7 @@ own status: **read that file's § Status for what to build next.**
   (`external-preview.redd.it` is left alone). `FeedPostImage` has a `noUpscale` prop, used on
   the post page, capping the box at the image's natural width.
 - **Tooltips and Escape** _(2026-10-09)_ — every `IconButton` shows its `aria-label` as a
-  hover tooltip (`UTooltip`, styled once in `app.config.ts` as a `bg-muted` caption pill;
+  hover tooltip (`UTooltip`, styled once in `app.config.ts`, since 2026-10-23 as bare muted 11px text, desktop only;
   `<UApp>` sets a 400ms delay and keyboard-focus-only, so touch never shows one), and so does
   the feed title's info icon. **Escape** in the post list's search box closes it and clears
   the search, like its X. The card excerpt also strips Hacker News's text-post footer

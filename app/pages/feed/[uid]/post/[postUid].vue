@@ -24,8 +24,6 @@ const { style: swipeStyle } = useSwipeBack(page, backTo)
 const { post, failed, article, articleState, saved, toggleSave } = usePost(isDesktopNow() ? null : postUid)
 
 useHead({ title: () => post.value?.title ?? 'Post' })
-
-const settings = useSettingsStore()
 </script>
 
 <template>
@@ -34,20 +32,20 @@ const settings = useSettingsStore()
     :style="swipeStyle"
     class="flex touch-pan-y flex-col page-inset"
   >
-    <!-- Post actions on the left (the default, Appearance → Post actions)
-         swap the bar: actions left, Back right. -->
-    <Navbar :class="settings.actionSide === 'left' && 'flex-row-reverse'">
-      <IconButton
-        icon="i-ph-caret-left-bold"
-        :to="backTo"
-        aria-label="Back"
-      />
-      <!-- No actions for a post that couldn't load: nothing to act on. -->
+    <!-- Actions left, Back right. No actions for a post that couldn't load:
+         nothing to act on, and ml-auto holds Back right without them. -->
+    <Navbar>
       <FeedPostActions
         v-if="!failed"
         :post="post"
         :saved="saved"
         @toggle-save="toggleSave"
+      />
+      <IconButton
+        icon="i-ph-caret-left-bold"
+        :to="backTo"
+        aria-label="Back"
+        class="ml-auto"
       />
     </Navbar>
 
