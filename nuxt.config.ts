@@ -126,4 +126,14 @@ export default defineNuxtConfig({
       { name: 'Sora', provider: 'google', weights: [400, 600] },
     ],
   },
+  // Persisted stores (the auth token, the local-only settings) live in
+  // cookies, and a cookie with no maxAge is a session cookie: closing the
+  // browser dropped the sign-in and every local preference. A year, renewed
+  // on each write.
+  piniaPluginPersistedstate: {
+    cookieOptions: {
+      maxAge: 60 * 60 * 24 * 365,
+      sameSite: 'lax',
+    },
+  },
 })

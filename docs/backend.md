@@ -142,7 +142,7 @@ FeedSource    feed FK (cascade), source FK (PROTECT), name (the user's rename �
               — unique (feed, source)
 SavedPost     user FK, post FK, group (bookmarks|favorites|later), saved_at
               — unique (user, post): a post lives in exactly one group
-UserSettings  user 1:1, theme, post_card_style, pane_split (posts|equal|post), … (grows with Appearance options)
+UserSettings  user 1:1, theme (ink|claude|dracula|reddit|crowd), post_card_style, pane_split (posts|equal|post), … (grows with Appearance options)
 ```
 
 **Cascade rules** are exactly [data-model.md](./data-model.md#cascade-rules)'s, enforced
@@ -212,7 +212,7 @@ exception is `DELETE /feeds/{uid}`, which has nothing left to return.
 | `GET /discover` | `?type=website|youtube|reddit&q=<url or keyword>` → candidate sources (`name`, `type`, `site_url`, `feed_url`, `icon`, `subscribers`, `already_subscribed`) — a source row's fields minus the uid, `title` and `enabled` it hasn't earned, plus the flag. `already_subscribed` means the source is **in one of your feeds** already; it no longer blocks picking, since a source can sit in several. Field names follow § Vocabulary (`name`, not `title`). A URL resolves under any card; a bare name is a YouTube channel search under `youtube` (503 when YouTube won't answer) and finds nothing under the other two until T11c/T11d. `subscribers` is a YouTube search hit's subscriber count — one extra `channels.list?part=statistics` call per search for all hits (1 quota unit), cached with the search; null for a hidden count, a pasted URL, or any other type, and a failed statistics call leaves it null without failing the search (and isn't cached) _(2026-10-08)_. Backs the add wizard |
 | `GET /discover/posts` | _(T14, planned)_ `?feed_url=<a candidate's feed_url>` → its newest 10 posts, fetched live and never stored — `PostSchema` minus `uid` / `source` / `saved_group`, with `published_at` nullable. The twin of `GET /feeds/{uid}/posts` for a source you haven't added yet. Unreachable or not a feed → 422 with a message; a real feed with no entries → `[]` |
 | `GET /search` | `?q=&scope=<all \| saved \| saved_* \| feed_*>&cursor=&limit=` (scope defaults to `all`) — **the post list narrowed by `q`**: same polymorphic scope uid, same page shape, same cursor, newest-first. A blank `q` is an empty page, not an error. Engine-neutral contract — no tsquery syntax in, no rank out; see [Search](#search) |
-| `GET /settings` · `PUT /settings` | The persisted `UserSettings` (theme, post-card style, desktop `pane_split`, …) — replaces cookie-only persistence so settings follow the account across devices |
+| `GET /settings` · `PUT /settings` | The persisted `UserSettings` (theme — `ink`/`claude`/`dracula`/`reddit`/`crowd` — post-card style, desktop `pane_split`, …) — replaces cookie-only persistence so settings follow the account across devices |
 
 ## Auth
 

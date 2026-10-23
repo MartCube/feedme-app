@@ -7,6 +7,9 @@ export type ThemeName = Settings['theme']
 export const themes: { name: ThemeName, label: string }[] = [
   { name: 'ink', label: 'Ink' },
   { name: 'claude', label: 'Claude' },
+  { name: 'dracula', label: 'Dracula' },
+  { name: 'reddit', label: 'Reddit' },
+  { name: 'crowd', label: 'Crowd' },
 ]
 
 // Which version of a post card to render: a 16:9 image on top, or date and

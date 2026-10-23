@@ -53,8 +53,8 @@ own status: **read that file's § Status for what to build next.**
 
 ## Built
 
-- **Theme tokens** — 9 `--ui-*` color roles themed in `app/assets/css/themes.css` (two dark
-  themes: Ink default + Claude; the old teal/ink/silver ramps are removed), plus the 4-size
+- **Theme tokens** — 9 `--ui-*` color roles themed in `app/assets/css/themes.css` (five dark
+  themes: Ink default, Claude, Dracula, Reddit, Crowd; the old teal/ink/silver ramps are removed), plus the 4-size
   type scale (`text-title/subtitle/body/caption`, plus a brand-only `text-logo` for the wordmark
   — see [design-system.md](./design-system.md) § Type scale) and `shadow-elevated`. The same
   file defines a desktop-only `hover-accent` utility (the row's label goes `primary` on `:hover`,
@@ -68,7 +68,7 @@ own status: **read that file's § Status for what to build next.**
   `app/assets/css/spacing.css`, alongside the `page-inset` utility every page/drawer
   wrapper uses for the screen inset (lg sides/top, xl bottom).
   See [design-system.md](./design-system.md).
-- **Theme switch** — Settings → Appearance picks Ink or Claude via the persisted Pinia
+- **Theme switch** — Settings → Appearance picks one of the five themes via the persisted Pinia
   `settings` store (`pinia-plugin-persistedstate`, cookie — now a local cache in front of
   `GET`/`PUT /settings`, see **Data layer** below, which is what still paints the chosen theme
   server-side without a flash); `app.vue` applies `data-theme` on `<html>` via `useHead`.
@@ -327,7 +327,7 @@ own status: **read that file's § Status for what to build next.**
 - **Feeds list v1** — `app/components/home/FeedList.vue` (`HomeFeedList`) renders the home list
   from the `feeds` store's `/home` load — used by the mobile home page (`app/pages/index.vue`)
   and, on desktop, the sidebar (an `activeUid` prop drives the desktop persistent-selection
-  highlight). It leads with a stand-in **FEEDME wordmark** (`text-logo`, FEED in `text-primary`,
+  highlight). It leads with a stand-in **FeedMe wordmark** (`text-logo`, Feed in `text-primary`,
   ME in body ink — a placeholder until a designer supplies a real mark; see
   [design-system.md](./design-system.md) § Type scale; the mark itself links to `/feed/all`, the
   link sized to the text so the row's dead space isn't a target; on desktop the row is pinned to
@@ -442,13 +442,19 @@ own status: **read that file's § Status for what to build next.**
   (caption-styled, hairline, caret) and a 200ms fade/slide (`fold-rows` in `motion.css`). Three
   new **local-only** settings (cookie-persisted, not in the account payload, like `actionSide`):
   `sidebarIcons` (`shown` default | `hidden`; desktop only; Appearance → *Sidebar icons*) and
-  `feedsGroupOpen` / `settingsGroupOpen`. The `all` feed's display title is now **Home**
+  `feedsGroupOpen` / `settingsGroupOpen`. All persisted-store cookies (these, `actionSide`, the auth
+  token) carry a 1-year `maxAge` _(2026-10-23)_; before, they were session cookies, so closing the
+  browser signed you out and reset these. The `all` feed's display title is now **Home**
   (was "All feeds"). **Home and Saved have no feed page**: `FeedInfoPanels`/the info icon apply
   to `feed_*` uids only, and `feed/Info.vue` no longer lists Saved's groups. The feed page's
   header follows the post-actions side (actions left, Back right when `actionSide` is `left`).
   Add wizard steps gain a Close button beside Back on desktop, and Add/Settings/feed-page
   panels hold their content to `max-w-reading` inside a full-width scroll (scrollbar at the
   pane edge). Continue in the wizard blinks `primary` once when first enabled.
+- **More themes** _(2026-10-23)_ — Dracula, Reddit and Crowd join Ink and Claude (settings
+  `theme` enum widened, migration 0009). Crowd deviates on purpose: sidebar a step above the
+  page, cards on the sidebar surface, a scoped hover-surface exception — see
+  [design-system.md](./design-system.md) § Themes. Persisted cookies now last a year.
 - **Desktop keyboard shortcuts** _(2026-10-21)_ — frontend, ≥lg only, on Nuxt UI's
   `defineShortcuts` (no new composable; each binding lives in the component owning its state).
   Esc (`DesktopShell`, works from focused fields) closes the top layer one per press: Settings/Add

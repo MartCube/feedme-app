@@ -200,6 +200,9 @@ class UserSettings(models.Model):
     class Theme(models.TextChoices):
         INK = 'ink'
         CLAUDE = 'claude'
+        DRACULA = 'dracula'
+        REDDIT = 'reddit'
+        CROWD = 'crowd'
 
     class PostCardStyle(models.TextChoices):
         # a 16:9 image on top, or date + title alone. A post with no image renders compact

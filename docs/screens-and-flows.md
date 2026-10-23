@@ -147,7 +147,7 @@ other screen loads anything until this one has been passed.
 
 **Purpose:** the home screen. Shows the pinned **Saved** row and the user's **feeds** — a flat
 list, nothing nested: a feed is already a group of sources, so there is nothing to expand. A
-**FEEDME** wordmark leads the list (the mark itself is a link to `/feed/all`), then **Home** is
+**FeedMe** wordmark leads the list (the mark itself is a link to `/feed/all`), then **Home** is
 an ordinary list row like the rest (same height and surface, just the name) —
 tapping it opens the merged read of every source that's on in some feed (`/feed/all`).
 

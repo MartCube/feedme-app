@@ -1,5 +1,5 @@
 /* ---- Themes ---------------------------------------------------------------
-   A theme = the 9 color roles, nothing more. Both launch themes are dark; a
+   A theme = the 9 color roles, nothing more. Every theme so far is dark; a
    light theme is just another block (elevation flips darker, the hairline
    flips to black at low alpha). Lines marked "alias" exist only so Nuxt UI
    internals never render an unmapped color — they are not app vocabulary.
@@ -58,6 +58,106 @@ html[data-theme='claude'] {
 
   --ui-primary: #d97757;
   --ui-error: #e5695e;
+}
+
+/* Theme: Dracula — purple-grey surfaces, off-white text, pink accent. Muted
+   text is lifted from Dracula's comment purple (#6272a4) to #a4abcf so dates
+   and counts pass 4.5:1 on resting cards (bg-elevated; a hovered or selected
+   card's bg-muted dips to ~4:1); #6272a4 stays for the dimmed role only. */
+html[data-theme='dracula'] {
+  --ui-bg: #282a36;
+  --ui-bg-sunken: #21222c;
+  --ui-bg-elevated: #343746;
+  --ui-bg-muted: #44475a;
+  --ui-bg-accented: #44475a;
+  --ui-bg-inverted: #f8f8f2;
+
+  --ui-text: #f8f8f2;
+  --ui-text-highlighted: #f8f8f2;
+  --ui-text-muted: #a4abcf;
+  --ui-text-toned: #a4abcf;
+  --ui-text-dimmed: #6272a4;
+  --ui-text-inverted: #282a36;
+
+  --ui-border: rgba(255, 255, 255, 0.08);
+  --ui-border-muted: rgba(255, 255, 255, 0.08);
+  --ui-border-accented: rgba(255, 255, 255, 0.08);
+
+  --ui-primary: #ff79c6;
+  --ui-error: #ff5555;
+}
+
+/* Theme: Reddit — Reddit's dark mode: near-black blue-grey surfaces, with old
+   Reddit's soft upvote orange as the accent (orangered #ff4500 shouted).
+   Text is Reddit's bright "strong" content colour, not its softer body grey,
+   since one role carries both titles and body here. Error is a cooler
+   crimson so it never reads as the accent. */
+html[data-theme='reddit'] {
+  --ui-bg: #0e1113;
+  --ui-bg-sunken: #08090a;
+  --ui-bg-elevated: #181c1f;
+  --ui-bg-muted: #2a3236;
+  --ui-bg-accented: #2a3236;
+  --ui-bg-inverted: #eef1f3;
+
+  --ui-text: #eef1f3;
+  --ui-text-highlighted: #eef1f3;
+  --ui-text-muted: #8ba2ad;
+  --ui-text-toned: #8ba2ad;
+  --ui-text-dimmed: #5c6c74;
+  --ui-text-inverted: #0e1113;
+
+  --ui-border: rgba(255, 255, 255, 0.08);
+  --ui-border-muted: rgba(255, 255, 255, 0.08);
+  --ui-border-accented: rgba(255, 255, 255, 0.08);
+
+  --ui-primary: #ff8b60;
+  --ui-error: #f0506e;
+}
+
+/* Theme: Crowd — crowdfeed.com's own DaisyUI `crowdfeed` theme, read off the
+   live site (base-100…300, secondary, neutral-content, error): near-black
+   with a faint violet cast, lavender accent (crowdfeed's link colour, not its
+   indigo primary). The one theme whose sidebar sits a step ABOVE the page
+   (base-200 on base-100), as crowdfeed's does, and cards share the sidebar's
+   surface. Screenshots come out lighter than these; trust the values. */
+html[data-theme='crowd'] {
+  --ui-bg: #141416;
+  --ui-bg-sunken: #1e1e22;
+  --ui-bg-elevated: #1e1e22;
+  --ui-bg-muted: #27272c;
+  --ui-bg-accented: #27272c;
+  --ui-bg-inverted: #ffffff;
+
+  --ui-text: #ffffff;
+  --ui-text-highlighted: #ffffff;
+  --ui-text-muted: #adadae;
+  --ui-text-toned: #adadae;
+  --ui-text-dimmed: #727276;
+  --ui-text-inverted: #141416;
+
+  --ui-border: rgba(255, 255, 255, 0.07);
+  --ui-border-muted: rgba(255, 255, 255, 0.07);
+  --ui-border-accented: rgba(255, 255, 255, 0.07);
+
+  --ui-primary: #a399ff;
+  --ui-error: #f65b39;
+}
+
+/* Crowd's cards share the sidebar's surface, so a sidebar row selected the
+   usual way (bg-elevated) would vanish into it. Inside the sidebar only, the
+   elevated role steps up to bg-muted — the selected post card's surface —
+   and the rows take that surface on hover too, as crowdfeed's do; elsewhere
+   rows keep the label-only hover-accent. The group headers (hairline, not
+   rounded) are left alone. */
+html[data-theme='crowd'] .bg-sunken {
+  --ui-bg-elevated: var(--ui-bg-muted);
+}
+
+@media (hover: hover) {
+  html[data-theme='crowd'] .bg-sunken .hover-accent.rounded-2xl:hover {
+    background-color: var(--ui-bg-muted);
+  }
 }
 
 /* bg-default / bg-elevated / bg-muted come from Nuxt UI; bg-sunken is ours, so
