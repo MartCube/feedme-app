@@ -65,7 +65,7 @@ const busy = refDebounced(computed(() => $apiPending.value > 0), 150)
          row to its text, and every fold that ends the overflow would jump. -->
     <h1 class="flex items-center gap-sm text-logo tracking-tight lg:sticky lg:-top-lg lg:z-10 lg:-mx-lg lg:-mt-lg lg:box-content lg:h-12 lg:shrink-0 lg:bg-sunken lg:px-lg lg:pt-lg">
       <NuxtLink to="/feed/all">
-        <span class="text-primary">FEED</span>ME
+        <span class="text-primary">Feed</span>Me
       </NuxtLink>
       <!-- Stock spinner as a stand-in until the app has its own
            (pending_tasks/custom-spinner.md). -->
