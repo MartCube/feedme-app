@@ -64,6 +64,39 @@ ATOM_YOUTUBE = b"""<?xml version="1.0" encoding="UTF-8"?>
 </feed>
 """
 
+# The same channel's videos-only feed: a playlist titled "Videos", with no alternate link, whose
+# author is the channel
+ATOM_YOUTUBE_VIDEOS = b"""<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns:media="http://search.yahoo.com/mrss/"
+      xmlns="http://www.w3.org/2005/Atom">
+  <link rel="self" href="http://www.youtube.com/feeds/videos.xml?playlist_id=UULFgij"/>
+  <id>yt:playlist:UULFgij</id>
+  <title>Videos</title>
+  <author>
+    <name>SkiEssentials</name>
+    <uri>https://www.youtube.com/channel/UCgij</uri>
+  </author>
+  <entry>
+    <id>yt:video:H14_F7bGgzg</id>
+    <title>Top 5 Fridays - Episode 268</title>
+    <link rel="alternate" href="https://www.youtube.com/watch?v=H14_F7bGgzg"/>
+    <published>2026-08-21T21:06:18+00:00</published>
+  </entry>
+</feed>
+"""
+
+# A channel feed carrying a Short beside a video
+ATOM_YOUTUBE_WITH_SHORT = ATOM_YOUTUBE.replace(
+    b'</feed>',
+    b"""  <entry>
+    <id>yt:video:Ab3_x9KqLmZ</id>
+    <title>One turn, slowed down</title>
+    <link rel="alternate" href="https://www.youtube.com/shorts/Ab3_x9KqLmZ"/>
+    <published>2026-08-22T10:00:00+00:00</published>
+  </entry>
+</feed>""",
+)
+
 ATOM_REDDIT = b"""<?xml version="1.0" encoding="UTF-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
   <title>One Piece</title>

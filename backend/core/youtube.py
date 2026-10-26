@@ -157,6 +157,28 @@ def _normalise(query):
     return re.sub(r'\s+', ' ', query.strip()).casefold()
 
 
+# --- Polling: videos, not Shorts ------------------------------------------------------------
+
+# The feed a YouTube source is stored under (discover.YOUTUBE_FEED); the channel id is `UC…`
+CHANNEL_FEED = re.compile(
+    r'^https://(?:www\.)?youtube\.com/feeds/videos\.xml\?channel_id=UC([\w-]+)$'
+)
+# The channel's uploads with the Shorts and the live streams left out: `UULF` + the id after `UC`
+VIDEOS_FEED = 'https://www.youtube.com/feeds/videos.xml?playlist_id=UULF{}'
+
+
+def videos_feed(feed_url):
+    """The videos-only feed behind a channel feed, or None for any other URL.
+
+    The channel feed mixes Shorts in — 11 of FORMULA 1's latest 15 entries were Shorts, which
+    also pushes real videos out of a 15-entry window. YouTube keeps a playlist of the same
+    uploads without them, under the same `yt:video:<id>` guids, so a source moved onto it keeps
+    its posts. Only the URL polled changes; the channel feed stays the source's identity.
+    """
+    match = CHANNEL_FEED.match(feed_url or '')
+    return VIDEOS_FEED.format(match[1]) if match else None
+
+
 # --- Posts: the poster and the player -------------------------------------------------------
 
 # A video id is 11 characters of the URL-safe base64 alphabet

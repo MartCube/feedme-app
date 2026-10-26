@@ -189,6 +189,31 @@ def test_a_youtube_entry_maps_its_thumbnail_and_published_date(db, monkeypatch):
     assert post.published_at.isoformat() == '2026-08-21T21:06:18+00:00'
 
 
+def test_a_short_is_skipped(db, monkeypatch):
+    source = Source.objects.create(
+        type=Source.Type.YOUTUBE, feed_url='https://youtube.com/feeds/videos.xml?channel_id=UCgij'
+    )
+    serve(monkeypatch, ok(feeds.ATOM_YOUTUBE_WITH_SHORT))
+
+    result = ingest_source(source)
+
+    assert result.created == 1
+    assert Post.objects.get().post_url == 'https://www.youtube.com/watch?v=H14_F7bGgzg'
+
+
+def test_a_new_youtube_source_is_named_after_the_channel_not_the_playlist(db, monkeypatch):
+    source = Source.objects.create(
+        type=Source.Type.YOUTUBE, feed_url='https://youtube.com/feeds/videos.xml?channel_id=UCgij'
+    )
+    serve(monkeypatch, ok(feeds.ATOM_YOUTUBE_VIDEOS))
+
+    ingest_source(source)
+
+    source.refresh_from_db()
+    assert source.title == 'SkiEssentials'
+    assert source.site_url == 'https://www.youtube.com/channel/UCgij'
+
+
 def test_a_reddit_entry_maps_its_atom_id_as_the_guid(db, monkeypatch):
     source = Source.objects.create(
         type=Source.Type.REDDIT, feed_url='https://www.reddit.com/r/OnePiece/.rss'
@@ -609,6 +634,59 @@ def test_a_write_the_database_refuses_is_a_recorded_failure_not_a_crash(source, 
 # Polling shares core/fetch.py's address check and read cap with extraction and discovery,
 # and these are the tests that it does — with requests.get replaced the way tests/test_fetch.py
 # does it, and a literal public address so no resolver is involved.
+
+
+def youtube_source():
+    return Source.objects.create(
+        type=Source.Type.YOUTUBE,
+        feed_url='https://www.youtube.com/feeds/videos.xml?channel_id=UCgijSqjxEFzRJuQwNBRrTDg',
+    )
+
+
+def record_gets(monkeypatch, *statuses):
+    """requests.get answering each call with the next status; the URLs asked for, in order.
+    check_public is waved through: these URLs are hostnames, and the address check has its
+    own tests above."""
+    from tests.test_fetch import FakeResponse
+
+    asked = []
+    queue = list(statuses)
+
+    def fake_get(url, headers, timeout, stream):
+        asked.append(url)
+        return FakeResponse(queue.pop(0), chunks=[feeds.ATOM_YOUTUBE])
+
+    monkeypatch.setattr(ingest, 'check_public', lambda url: None)
+    monkeypatch.setattr(ingest.requests, 'get', fake_get)
+    return asked
+
+
+def test_a_youtube_channel_is_polled_through_its_videos_only_feed(db, monkeypatch):
+    asked = record_gets(monkeypatch, 200)
+
+    ingest.fetch_feed(youtube_source())
+
+    assert asked == [
+        'https://www.youtube.com/feeds/videos.xml?playlist_id=UULFgijSqjxEFzRJuQwNBRrTDg'
+    ]
+
+
+def test_a_channel_with_no_videos_only_feed_is_read_through_its_own(db, monkeypatch):
+    asked = record_gets(monkeypatch, 404, 200)
+    source = youtube_source()
+
+    fetched = ingest.fetch_feed(source)
+
+    assert fetched.status_code == 200
+    assert asked[1] == source.feed_url
+
+
+def test_a_website_feed_is_polled_at_its_own_url(source, monkeypatch):
+    asked = record_gets(monkeypatch, 200)
+
+    ingest.fetch_feed(source)
+
+    assert asked == [source.feed_url]
 
 
 def test_a_private_feed_url_is_a_failure_with_no_request_made(db, monkeypatch):

@@ -267,6 +267,37 @@ def test_a_search_with_no_hits_is_an_empty_list(authed_client, monkeypatch):
     assert response.json() == []
 
 
+# --- polling: videos, not Shorts ------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    'feed_url',
+    [
+        'https://www.youtube.com/feeds/videos.xml?channel_id=UCgijSqjxEFzRJuQwNBRrTDg',
+        'https://youtube.com/feeds/videos.xml?channel_id=UCgijSqjxEFzRJuQwNBRrTDg',
+    ],
+)
+def test_a_channel_feed_has_a_videos_only_feed(feed_url):
+    assert youtube.videos_feed(feed_url) == (
+        'https://www.youtube.com/feeds/videos.xml?playlist_id=UULFgijSqjxEFzRJuQwNBRrTDg'
+    )
+
+
+@pytest.mark.parametrize(
+    'feed_url',
+    [
+        # already a playlist, not a channel
+        'https://www.youtube.com/feeds/videos.xml?playlist_id=PLabc',
+        # a channel id that isn't UC… has no uploads playlist to derive
+        'https://www.youtube.com/feeds/videos.xml?channel_id=HCabc',
+        'https://www.reddit.com/r/OnePiece/.rss',
+        '',
+    ],
+)
+def test_anything_else_has_none(feed_url):
+    assert youtube.videos_feed(feed_url) is None
+
+
 # --- posts: the poster and the player -------------------------------------------------------
 
 

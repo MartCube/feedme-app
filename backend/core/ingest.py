@@ -97,15 +97,29 @@ def fetch_feed(source):
     has to hand back the response's status and headers, which fetch_url doesn't expose.
     Only the stored URL is vetted; requests follows redirects on its own, unchecked, since
     what a feed redirects to is parsed and stored, never handed back to a caller.
+
+    A YouTube channel is polled through its videos-only feed (core/youtube.py), not the
+    feed_url it is stored under. A channel with no regular uploads has no such playlist and
+    answers 404; its own feed is read instead, and _entry_to_post skips the Shorts in it.
     """
+    if source.type == Source.Type.YOUTUBE:
+        videos = youtube.videos_feed(source.feed_url)
+        if videos:
+            fetched = _get(videos, source)
+            if fetched.status_code != 404:
+                return fetched
+    return _get(source.feed_url, source)
+
+
+def _get(url, source):
     headers = {'user-agent': USER_AGENT, 'accept': ACCEPT}
     if source.etag:
         headers['if-none-match'] = source.etag
     if source.last_modified:
         headers['if-modified-since'] = source.last_modified
 
-    check_public(source.feed_url)
-    response = requests.get(source.feed_url, headers=headers, timeout=TIMEOUT, stream=True)
+    check_public(url)
+    response = requests.get(url, headers=headers, timeout=TIMEOUT, stream=True)
     with response:
         return FetchResult(
             status_code=response.status_code,
@@ -148,6 +162,12 @@ def ingest_source(source):
         return _record_failure(source, now, _describe_empty(parsed))
 
     metadata = feed_metadata(parsed.feed)
+    if source.type == Source.Type.YOUTUBE:
+        # The videos-only feed is a playlist titled "Videos", linked as `yt:playlist:…`; the
+        # channel is its author. The channel feed names the same author, so either reads alike.
+        channel = parsed.feed.get('author_detail') or {}
+        metadata['title'] = channel.get('name') or metadata['title']
+        metadata['site_url'] = channel.get('href') or metadata['site_url']
     if not source.icon_url and not metadata['icon_url']:
         # Before the transaction, since it is a network call. Once per source in practice:
         # whatever comes back is stored, and a stored icon is never looked up again.
@@ -229,6 +249,10 @@ def _entry_to_post(entry):
     # a link that isn't http(s) is not a place a post can live, whatever the markup says —
     # and the reader will render post_url as an href, so `javascript:` never gets that far
     if not link or not guid or not _is_http(link):
+        return None, None
+    # A Short: the videos-only feed has none, but a channel read through its own feed does
+    video = youtube.video(link)
+    if video and video['vertical']:
         return None, None
 
     return guid[:500], {
