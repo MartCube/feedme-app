@@ -344,6 +344,86 @@ def test_an_authors_own_picture_stays(link):
     assert 'https://blog.example.com/img/two.png' in html
 
 
+URL = 'https://blog.example.com/p/one'
+# Long enough to count as a repeat when it appears twice
+SENTENCE = b'Composables are where the reuse lives, and that is the whole argument for them.'
+
+
+def test_a_related_posts_block_is_left_out():
+    """Cointelegraph's "More on the subject": other posts' covers at the article's foot."""
+    html = extract.extract_html(
+        page_with(
+            b'<section data-testid="more-on-subject"><h2>More on the subject</h2>'
+            b'<a href="/p/three"><img src="/img/three.jpg"></a>'
+            b'<a href="/p/four"><img src="/img/four.jpg"></a></section>'
+        ),
+        URL,
+    )
+
+    assert 'More on the subject' not in html
+    assert 'three.jpg' not in html
+    assert 'https://blog.example.com/img/one.png' in html
+
+
+@pytest.mark.parametrize(
+    'page',
+    [
+        # a wrapper holding the headline
+        ARTICLE_PAGE.replace(
+            b'<article>', b'<article><div class="post has-related-posts">'
+        ).replace(b'</article>', b'</div></article>'),
+        # a wrapper below the headline holding the paragraphs
+        ARTICLE_PAGE.replace(b'</h1>', b'</h1><div class="entry share-enabled">').replace(
+            b'</article>', b'</div></article>'
+        ),
+    ],
+)
+def test_the_article_is_kept_whatever_its_wrapper_is_called(page):
+    html = extract.extract_html(page, URL)
+
+    assert 'Reactivity in depth' in html
+
+
+def test_a_heading_whose_id_names_a_boilerplate_word_stays():
+    """WordPress ids a heading by its own words."""
+    html = extract.extract_html(
+        page_with(b'<h2 id="h-for-studio-subscribers">For studio subscribers</h2><p>' + SENTENCE),
+        URL,
+    )
+
+    assert 'For studio subscribers' in html
+
+
+def test_the_posts_own_title_is_not_repeated_in_the_text():
+    html = extract.extract_html(ARTICLE_PAGE, URL, 'The Composition API')
+
+    assert 'The Composition API' not in html
+    assert 'Reactivity in depth' in html
+
+
+def test_a_repeated_paragraph_is_kept_once():
+    """Apart, as CoinDesk repeats its standfirst: trafilatura merges two side by side itself."""
+    paragraph = b'<p>' + SENTENCE + b'</p>'
+    page = ARTICLE_PAGE.replace(b'</h1>', b'</h1>' + paragraph)
+    html = extract.extract_html(page.replace(b'</article>', paragraph + b'</article>'), URL)
+
+    assert html.count(SENTENCE.decode()) == 1
+
+
+def test_a_repeated_list_item_is_the_authors_and_stays():
+    item = b'<ul><li>' + SENTENCE + b'</li></ul>'
+    html = extract.extract_html(page_with(item + b'<p>And again, for Nuxt:</p>' + item), URL)
+
+    assert html.count(SENTENCE.decode()) == 2
+
+
+def test_a_repeated_picture_is_kept_once():
+    """Matched on the file, so a second copy at another size goes too."""
+    html = extract.extract_html(page_with(b'<p><img src="/img/one.png?w=800"></p>'), URL)
+
+    assert html.count('one.png') == 1
+
+
 @proxy_on
 def test_the_lead_picture_is_not_repeated_in_the_text():
     """Matched on the file, so the text's copy goes even when it asks for another size."""

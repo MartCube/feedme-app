@@ -20,6 +20,7 @@ import re
 from dataclasses import dataclass
 from urllib.parse import urljoin, urlsplit
 
+import lxml.html
 import nh3
 import requests
 import trafilatura
@@ -66,6 +67,35 @@ IMG_TAG = re.compile(r'<img\b[^>]*>')
 # a CDN host, so a link that lands on an image file is the author's picture, never decoration.
 IMAGE_SUFFIXES = ('.jpg', '.jpeg', '.png', '.gif', '.webp', '.avif')
 
+# Words in a block's class, id, data-testid or aria-label that mark it as the page's furniture
+# rather than the article — related posts, newsletter boxes, share bars, comments. Matched as
+# the start of a word, so Jetpack's `jp-relatedposts` and `sharedaddy` count. trafilatura keeps
+# some of these: Cointelegraph's "More on the subject" is other posts' covers, each twice.
+BOILERPLATE_ATTRIBUTES = ('class', 'id', 'data-testid', 'aria-label')
+BOILERPLATE_WORDS = (
+    'related', 'recommend', 'newsletter', 'subscribe', 'subscription',
+    'share', 'promo', 'affiliate', 'comment',
+)  # fmt: skip
+# ...and words that only mean it as a pair: `more-on-subject`, `read-next`, `also-read`
+BOILERPLATE_PAIRS = (('more', 'on'), ('read', 'next'), ('also', 'read'))
+# What a labelled block can be: a container or a paragraph (9to5Mac's
+# `<p class="disclaimer-affiliate">`), never the document, the article or a heading.
+# A heading because WordPress ids one by its own words — "…for Apple Creator Studio
+# subscribers" carries `id="h-…-subscribers"`. A share button or a decorative image because
+# trafilatura drops those itself, and taking one out first can tip which part of the page it
+# settles on: one 9-character "Share" button gone, and CoinDesk's article came back with the
+# site's numbered most-read list attached.
+BOILERPLATE_TAGS = {'section', 'div', 'aside', 'nav', 'footer', 'form', 'ul', 'ol', 'p'}
+
+# The blocks a repeat is looked for in, and the shortest text that counts as one: a page that
+# renders its standfirst or a quote twice repeats a sentence, while "Yes." twice is just prose.
+# Not list items: one bullet under each of three products' lists is the author's structure.
+TEXT_BLOCKS = ('p', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6')
+MIN_REPEAT = 40
+_IS_BLOCK = ' or '.join(f'self::{tag}' for tag in TEXT_BLOCKS)
+# innermost blocks only: a <blockquote> and the <p> inside it say the same thing once, not twice
+LEAF_BLOCKS = f'//*[{_IS_BLOCK}][not(.//*[{_IS_BLOCK}])]'
+
 OK = 'ok'
 EMPTY = 'empty'
 UNAVAILABLE = 'unavailable'
@@ -102,7 +132,7 @@ def extract_article(post):
         logger.info('extract_article: %s — %s', post.post_url, exc)
         return ExtractResult(UNAVAILABLE, str(exc))
 
-    post.article_html = extract_html(body, post.post_url)
+    post.article_html = extract_html(body, post.post_url, post.title)
     post.save(update_fields=['article_html'])
     return ExtractResult(OK if post.article_html else EMPTY)
 
@@ -122,16 +152,20 @@ def fetch_page(url):
     )
 
 
-def extract_html(body, url):
+def extract_html(body, url, title=''):
     """The article as sanitised HTML, or '' when the page has none to give.
 
     Handed the raw bytes rather than a decoded string: trafilatura does its own charset
     detection, which beats leaning on requests' guess for pages that mislabel themselves.
+
+    `title` is the post's, which the reader already shows above the article — its copy in
+    the text goes.
     """
     tree = trafilatura.load_html(body)
     if tree is None:
         return ''
     _drop_offsite_image_links(tree, url)
+    _drop_boilerplate(tree)
 
     extracted = trafilatura.extract(
         tree,
@@ -146,8 +180,9 @@ def extract_html(body, url):
         # trafilatura returns None rather than raising when it finds no article
         return ''
 
+    # nh3 last, so whatever the tidying hands on, the sanitiser still has the final word
     return nh3.clean(
-        extracted,
+        _drop_repeats(extracted, title),
         tags=ARTICLE_TAGS,
         attributes=ARTICLE_ATTRIBUTES,
         # drops a javascript: href rather than the whole <a>
@@ -175,6 +210,67 @@ def _drop_offsite_image_links(tree, url):
         if target.path.lower().endswith(IMAGE_SUFFIXES):
             continue
         link.drop_tree()
+
+
+def _drop_boilerplate(tree):
+    """Remove the blocks the page itself labels as not the article, before trafilatura reads it.
+
+    The label is the evidence, and it's on the page only: trafilatura's output carries no
+    class or id. The risk is a wrapper that happens to carry one of the words —
+    `<div class="post has-related-posts">` — so a block is kept, whatever it's called, when it
+    holds the page's headline or at least half of its paragraphs.
+    """
+    headline = tree.find('.//h1')
+    paragraphs = len(tree.findall('.//p'))
+    for element in tree.xpath('//*[@class or @id or @data-testid or @aria-label]'):
+        if element.tag not in BOILERPLATE_TAGS or not _labelled_boilerplate(element):
+            continue
+        if headline is not None and headline in element.iterdescendants():
+            continue
+        if paragraphs and len(element.findall('.//p')) * 2 >= paragraphs:
+            continue
+        element.drop_tree()
+
+
+def _labelled_boilerplate(element):
+    label = ' '.join(element.get(attribute, '') for attribute in BOILERPLATE_ATTRIBUTES)
+    words = [word for word in re.split(r'[\s_-]+', label.lower()) if word]
+    if any(word.startswith(BOILERPLATE_WORDS) for word in words):
+        return True
+    pairs = set(zip(words, words[1:], strict=False))
+    return any(pair in pairs for pair in BOILERPLATE_PAIRS)
+
+
+def _drop_repeats(extracted, title):
+    """trafilatura's article without what it says twice: the post's own title, a block of
+    text it already had, a picture it already showed.
+
+    Pages render the same thing more than once for different layouts — a mobile and a desktop
+    copy of a list, a standfirst repeated as the first paragraph, an embedded post quoted in
+    full beside its own preview — and trafilatura keeps every copy.
+    """
+    root = lxml.html.fromstring(extracted)
+    heading = _normalised(title)
+    seen_text = set()
+    for block in root.xpath(LEAF_BLOCKS):
+        text = _normalised(block.text_content())
+        if heading and block.tag.startswith('h') and text == heading:
+            block.drop_tree()
+        elif len(text) >= MIN_REPEAT and text in seen_text:
+            block.drop_tree()
+        else:
+            seen_text.add(text)
+    seen_files = set()
+    for image in root.xpath('//img[@src]'):
+        file = _file(image.get('src'))
+        if file in seen_files:
+            image.drop_tree()
+        seen_files.add(file)
+    return lxml.html.tostring(root, encoding='unicode')
+
+
+def _normalised(text):
+    return ' '.join(text.split()).casefold()
 
 
 def _same_site(host, other):
