@@ -75,6 +75,7 @@ provide(settingsDrawerCloseKey, closeContent)
 // goes, an open post back to its feed page. usingInput, because the add
 // wizard and the feed's edit forms open with a field focused. The posts
 // list's search box stops its own Esc, so there it closes only the search.
+// An Esc that cancels an IME composition belongs to the field, not the shell.
 function closeTop() {
   if (contentOpen.value) return closeContent()
   const uid = readerFeedUid.value
@@ -87,7 +88,12 @@ function closeTop() {
 }
 
 defineShortcuts({
-  escape: { usingInput: true, handler: closeTop },
+  escape: {
+    usingInput: true,
+    handler: (e: KeyboardEvent) => {
+      if (!e.isComposing) closeTop()
+    },
+  },
 })
 
 // A finished add opens the feed it landed in — the route sync above selects

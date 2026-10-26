@@ -143,17 +143,41 @@ async function focusSearch() {
   searchBox.value?.focus()
 }
 
-function step(by: 1 | -1) {
+// The posts each arrow would open. defineShortcuts swallows every key it
+// binds, so an arrow is bound only while it has somewhere to go: at either
+// end of the list, or with no post open, it stays the pane's scroll key. Only
+// the feed page opens the first post — an open post that isn't in the list (a
+// deep link, a search that filtered it out) has no neighbours to step to.
+const neighbours = computed(() => {
+  if (!props.activePostUid) return { down: items.value[0], up: undefined }
   const at = items.value.findIndex(post => post.uid === props.activePostUid)
-  const next = at === -1 ? (by === 1 ? items.value[0] : undefined) : items.value[at + by]
-  if (!next) return
-  if (at === -1) router.push(postTo(next.uid))
-  else router.replace(postTo(next.uid))
+  if (at === -1) return { down: undefined, up: undefined }
+  return { down: items.value[at + 1], up: items.value[at - 1] }
+})
+
+// A held arrow steps once: each step is a route change and a post fetch, and
+// thirty a second only lag the list and then overshoot.
+function step(to: { uid: string } | undefined, event: KeyboardEvent) {
+  if (!to || event.repeat) return
+  if (props.activePostUid) router.replace(postTo(to.uid))
+  else router.push(postTo(to.uid))
 }
 
-defineShortcuts(computed(() => isDesktop.value && isReaderPath(route.value.path)
-  ? { '/': focusSearch, 'arrowdown': () => step(1), 'arrowup': () => step(-1) }
-  : {}))
+// Enter leaves the search open with the box blurred, so Esc can no longer
+// reach the box's own handler. Once there's no post above the list for the
+// shell's Esc to close, it closes the search instead.
+const onFeedPage = computed(() => /^\/(?:feed\/[^/]+)?$/.test(route.value.path))
+
+defineShortcuts(computed(() => {
+  if (!isDesktop.value || !isReaderPath(route.value.path)) return {}
+  const { down, up } = neighbours.value
+  return {
+    '/': focusSearch,
+    ...(down && { arrowdown: (e: KeyboardEvent) => step(down, e) }),
+    ...(up && { arrowup: (e: KeyboardEvent) => step(up, e) }),
+    ...(open.value && onFeedPage.value && { escape: toggle }),
+  }
+}))
 
 // Enter in the live search is "done typing": it hands focus back so the arrows
 // step through the results.
