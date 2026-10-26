@@ -266,7 +266,14 @@ Per source type — everything is RSS under the hood:
   own source catalog** in v1 (no web-crawl index — that's a Feedly-scale product we're not
   building).
 - **YouTube** — channels expose plain RSS: `youtube.com/feeds/videos.xml?channel_id=…`, so
-  **polling needs no API quota**. A pasted channel URL or `@handle` needs none either — the
+  **polling needs no API quota**. That channel feed stays the source's identity (its stored
+  `feed_url`), but it is **polled through the channel's videos-only feed**
+  _(2026-10-26, `core/youtube.videos_feed`)_: `videos.xml?playlist_id=UULF…` (the id after `UC`),
+  which leaves out Shorts and live streams — the channel feed mixes Shorts in and they crowd real
+  videos out of its 15-entry window. Same `yt:video:<id>` guids, so no migration and existing
+  posts carry over. A channel with no regular uploads has no such playlist (404): it falls back
+  to the channel feed, and ingest skips Shorts (`/shorts/` links) itself. The playlist is titled
+  "Videos", so the source's name and `site_url` come from the feed's author — the channel. A pasted channel URL or `@handle` needs none either — the
   channel page declares that same feed. The Data API is used only for *keyword* discovery
   _(built 2026-09-11, T11b — `core/youtube.py`)_: `search.list` costs 100 of the day's 10k
   units (≈ 100 searches), so every answer is cached for a day, a failed one is not, and a
@@ -538,6 +545,15 @@ Decided 2026-10-13:
   content, then its summary, skipping ones that declare a width under 480 and non-http sources.
   WordPress feeds carry their pictures there and nowhere else. Detail: [images.md](./images.md)
   § Decision log.
+- **Extraction tidies the page around trafilatura** _(2026-10-26)_. Before it, blocks the page
+  itself labels as furniture — a class, id, `data-testid` or `aria-label` carrying related,
+  recommend, newsletter, subscribe, share, promo, affiliate or comment (or the pairs more-on,
+  read-next, also-read) — are removed; never a heading, never a block holding the page's `h1` or
+  half its paragraphs. After it, a heading equal to the post title, repeated text blocks (40+
+  characters, innermost blocks only, not list items) and repeated images are removed. Known
+  leftovers kept deliberately, since no generic rule catches them: Cointelegraph's byline block
+  and CoinDesk's "Make preferred on Google" link. Extraction stays on open, not in the background
+  (decision 2026-10-23, see [current-state.md](./current-state.md)).
 - **Extraction removes text-less image links to other sites** before trafilatura runs (badges,
   ads), and **`GET /posts/{uid}/article` drops the article's own copy of the lead image** when
   the post's `image` is non-null, since the post page already shows it. Both in

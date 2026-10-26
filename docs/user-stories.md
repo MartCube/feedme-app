@@ -70,8 +70,7 @@ A **feed** is my own group of sources — one source or several — with a name 
 ## App & settings
 
 - As a user, I can **open Settings** to manage my account and view app info.
-- As a user, I can **view the design system** reference from Settings.
-- As a user, the app is **always in dark mode** and laid out for my phone.
+- As a user, I can **switch between dark themes** in Settings → Appearance, and the app is laid out for my phone.
 
 ---
 

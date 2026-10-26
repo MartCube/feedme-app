@@ -251,11 +251,15 @@ the Routing note.
 
 **Desktop keyboard** _(2026-10-21)_: **Esc** closes the top layer, one per press — Settings/Add
 (back to the frozen reading position), a feed-page sub-view (to where its own back goes), an open
-post (to its feed page, keeping the search); on the bare feed page it does nothing. The search box
-keeps its own Esc (close and clear). **/** opens and focuses the search; **Enter** in it blurs
+post (to its feed page, keeping the search); on the bare feed page it closes the search when it is
+open (after Enter leaves the box blurred) and otherwise does nothing. The search box keeps its own
+Esc (close and clear). An Esc that cancels an IME composition is ignored. **/** opens and focuses the search; **Enter** in it blurs
 ("done typing"). **↓/↑** step the open post through the list (↓ with none open opens the first;
 the first open is a history push, later steps replace, so Back leaves the feed) and the pane
-scrolls to follow. Arrows are inactive in an input and while Settings/Add is open. The full list
+scrolls to follow. An arrow is bound only while there is a post to step to — at either end of
+the list it stays the pane's scroll key — and a held key steps once. An open post that isn't in
+the list (a deep link, filtered out by search) has no neighbours, so the arrows don't jump to the
+first post. Arrows are inactive in an input and while Settings/Add is open. The full list
 is Settings → Keyboard shortcuts.
 
 ---

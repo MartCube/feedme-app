@@ -148,7 +148,7 @@ type SavedGroup = 'bookmarks' | 'favorites' | 'later'
   reload and follows the account to another device.
 - A post lives in exactly one group. `/feed/saved` lists every saved `Post` (all groups merged,
   newest **save** first — a pile you built, not a timeline you follow); `/feed/saved_*` lists
-  one group, and `GET /home` carries the counts the home rows show.
+  one group. `GET /home` still returns the per-group counts; the app no longer shows saved-group rows.
 - Saving on the Post page is a **toggle**, not a chooser: it saves into **Bookmarks** and
   unsaves from wherever the post was. Moving a post between groups is the same call, waiting
   on a UI for it.

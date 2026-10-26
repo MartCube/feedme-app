@@ -57,7 +57,7 @@ a darker outline instead of extending the shape — those take no shadow.
 ### Hover state (desktop)
 
 A hovered list row (desktop pointers only) lights its **label** `primary` — and nothing else
-moves (the post card is the one carve-out, below). No surface step, no wash: `bg-muted` reads *brighter* than `bg-elevated` in both themes,
+moves (the post card is the one carve-out, below). No surface step, no wash: `bg-muted` reads *brighter* than `bg-elevated` in every theme,
 so stepping a hover to `bg-muted` would make a hovered row louder than a selected one, and a
 10% `primary` wash (the first attempt) barely registered — there is no alpha of the accent
 that is both visible over `bg-default` and quieter than `bg-elevated`, so it landed as haze.

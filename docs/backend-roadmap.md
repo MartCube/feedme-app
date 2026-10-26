@@ -124,7 +124,8 @@ one shared 0..n-1 sequence across `Folder.order` and `Feed.order` in a transacti
 with a 422 naming the offending uids on any duplicate, foreign, or folder-member uid, or a
 top-level uid left out. `backend/core/api/settings.py`'s `GET`/`PUT /settings` read and replace
 `UserSettings` — `theme` / `feed_list_style` / `scrollbar_style`, the last one new this task
-(migration `0003_usersettings_scrollbar_style.py`) — typed as `Literal` unions; `GET` answers
+(migration `0003_usersettings_scrollbar_style.py`; both style fields were dropped in migration
+0008, 2026-10-21, and `theme` has since grown to five values) — typed as `Literal` unions; `GET` answers
 from an unsaved instance when no row exists yet, so a read never causes a write.
 
 T5 made the posts readable. `backend/core/postlist.py` owns the polymorphic uid — `all` →
@@ -381,7 +382,8 @@ than an input — it's what tells two feeds apart, so it stays on screen. The AP
 `Source.feed_url` is still never edited, but a user can now *change a source's link* — that
 resolves a different `Source` and repoints their row at it (§ Decision log, 2026-10-08).
 
-**4. `UserSettings` scope.** The model gained `scrollbar_style` in T4 — it's an appearance
+**4. `UserSettings` scope.** The model gained `scrollbar_style` in T4 (since dropped, migration
+0008) — it's an appearance
 preference that should follow the account across devices. Desktop panel-affordance state (the
 sidebar's now-removed `sidebarSettingsOpen`) was deliberately kept out of this scope: not a
 preference worth syncing to another device.
@@ -1217,7 +1219,7 @@ dedupe on re-poll, the 304 no-op, a malformed feed not raising, and backoff grow
   launch waits on.
 - `PUT /home/order` — the shared 0..n-1 sequence across folders and loose feeds (§ Contract
   resolutions, item 5).
-- `GET` / `PUT /settings` over `UserSettings`, which gains `scrollbar_style` (migration).
+- `GET` / `PUT /settings` over `UserSettings`, which gains `scrollbar_style` (migration; dropped again in 0008, 2026-10-21).
 
 **Done when.** `/home` returns your real feeds, you've checked the query count and it doesn't
 grow with the number of feeds, order survives a round-trip, and a test proves a second user's
@@ -1772,6 +1774,11 @@ subscribing, reading, and unsubscribing. Pays off the `latest items` half of
 
 **Depends on:** T11a. No external credentials — every type is RSS underneath, and YouTube's
 `videos.xml` costs no quota.
+
+*YouTube previews the feed polling reads.* Since 2026-10-26 a YouTube source is polled through the
+channel's videos-only feed (`core/youtube.videos_feed`, Shorts and live streams left out), so the
+preview fetches that same feed for a YouTube candidate — otherwise it would show Shorts the source
+will never ingest. The same 404 fallback to the channel feed applies.
 
 **Build.** `GET /discover/posts?feed_url=` → the candidate's newest posts, as a bare list like
 `/discover`. Backend only; the wizard's presentation is a frontend follow-up that consumes

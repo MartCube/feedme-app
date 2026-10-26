@@ -70,12 +70,13 @@ These are non-negotiable constraints that every screen should honor:
   narrow column), then expanded — on desktop the same screens open into a persistent sidebar
   plus posts/post panes rather than staying a single centered column. See
   [Platforms & layout](#platforms--layout).
-- **Dark mode only — for now.** Enforced in `nuxt.config.ts` (`colorMode.preference: 'dark'`).
-  Dark is the only theme we ship today; do not add a theme toggle yet. Theming is a deliberate
-  *future* step, kept minimal (see [Planned](#planned-not-now)).
+- **Dark themes only — for now.** Enforced in `nuxt.config.ts` (`colorMode.preference: 'dark'`).
+  Five dark themes ship, switchable in Settings → Appearance; there is no light theme and no
+  light/dark toggle. Light themes are a deliberate *future* step (see
+  [Planned](#planned-not-now)).
 - **Reeder-style minimalism.** Typography and whitespace carry the design. The full visual
-  language (type scale, colors, surfaces, controls) lives in the design-system page
-  `app/pages/design.vue` and the theme tokens in `app/assets/css/main.css`.
+  language (type scale, colors, surfaces, controls) lives in
+  [design-system.md](./design-system.md).
 - **Overlay secondary actions.** Add feed and Settings layer over the current screen as a
   bottom drawer (`UDrawer`) on mobile, but they're route-backed (`/add`, `/settings/*`), so on
   desktop they open inside the post pane rather than as drawers, beside the posts list. Editing a feed is not an overlay: a feed's page is a screen in the reader flow,
@@ -83,22 +84,16 @@ These are non-negotiable constraints that every screen should honor:
 
 ## Theme tokens (reference)
 
-Defined in `app/assets/css/main.css` and `app/app.config.ts`:
-
-- **teal** — primary / accent (e.g. the press-flash on `IconButton`)
-- **ink** — neutral dark surfaces and backgrounds
-- **silver** — borders and separators
-- **Sora** — the app font family
-
-For the authoritative, rendered reference of every token and component variant, run the app
-and visit the design page, or read `app/pages/design.vue`.
+Every token — the 9 color roles per theme, the type and spacing scales, the font (Sora) — is
+defined in [design-system.md](./design-system.md), which is the authoritative reference. The CSS
+lives in `app/assets/css/` (`themes.css` for the themes).
 
 ## What FeedMe is *not* (for now)
 
 - Not a social app — no comments, likes, reactions, or posting back to sources.
 - Not an engagement machine — no "popular," "trending," or "hot news" surfaces, and no
   algorithmic recommendations. You see your sources, nothing else.
-- Not multi-theme *yet* — dark only for now (see [Planned](#planned-not-now)).
+- Not light-themed *yet* — dark themes only for now (see [Planned](#planned-not-now)).
 - Not a *push* reader — sources are polled on a schedule (about every 30 minutes) by the
   backend's own worker; nothing notifies you. See [current-state.md](./current-state.md).
 
@@ -107,7 +102,7 @@ and visit the design page, or read `app/pages/design.vue`.
 Deliberately deferred so today's build stays minimal. Each is architected to scale, but not
 built yet:
 
-- **Theme switching** — a light theme alongside dark. Kept minimal: **1–2 themes max** to
-  start, not a theme gallery. Dark stays the default.
+- **Light themes** — a light theme alongside the dark ones (the system already supports them;
+  see [design-system.md](./design-system.md) § Later). Dark stays the default.
 - **Card layout options** — the image / compact PostCard style is now specced
   ([images.md](./images.md) § Rendering, built in T15a); other layout options stay deferred.

@@ -3,7 +3,7 @@
 A snapshot of what's actually built vs. what the spec (these docs) describes. The goal is to
 make the gap visible so implementation has a clear backlog. Update this as work lands.
 
-_Last reviewed: 2026-10-21._
+_Last reviewed: 2026-10-26._
 
 ## Summary
 
@@ -94,7 +94,7 @@ own status: **read that file's § Status for what to build next.**
   stays behind the sheet on mobile, and panels swap as in-drawer components with `panel-slide`
   transitions. Main page (`settings/Home.vue`): in-flow close → title → section list with the
   shared tap-selection flash (row + leading icon accent flash). Subpages (Account / Appearance
-  / About / Report) share `settings/Page.vue`: back + the section's own muted icon + `text-subtitle`
+  / Keyboard shortcuts, desktop only / About / Report) share `settings/Page.vue`: back + the section's own muted icon + `text-subtitle`
   title as a where-am-I cue (sections defined once in `app/utils/settings-drawer.ts`, exported as
   `settingsSections` and reused by the desktop sidebar). Both `settings/Page.vue` and the route
   map that picks a panel per path read `useRouter().currentRoute` rather than Nuxt's `useRoute()`
@@ -467,12 +467,16 @@ own status: **read that file's § Status for what to build next.**
   [design-system.md](./design-system.md) § Themes. Persisted cookies now last a year.
 - **Desktop keyboard shortcuts** _(2026-10-21)_ — frontend, ≥lg only, on Nuxt UI's
   `defineShortcuts` (no new composable; each binding lives in the component owning its state).
-  Esc (`DesktopShell`, works from focused fields) closes the top layer one per press: Settings/Add
-  → frozen reading position; feed sub-view → its `infoBack`; open post → feed page (keeps `?q=`);
-  bare feed page → nothing. The posts search keeps its own Esc and stops propagation. In
+  Esc (`DesktopShell`, works from focused fields; ignored during IME composition) closes the top
+  layer one per press: Settings/Add → frozen reading position; feed sub-view → its `infoBack`; open
+  post → feed page (keeps `?q=`); bare feed page → the search, if open (after Enter blurred the
+  box), else nothing. The posts search keeps its own Esc and stops propagation. In
   `FeedPostList`: `/` opens and focuses search (`SearchInput` exposes `focus()`); ↓/↑ step the
   open post (first open = history push, later = replace; inactive in inputs and while
-  Settings/Add is open); Enter in the live search blurs so arrows step results. Arrows chosen over
+  Settings/Add is open) _(refined 2026-10-26)_: each arrow is bound only while there is a post to
+  step to, so at the list ends it stays the pane's scroll key; a held arrow steps once; an open
+  post missing from the list (deep link, filtered by search) has no neighbours, so the arrows
+  don't jump to the first post; Enter in the live search blurs so arrows step results. Arrows chosen over
   j/k. The pane follows the open post (`scrollIntoView` nearest, smooth, auto under reduced
   motion) via the `scroll-under-strip` utility, watching the open uid only. New Settings section
   **Keyboard shortcuts** (`/settings/shortcuts`, after Appearance): `settingsSections` entries can
@@ -480,6 +484,23 @@ own status: **read that file's § Status for what to build next.**
   (`settings/Shortcuts.vue`) is a static list grouped Reading / Search / Anywhere with `UKbd`
   caps restyled `bg-muted`, no ring. Adding a shortcut = its binding + one row there. Not built:
   `?` cheat-sheet overlay, key hints in tooltips.
+- **YouTube polled videos-only** _(2026-10-26)_ — backend. A YouTube source is polled through the
+  channel's videos-only feed (`videos.xml?playlist_id=UULF<id after UC>`, `core/youtube.videos_feed`
+  via ingest's `fetch_feed`), which leaves out Shorts and live streams; the stored channel
+  `feed_url` stays the source's identity, so no migration. On a 404 (a channel with no regular
+  uploads) it falls back to the channel feed, and `_entry_to_post` skips Shorts (`/shorts/` links).
+  The playlist is titled "Videos", so name and `site_url` come from the feed's author. The T14
+  feed preview must read the same videos-only feed for YouTube (see
+  [backend-roadmap.md](./backend-roadmap.md) § T14).
+- **Article extraction cleanup** _(2026-10-26)_ — backend, `core/extract.py`. Before trafilatura,
+  `_drop_boilerplate` removes containers and paragraphs whose class / id / `data-testid` /
+  `aria-label` carries related, recommend, newsletter, subscribe, share, promo, affiliate or
+  comment (or the pairs more-on, read-next, also-read) — never headings, never a block holding the
+  `h1` or half the page's paragraphs. After it, `_drop_repeats` removes a heading equal to the post
+  title, repeated text blocks (≥40 characters, innermost blocks only, not list items) and repeated
+  images. Known leftovers kept deliberately (no generic rule catches them): Cointelegraph's byline
+  block, CoinDesk's "Make preferred on Google" link. Extraction is still fetch-on-open — see
+  Resolved decisions → Article extraction stays on open.
 - **Image fallback and article cleanup** _(2026-10-13)_ — backend. Ingest's `_pick_image` falls
   back to the first `<img src>` in the entry's content, then summary, after `media:thumbnail` /
   `media:content` / image enclosure, skipping declared widths under 480 and non-http sources
@@ -628,7 +649,7 @@ own status: **read that file's § Status for what to build next.**
   a detail post (e.g. the last-read one) on entering a feed is also deferred — v1 always starts
   with no post open: the feed page in the post pane, or on Home and Saved the "Select a post"
   placeholder.
-- **Settings content** — the drawer, its four subpages, and transitions are built, and
+- **Settings content** — the drawer, its five subpages (Shortcuts desktop only), and transitions are built, and
   Appearance and Account are real, including the Post cards switch (see Built); About's version
   string is hardcoded and Report still needs real content and a way to actually send anything.
 - **Add feed (rest)** — keyword search for subreddits and our own catalog (T11c, T11d), a
@@ -684,6 +705,10 @@ _None currently._
   means a feed's own page, and the post-list screen the docs used to call that is the **post
   list**. This supersedes **Folders** (2026-06-30) and **Folder reads through the feed page**
   (2026-07-01) below, and amends **Saved groups** (2026-07-11).
+- **Article extraction stays on open** _(2026-10-23)_ — the user chose to keep extracting when a
+  post is opened, not in the background at ingest. The post page shows title, meta and image at
+  once and the body after. Extracting at ingest would fetch articles nobody opens (see
+  [backend.md](./backend.md) § Decision log).
 - **Images** _(recorded 2026-09-15)_ — every image the app shows goes through a proxy the
   backend signs URLs for; the frontend never builds one. Staged so the first hundred readers
   run on one server and growth is bought, not rewritten: `imgproxy` with nothing stored, then
@@ -804,7 +829,7 @@ _None currently._
   0..n-1 sequence across `Folder.order` and `Feed.order` in a transaction, and strictly rejects
   (422, naming the offending uids) a duplicate, a foreign uid, a folder-member uid, or a
   top-level uid left out, writing nothing on failure. `UserSettings` gained `scrollbar_style`
-  (migration `0003_usersettings_scrollbar_style.py`, mirroring `app/stores/settings.ts`'s
+  (dropped again in migration 0008, 2026-10-21; migration `0003_usersettings_scrollbar_style.py`, mirroring `app/stores/settings.ts`'s
   `thin`/`comfortable`/`auto`); `backend/core/api/settings.py`'s `GET`/`PUT /settings` read and
   fully replace it, `theme`/`feed_list_style`/`scrollbar_style` typed as `Literal` unions, with
   `GET` answering from an unsaved instance rather than creating a row on read. Verified: 76
@@ -1108,19 +1133,11 @@ _None currently._
   everywhere; **delete folder** also unsubscribes its feeds except those in another folder (with
   confirmation). See [data-model.md](./data-model.md) (its Folder section was removed).
   **Superseded _(2026-10-08)_:** there are no folders — see Feeds are groups of sources.
-- **Saved groups** _(2026-07-11)_ — Saved is not one pile: saves organize into three fixed
-  groups — **Bookmarks / Favorites / Later** (`app/utils/saved.ts`, uids `saved_*`). On the
-  home list Saved is an expandable pinned row (tap → `/feed/saved`, all groups merged; expand →
-  the three group rows → `/feed/saved_*`). Group uids resolve on the feed page before
-  folder/feed uids. Saved groups are deliberately **not** store `Folder`s — that would leak
-  them into the add-wizard destination list and the loose-feed computation.
-  **Amended _(2026-10-08)_:** there are no folders and the Saved row no longer expands — its
-  groups are listed on Saved's feed page. They are still app structure, not store `Feed`s.
-  **Amended _(2026-10-21)_:** Saved's feed page is gone too; the groups are not linked from
-  any screen (the `/feed/saved_*` lists still resolve). Undecided where they surface.
-  **Amended _(2026-10-21)_:** the app dropped saved groups entirely (`app/utils/saved.ts` deleted,
-  no `savedCounts` in the feeds store): one Saved list, every save filed under the default group.
-  The backend still keeps the three groups and `/home` still returns `saved_counts`.
+- **Saved groups** _(2026-07-11, amended through 2026-10-21)_ — the backend keeps three fixed
+  groups, **Bookmarks / Favorites / Later** (uids `saved_*`), and `GET /home` still returns
+  `saved_counts`. The app dropped them: one pinned **Saved** row opens `/feed/saved` (every save,
+  all groups merged), saving files into the default group, and no screen links to a group or shows
+  its count (the `/feed/saved_*` lists still resolve). Undecided whether groups ever surface again.
 - **Folder reads through the feed page** _(2026-07-01)_ — a folder is **not** its own route.
   The feed page (`/feed/[uid]`) is polymorphic: `uid` resolves in a fixed order — `saved` →
   folder (`folder_*`) → feed (`feed_*`) — exactly the pattern `saved` already established.

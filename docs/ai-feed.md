@@ -103,7 +103,7 @@ chapter page Martin actually reads.
   always-on generation infrastructure. Release cadence is an independent choice per
   publish run (all at once vs. one/day drip).
 - **One combined feed** _(2026-07-16)_ — over one-feed-per-book. Simpler generator, one
-  subscription; in-app search filters by the book name carried in every post title.
+  feed to add; in-app search filters by the book name carried in every post title.
 - **Separate public repo** _(2026-07-16)_ — the daily drip commits (~365/yr of
   "release: ch N") would pollute the app repo's history; a separate repo also gives the
   free raw-URL hosting for `feed.xml`.
