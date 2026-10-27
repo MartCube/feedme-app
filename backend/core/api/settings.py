@@ -21,7 +21,7 @@ router = Router(tags=['user'])
 
 
 class SettingsSchema(Schema):
-    theme: Literal['ink', 'claude', 'dracula', 'reddit', 'crowd']
+    theme: Literal['ink', 'claude', 'dracula', 'reddit', 'crowd', 'blueberry']
     # which version of a post card to render: a square image beside the text, or date + title alone
     # (docs/images.md § Rendering)
     post_card_style: Literal['image', 'compact']

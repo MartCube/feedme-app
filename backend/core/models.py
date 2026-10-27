@@ -203,6 +203,7 @@ class UserSettings(models.Model):
         DRACULA = 'dracula'
         REDDIT = 'reddit'
         CROWD = 'crowd'
+        BLUEBERRY = 'blueberry'
 
     class PostCardStyle(models.TextChoices):
         # a 16:9 image on top, or date + title alone. A post with no image renders compact

@@ -144,20 +144,40 @@ html[data-theme='crowd'] {
   --ui-error: #f65b39;
 }
 
-/* Crowd's cards share the sidebar's surface, so a sidebar row selected the
-   usual way (bg-elevated) would vanish into it. Inside the sidebar only, the
-   elevated role steps up to bg-muted — the selected post card's surface —
-   and the rows take that surface on hover too, as crowdfeed's do; elsewhere
-   rows keep the label-only hover-accent. The group headers (hairline, not
-   rounded) are left alone. */
-html[data-theme='crowd'] .bg-sunken {
-  --ui-bg-elevated: var(--ui-bg-muted);
+/* Theme: Blueberry — Crowd's layout and near-black surfaces with the violet
+   cast turned blue, and a blueberry accent in place of the lavender. Sidebar a
+   step above the page and cards on the sidebar's surface, as in Crowd. */
+html[data-theme='blueberry'] {
+  --ui-bg: #131418;
+  --ui-bg-sunken: #1c1e24;
+  --ui-bg-elevated: #1c1e24;
+  --ui-bg-muted: #262932;
+  --ui-bg-accented: #262932;
+  --ui-bg-inverted: #ffffff;
+
+  --ui-text: #ffffff;
+  --ui-text-highlighted: #ffffff;
+  --ui-text-muted: #a9adb8;
+  --ui-text-toned: #a9adb8;
+  --ui-text-dimmed: #6f7380;
+  --ui-text-inverted: #131418;
+
+  --ui-border: rgba(255, 255, 255, 0.07);
+  --ui-border-muted: rgba(255, 255, 255, 0.07);
+  --ui-border-accented: rgba(255, 255, 255, 0.07);
+
+  --ui-primary: #5b8cff;
+  --ui-error: #f65b39;
 }
 
-@media (hover: hover) {
-  html[data-theme='crowd'] .bg-sunken .hover-accent.rounded-2xl:hover {
-    background-color: var(--ui-bg-muted);
-  }
+/* Crowd's and Blueberry's cards share the sidebar's surface, so a sidebar row
+   selected the usual way (bg-elevated) would vanish into it. Inside the
+   sidebar only, the elevated role steps up to bg-muted — the selected post
+   card's surface. Hover stays the label-only hover-accent, as in every other
+   theme. */
+html[data-theme='crowd'] .bg-sunken,
+html[data-theme='blueberry'] .bg-sunken {
+  --ui-bg-elevated: var(--ui-bg-muted);
 }
 
 /* bg-default / bg-elevated / bg-muted come from Nuxt UI; bg-sunken is ours, so

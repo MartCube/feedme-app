@@ -617,7 +617,7 @@ export interface components {
              * Theme
              * @enum {string}
              */
-            theme: "ink" | "claude" | "dracula" | "reddit" | "crowd";
+            theme: "ink" | "claude" | "dracula" | "reddit" | "crowd" | "blueberry";
             /**
              * Post Card Style
              * @enum {string}
