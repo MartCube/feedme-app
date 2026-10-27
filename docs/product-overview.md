@@ -71,7 +71,7 @@ These are non-negotiable constraints that every screen should honor:
   plus posts/post panes rather than staying a single centered column. See
   [Platforms & layout](#platforms--layout).
 - **Dark themes only — for now.** Enforced in `nuxt.config.ts` (`colorMode.preference: 'dark'`).
-  Five dark themes ship, switchable in Settings → Appearance; there is no light theme and no
+  Six dark themes ship, switchable in Settings → Appearance; there is no light theme and no
   light/dark toggle. Light themes are a deliberate *future* step (see
   [Planned](#planned-not-now)).
 - **Reeder-style minimalism.** Typography and whitespace carry the design. The full visual

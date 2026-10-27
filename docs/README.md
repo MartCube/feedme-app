@@ -16,7 +16,7 @@ screen or feature is ambiguous in code, this folder wins.
 | [user-stories.md](./user-stories.md) | What a user can do, grouped by feature area |
 | [screens-and-flows.md](./screens-and-flows.md) | Every screen, its purpose, and how navigation connects them |
 | [data-model.md](./data-model.md) | The `Feed` (a group of sources), `Source`, and `Post` entities (as the API serves them) and the saved-posts state |
-| [design-system.md](./design-system.md) | The visual vocabulary — 9 color roles, 4 text sizes, the five dark themes, and how switching works |
+| [design-system.md](./design-system.md) | The visual vocabulary — 9 color roles, 4 text sizes, the six dark themes, and how switching works |
 | [backend.md](./backend.md) | The server spec — architecture, data model, API endpoints, auth, fetching jobs, search |
 | [backend-roadmap.md](./backend-roadmap.md) | The backend build order — what's done, what's next, and what "done" means per task |
 | [ai-feed.md](./ai-feed.md) | The AI reading-companion feed — book chapters → AI posts → a custom RSS feed (separate `feedme-books` repo) |

@@ -125,7 +125,7 @@ with a 422 naming the offending uids on any duplicate, foreign, or folder-member
 top-level uid left out. `backend/core/api/settings.py`'s `GET`/`PUT /settings` read and replace
 `UserSettings` — `theme` / `feed_list_style` / `scrollbar_style`, the last one new this task
 (migration `0003_usersettings_scrollbar_style.py`; both style fields were dropped in migration
-0008, 2026-10-21, and `theme` has since grown to five values) — typed as `Literal` unions; `GET` answers
+0008, 2026-10-21, and `theme` has since grown to six values) — typed as `Literal` unions; `GET` answers
 from an unsaved instance when no row exists yet, so a read never causes a write.
 
 T5 made the posts readable. `backend/core/postlist.py` owns the polymorphic uid — `all` →

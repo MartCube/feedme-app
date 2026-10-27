@@ -44,7 +44,7 @@ Notes:
   one step *below* `bg`, themed in `themes.css` alongside the 9 roles above but not one of
   them, since Nuxt UI has no semantic slot for it and defines no built-in class — ours is a
   hand-written `@utility`. Used in exactly one place: the desktop sidebar, which is what
-  separates it from the reading panes beside it without a divider line. (Crowd alone puts it a
+  separates it from the reading panes beside it without a divider line. (Crowd and Blueberry put it a
   step *above* `bg` — see Themes.)
 
 **`shadow-elevated`** (the one shadow token) — a soft lift for elevated surfaces: a
@@ -149,23 +149,23 @@ doing one job — pick one and let it work. The same goes for gloss: elevated co
 
 ## Themes
 
-Five dark themes, switchable in Settings → Appearance (Ink is the default). `bg-sunken` is the
+Six dark themes, switchable in Settings → Appearance, listed Crowd, Blueberry, Ink, Claude, Dracula, Reddit (Ink is the default for new accounts). `bg-sunken` is the
 desktop sidebar's surface (see Color roles); `bg-accented` and the other aliases track `bg-muted`.
 
-| Token | Ink (default) | Claude | Dracula | Reddit | Crowd |
-|---|---|---|---|---|---|
-| `bg` | `#1F1F21` | `#262624` | `#282A36` | `#0E1113` | `#141416` |
-| `bg-sunken` | below `bg` | below `bg` | `#21222C` | `#08090A` | `#1E1E22` (above `bg`) |
-| `bg-elevated` | `#252527` | `#30302E` | `#343746` | `#181C1F` | `#1E1E22` |
-| `bg-muted` | `#303032` | `#3A3A38` | `#44475A` | `#2A3236` | `#27272C` |
-| `text` | `#F2F2F2` | `#F5F4EF` | `#F8F8F2` | `#EEF1F3` | `#FFFFFF` |
-| `text-muted` | `#9A9A9E` | `#B8B5A9` (warm "oat") | `#A4ABCF` | `#8BA2AD` | `#ADADAE` |
-| `text-dimmed` | `#6E6E72` | `#83827D` | `#6272A4` | `#5C6C74` | `#727276` |
-| `border` | `rgba(255,255,255,0.07)` | `rgba(255,255,255,0.08)` | `rgba(255,255,255,0.08)` | `rgba(255,255,255,0.08)` | `rgba(255,255,255,0.07)` |
-| `primary` | `#2DD4BF` (teal) | `#D97757` (terracotta) | `#FF79C6` (pink) | `#FF8B60` (soft orange) | `#A399FF` (lavender) |
-| `error` | `#F87171` | `#E5695E` | `#FF5555` | `#F0506E` | `#F65B39` |
+| Token | Ink (default) | Claude | Dracula | Reddit | Crowd | Blueberry |
+|---|---|---|---|---|---|---|
+| `bg` | `#1F1F21` | `#262624` | `#282A36` | `#0E1113` | `#141416` | `#131418` |
+| `bg-sunken` | below `bg` | below `bg` | `#21222C` | `#08090A` | `#1E1E22` (above `bg`) | `#1C1E24` (above `bg`) |
+| `bg-elevated` | `#252527` | `#30302E` | `#343746` | `#181C1F` | `#1E1E22` | `#1C1E24` |
+| `bg-muted` | `#303032` | `#3A3A38` | `#44475A` | `#2A3236` | `#27272C` | `#262932` |
+| `text` | `#F2F2F2` | `#F5F4EF` | `#F8F8F2` | `#EEF1F3` | `#FFFFFF` | `#FFFFFF` |
+| `text-muted` | `#9A9A9E` | `#B8B5A9` (warm "oat") | `#A4ABCF` | `#8BA2AD` | `#ADADAE` | `#A9ADB8` |
+| `text-dimmed` | `#6E6E72` | `#83827D` | `#6272A4` | `#5C6C74` | `#727276` | `#6F7380` |
+| `border` | `rgba(255,255,255,0.07)` | `rgba(255,255,255,0.08)` | `rgba(255,255,255,0.08)` | `rgba(255,255,255,0.08)` | `rgba(255,255,255,0.07)` | `rgba(255,255,255,0.07)` |
+| `primary` | `#2DD4BF` (teal) | `#D97757` (terracotta) | `#FF79C6` (pink) | `#FF8B60` (soft orange) | `#A399FF` (lavender) | `#5B8CFF` (blueberry) |
+| `error` | `#F87171` | `#E5695E` | `#FF5555` | `#F0506E` | `#F65B39` | `#F65B39` |
 
-Notes on the newer three:
+Notes on the newer four:
 
 - **Dracula** lifts `text-muted` from its comment purple to `#A4ABCF` so dates and counts pass
   4.5:1 on resting cards; the original purple stays as `text-dimmed`.
@@ -173,18 +173,21 @@ Notes on the newer three:
   as the accent (orangered shouted). Error is a cooler crimson so it never reads as the accent.
 - **Crowd** is crowdfeed.com's own palette, read off the live site, with its lavender link
   colour as the accent.
+- **Blueberry** is Crowd's layout and near-black surfaces with the violet cast turned blue, and a
+  blueberry accent in place of Crowd's lavender. Error is shared with Crowd.
 
-### Crowd's deviations _(2026-10-23, user-approved)_
+### Crowd and Blueberry's deviations _(2026-10-23, user-approved; Blueberry added 2026-10-27)_
 
-Crowd is the one theme that breaks two conventions, both to match crowdfeed:
+Crowd, and Blueberry after it, break two conventions, both to match crowdfeed:
 
 - **The sidebar sits a step above the page**, not below it: `bg-sunken` is lighter than `bg`.
 - **Cards share the sidebar's surface** (`bg-elevated` = `bg-sunken`). So inside `.bg-sunken`
   the `bg-elevated` role is remapped to `bg-muted`, or a selected sidebar row would vanish into
-  it; and rounded `hover-accent` rows there also take a `bg-muted` hover surface. This is a
-  **scoped exception to the one-hover-cue rule** (Hover state above): in Crowd's sidebar a row
-  gets the label cue and the surface step; everywhere else, and in every other theme, hover
-  stays label-only. The sidebar's hairline group headers are unaffected.
+  it. The sidebar's hairline group headers are unaffected.
+
+Hover is not a deviation: every theme, these two included, keeps the label-only `hover-accent`
+(Hover state above). Crowd's sidebar rows briefly took a `bg-muted` hover surface too; that was
+removed on 2026-10-27.
 
 ## Type scale
 
@@ -313,8 +316,8 @@ things depending on which utility they prefix, so read `lg:` classes as breakpoi
 
 Each theme is a small block in `app/assets/css/themes.css` (imported by `main.css`)
 assigning the `--ui-*` variables: `:root, .dark` carries Ink (the default), and
-`html[data-theme='claude' | 'dracula' | 'reddit' | 'crowd']` override it (Crowd also carries the
-two sidebar-scoped rules above). The active theme lives in the `settings`
+`html[data-theme='claude' | 'dracula' | 'reddit' | 'crowd' | 'blueberry']` override it (Crowd and
+Blueberry also share the sidebar-scoped rule above). The active theme lives in the `settings`
 Pinia store (`app/stores/settings.ts`), persisted to a cookie via
 `pinia-plugin-persistedstate` (its Nuxt default — cookies last a year, `maxAge` set via
 `piniaPluginPersistedstate.cookieOptions` in `nuxt.config.ts`; cookies let the server render the chosen

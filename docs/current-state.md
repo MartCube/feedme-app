@@ -53,8 +53,8 @@ own status: **read that file's § Status for what to build next.**
 
 ## Built
 
-- **Theme tokens** — 9 `--ui-*` color roles themed in `app/assets/css/themes.css` (five dark
-  themes: Ink default, Claude, Dracula, Reddit, Crowd; the old teal/ink/silver ramps are removed), plus the 4-size
+- **Theme tokens** — 9 `--ui-*` color roles themed in `app/assets/css/themes.css` (six dark
+  themes: Ink default, Claude, Dracula, Reddit, Crowd, Blueberry; the old teal/ink/silver ramps are removed), plus the 4-size
   type scale (`text-title/subtitle/body/caption`, plus a brand-only `text-logo` for the wordmark
   — see [design-system.md](./design-system.md) § Type scale) and `shadow-elevated`. The same
   file defines a desktop-only `hover-accent` utility (the row's label goes `primary` on `:hover`,
@@ -68,7 +68,7 @@ own status: **read that file's § Status for what to build next.**
   `app/assets/css/spacing.css`, alongside the `page-inset` utility every page/drawer
   wrapper uses for the screen inset (lg sides/top — md top on desktop — xl bottom).
   See [design-system.md](./design-system.md).
-- **Theme switch** — Settings → Appearance picks one of the five themes via the persisted Pinia
+- **Theme switch** — Settings → Appearance picks one of the six themes via the persisted Pinia
   `settings` store (`pinia-plugin-persistedstate`, cookie — now a local cache in front of
   `GET`/`PUT /settings`, see **Data layer** below, which is what still paints the chosen theme
   server-side without a flash); `app.vue` applies `data-theme` on `<html>` via `useHead`.
@@ -463,8 +463,13 @@ own status: **read that file's § Status for what to build next.**
   pane edge). Continue in the wizard blinks `primary` once when first enabled.
 - **More themes** _(2026-10-23)_ — Dracula, Reddit and Crowd join Ink and Claude (settings
   `theme` enum widened, migration 0009). Crowd deviates on purpose: sidebar a step above the
-  page, cards on the sidebar surface, a scoped hover-surface exception — see
+  page, cards on the sidebar surface — see
   [design-system.md](./design-system.md) § Themes. Persisted cookies now last a year.
+- **Blueberry theme** _(2026-10-27)_ — a sixth dark theme: Crowd's layout and near-black
+  surfaces turned blue, blueberry accent `#5B8CFF` (`theme` enum widened, migration 0010). The
+  Appearance list is now Crowd, Blueberry, Ink, Claude, Dracula, Reddit; new accounts still
+  default to Ink. Crowd's sidebar-row hover surface (the 2026-10-23 exception) is removed —
+  every theme uses the label-only hover-accent.
 - **Desktop keyboard shortcuts** _(2026-10-21)_ — frontend, ≥lg only, on Nuxt UI's
   `defineShortcuts` (no new composable; each binding lives in the component owning its state).
   Esc (`DesktopShell`, works from focused fields; ignored during IME composition) closes the top
