@@ -23,8 +23,8 @@ list is flat, and each feed has a page (the info icon beside its title) where it
 switched on or off, renamed, relinked and removed. The edit drawer, long-press and home options
 sheet are deleted. See Resolved decisions → Feeds are groups of sources. **Sign-in is real**
 _(2026-09-03)_: `/login` renders Google's own button and `POST /auth/google` trades its
-credential for our bearer token — with the dev-token field deliberately kept beside it for now,
-so there are two ways in until the dev path is retired. **Posts now age out** _(2026-09-07)_: a
+credential for our bearer token. **Email + password joined it** _(2026-10-28, T16)_ — `/login`
+and `/signup` are one redesigned page, there is an error page, and the dev-token path is gone. **Posts now age out** _(2026-09-07)_: a
 nightly job prunes unsaved posts past 90 days and, per source, past the newest 500 — saved posts
 are exempt at any age — and polling respects the same line, so a source added today arrives
 with only the posts inside that window. **Posts are searchable** — `GET /search` _(2026-09-06)_ narrows any feed / saved
@@ -274,26 +274,38 @@ own status: **read that file's § Status for what to build next.**
   field breaks typecheck instead of silently rendering blank. `FeedCandidate` is generated too as of
   T11a — `DiscoverResultSchema`, a source's name, type, site, feed URL and icon plus
   `already_subscribed` (now "in one of your feeds").
-- **Auth & login** — `app/pages/login.vue` (brand, one line, then **two controls**: Google's
-  rendered sign-in button and, below it, the dev-token field — both ship, see Not started →
-  Sign-in (rest); `definePageMeta({ layout: false })` is load-bearing, since the default
-  layout renders `DesktopShell` instead of the page above 1024px). The Google button is loaded
-  with VueUse `useScriptTag` and rendered by Google Identity Services into a wrapper that
-  **clips its iframe's 10px bleed**; its chrome is Google's (hence `theme: 'outline'` — a clipped
-  dark button inverts the app's elevation direction), and the column is capped by a new
-  `--container-signin` (29rem) because Google caps its button at 400px. A missing
-  `runtimeConfig.public.googleClientId` renders no button at all and leaves the dev field as the
-  way in. `app/stores/auth.ts` holds the token (cookie-persisted, `pick: ['token']` only) and the
-  `/me` profile; `signInWithToken()` proves a token against `/me` before keeping it, so a bad
-  token fails on the login screen instead of as a redirect loop, and `signInWithGoogle()` only
-  adds the step before it — `POST /auth/google`, then hand the returned token to the same path.
-  Errors are **one message per control**, and `app/plugins/api.ts`'s global 401 handler skips
-  `/auth/google`, so a refused credential leaves a live session untouched.
-  `app/middleware/auth.global.ts` is a **pure guard** — everything except
-  `/login` needs a token, and it does no fetching (see Resolved decisions → Backend stack & API
-  → T6). Sign out (Settings → Account) revokes the token server-side via `POST /auth/logout`,
-  clears both stores, and returns to `/login`; Account's "Signed in with" row reads `google` for
-  a linked account even in a dev-token session, because `provider` describes the account.
+- **Auth & login** — `app/pages/login.vue` is **both** signed-out screens: `nuxt.config.ts`
+  adds `/signup` as the same page component under one key (`auth`), so switching between them
+  remounts nothing — the drift keeps moving, Google's button isn't reloaded, only the copy and
+  the form's mode change (both heroes and both footers are stacked in one grid cell, so the form
+  never jumps). `definePageMeta({ layout: false })` is load-bearing, since the default layout
+  renders `DesktopShell` instead of the page above 1024px. Three components in `app/components/auth/`:
+  `AuthShell` (the frame — drift, wordmark, two-line hero with the second line in the accent, one
+  line of copy; a bottom-aligned stack on a phone, a `--container-auth` card over a full-page
+  drift on desktop), `AuthForm` (Apple button, Google's button, an "or" hairline, email +
+  password and the submit, with the browser's save-password hints) and `AuthDrift` (a fixed
+  sample feed drifting behind it, decorative, `aria-hidden`, stands still under reduced motion). **The
+  Apple button is rendered ahead of its integration** and answers "Sign in with Apple isn't
+  available yet." until T17. The Google button is loaded with VueUse `useScriptTag` and rendered
+  by Google Identity Services into a wrapper that **clips its iframe's 10px bleed**; its chrome
+  is Google's (hence `theme: 'outline'`), and the card's content box stays under Google's 400px
+  cap so the button and fields share edges. A missing `runtimeConfig.public.googleClientId`
+  renders no Google button and leaves email as the way in. **Email sign-in** is `POST
+  /auth/login` and `/auth/signup` (T16). `app/stores/auth.ts` holds the token (cookie-persisted,
+  `pick: ['token']` only) and the `/me` profile; `signInWithEmail()`, `signUp()` and
+  `signInWithGoogle()` each trade what they have for our token and hand it to one private path
+  that **proves the token against `/me` before keeping it**, so a bad token fails on the screen
+  instead of as a redirect loop. Errors are **one message per control** (Apple, Google, email),
+  and `app/plugins/api.ts`'s global 401 handler skips `/auth/google`, `/auth/login` and
+  `/auth/signup`, so a refused sign-in leaves a live session untouched.
+  `app/middleware/auth.global.ts` is a **pure guard** — everything except `/login` and `/signup`
+  needs a token, and it does no fetching (see Resolved decisions → Backend stack & API → T6).
+  Sign out (Settings → Account) revokes the token server-side via `POST /auth/logout`, clears
+  both stores, and returns to `/login`; Account's "Signed in with" row reads Google or Email and
+  password, and describes the account, not the session. **`app/error.vue`** is the app-level
+  error page: a 404 gets "This page isn't in your feed", anything else a generic version, with
+  *Back to your feeds* (the one `filled` button) and *Open Saved*. Nuxt renders it instead of
+  `app.vue`, so it restates the theme attribute and `UApp`.
 - **Data layer** — the `feeds` store loads `GET /home` once (in-flight-guarded; a failure is
   swallowed rather than raised, so it can never surface as Nuxt's error page, and retries from
   the home screen's **Try again** or the next app boot) into `feeds` — each a group with its
@@ -667,13 +679,16 @@ own status: **read that file's § Status for what to build next.**
 - **Saved posts (rest)** — saving, unsaving and reading the saved streams work end to end (see
   Built), but every save lands in **Bookmarks**: there is no group chooser and no way to move a
   post between Bookmarks / Favorites / Later, though the API call for it is the same upsert.
-- **Sign-in (rest)** — Google sign-in works end to end (see Built → Auth & login), but the
-  **dev-token field is still on `/login` for everyone**, deliberately: the natural retirement is
-  gating it on `import.meta.dev`, and gating it at build time today would make it vanish silently
-  the day a production deploy exists. No native Google sign-in either — the Capacitor plugin is
-  the other half of [backend.md](./backend.md#auth) § Auth's step 1, and no Capacitor build
-  exists yet. Noted for a deploy: `ux_mode: 'popup'` needs a
-  `Cross-Origin-Opener-Policy: same-origin-allow-popups` header if one is ever set.
+- **Sign-in (rest)** — Google and email + password sign-in work end to end (see Built → Auth &
+  login). Not built: **Sign in with Apple** (T17 — the button is on the screens and says it isn't
+  available yet); **native Google sign-in**, the Capacitor plugin that is the other half of
+  [backend.md](./backend.md#auth) § Auth's step 1, since no Capacitor build exists yet; and
+  **email verification and password reset**, which don't exist — nothing sends email, which is why
+  a later Google sign-in takes over an unverified password account. Terms and Privacy Policy are
+  named on `/signup` but aren't links yet; neither page exists. Noted for a deploy:
+  `ux_mode: 'popup'` needs a `Cross-Origin-Opener-Policy: same-origin-allow-popups` header if one
+  is ever set, and `NUM_PROXIES` must match the proxies in front of the api
+  ([backend.md](./backend.md) § Decision log, 2026-10-28).
 - **Images (rest)** — T15a shipped post images on cards and the post page (see Built → Post
   images), T15c the pictures inside an extracted article (see Built → Article images), and
   T15b feed icons in the add wizard (see Built → Feed icons). Stage 2 (originals in a bucket,

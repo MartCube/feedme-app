@@ -21,7 +21,7 @@ ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(','
 CORS_ALLOWED_ORIGINS = os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:3000').split(',')
 
 # The Google Cloud web client the sign-in button is configured with. Empty is a supported
-# state — the dev-token path still signs you in, and the login screen renders no Google
+# state — email + password still signs you in, and the login screen renders no Google
 # button without it. core/google_auth.py refuses to verify anything while it is unset.
 # One id today; the Capacitor build signs in with its own Android/iOS client id, and this
 # becomes the list of audiences we accept.
@@ -121,5 +121,23 @@ USE_TZ = True
 STATIC_URL = 'static/'
 
 AUTH_USER_MODEL = 'core.User'
+
+# Checked by POST /auth/signup (and by manage.py changepassword). Length does the work;
+# the common-password list and the all-digits rule catch the guesses a throttle can't.
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {'min_length': 8},
+    },
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
+]
+
+# How many reverse proxies stand in front of the api, for the sign-in throttle's per-client
+# count (core/api/account.py). Ninja's default (unset) keys the count on the whole
+# X-Forwarded-For header, which the browser writes itself — a script that sends a fresh one
+# per request is never throttled. 0 is today's shape, the browser talking to runserver
+# directly, so the count keys on the socket's address; a deploy behind one proxy sets 1.
+NINJA_NUM_PROXIES = int(os.environ.get('NUM_PROXIES', '0'))
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

@@ -118,6 +118,19 @@ export default defineNuxtConfig({
           meta: { key: 'home' },
         })
       }
+      // /signup is the login page in its other mode, not a page of its own:
+      // one component under one key, so switching between the two only swaps
+      // copy. As two pages, every switch remounted the screen — the drift
+      // restarted and Google's button reloaded, and the form jumped.
+      const login = pages.find(page => page.path === '/login')
+      if (login) {
+        pages.push({
+          name: 'signup',
+          path: '/signup',
+          file: login.file,
+          meta: { key: 'auth', layout: false },
+        })
+      }
     },
   },
   eslint: {

@@ -104,40 +104,48 @@ navigates. File references point at `app/pages/` and `app/components/`.
 
 ---
 
-## 0. Sign in — `pages/login.vue`
+## 0. Sign in and sign up — `pages/login.vue`
 
-**Purpose:** the one screen a signed-out person can see. FeedMe is **login-only** — no guest
+**Purpose:** the only screens a signed-out person can see. FeedMe is **login-only** — no guest
 mode, no anonymous browsing ([backend.md](./backend.md#auth)) — so this is the gate in front of
-every other screen.
+every other screen. `/login` and `/signup` are **one page in two modes**: switching between them
+changes the copy and the form's wording in place and moves nothing else.
 
 **The user can:**
-- **Sign in with Google** — the primary action, and in the finished app the only one.
-- **Sign in with a dev token** — a second, temporary control below it, for accounts with no
-  Google identity ([backend.md](./backend.md#auth)). Both ways in ship today; retiring this one is
-  an owned follow-up ([backend-roadmap.md](./backend-roadmap.md) T8).
-- Nothing else. There is no sign-up (the account is created by the first sign-in), no password
-  recovery, and no way past this screen.
+- **Sign in with Apple** — rendered, but not wired yet: it answers "Sign in with Apple isn't
+  available yet." under itself ([backend-roadmap.md](./backend-roadmap.md) T17).
+- **Continue with Google** — Google's own rendered button; creates the account on first use.
+- **Log in or sign up with an email and a password** — the same fields, the button and the
+  endpoint (`/auth/login` or `/auth/signup`) follow the mode. A new account is signed in at once.
+- Switch between the two modes with the link under the form.
+- Nothing else. There is no password recovery and no email verification (neither exists yet), and
+  no way past these screens.
 
-**Layout:** brand, one line of what the app is for, then the sign-in block — and nothing above it
-depends on its size, because **Google owns the chrome inside its button** (theme, size, text and a
-400px width cap are the whole surface; its frame paints its own background, which is why the app's
-themes stop at the button's edge). The column is sized to that cap so both controls sit on the
-same edges, and the two are separated by **spacing alone** — no divider, per
-[design-system.md](./design-system.md). The screen renders **without the app layout**, so the
-desktop shell never appears around it.
+**Layout:** on a phone, a band of drifting sample feed above the form, then the brand, a two-line
+hero (second line in the accent), one line of what the app is for, and the sign-in block at the
+bottom of the screen. On desktop the same content sits in a centred card over a full-page drift.
+The drift is decoration — a fixed sample, not the person's data, and stands still under reduced motion.
+The sign-in block is Apple, Google, an "or" hairline, email, password and the submit, stacked full
+width; **Google owns the chrome inside its button** (theme, size, text and a 400px width cap are
+the whole surface), so the card's content box stays under that cap and the button shares the
+fields' edges. Both modes' copy and footers occupy the same space, so nothing jumps on a switch.
+The screens render **without the app layout**, so the desktop shell never appears around them.
+Sign-up's footer names Terms and Privacy Policy, which are not links yet.
 
-**Feedback:** a rejected sign-in says so on this screen (the credential is proved before it's
-kept), rather than letting the user through into a redirect loop — **one message per control**, so
-a failure is never reported under the control that didn't fail. A refused sign-in never counts as
-a dead session: an existing one survives it untouched.
+**Feedback:** a rejected sign-in says so on this screen (the token is proved before it's kept),
+rather than letting the user through into a redirect loop — **one message per control** (Apple,
+Google, email), so a failure is never reported under the control that didn't fail. Email errors
+are the API's own sentence: a taken email, a weak password (8+ characters, not a common or
+all-digit one), or one "Email or password is wrong." for every failed log-in. A refused sign-in
+never counts as a dead session: an existing one survives it untouched.
 
-**Data:** `POST /auth/google` — trades Google's credential for our bearer token — and `GET /me`,
-the profile that proves whichever token was set. Nothing else on this screen calls the API, and no
-other screen loads anything until this one has been passed.
+**Data:** `POST /auth/google`, `/auth/login` or `/auth/signup` — each trades what the person has for
+our bearer token — and `GET /me`, the profile that proves the token. Nothing else on these
+screens calls the API, and no other screen loads anything until they have been passed.
 
 **Flow:**
-- Signed out, any route → `/login`. After signing in → the feeds list (`/`).
-- Already signed in, `/login` → the feeds list. The session survives reloads.
+- Signed out, any route → `/login`. After signing in or up → the feeds list (`/`).
+- Already signed in, `/login` or `/signup` → the feeds list. The session survives reloads.
 - **Sign out** (Settings → Account) or a **session the server no longer accepts** → back here,
   with the app's data cleared, so the next person to sign in never sees the last one's feeds.
 
@@ -510,6 +518,25 @@ a confirm view, reached by a button that arms before routing and never mutates a
 
 The buttons carry those two labels word for word. A **source** is named on screen here — it is
 now part of the product's vocabulary ([backend.md](./backend.md) § Vocabulary).
+
+---
+
+## 8. Error page — `app/error.vue`
+
+**Purpose:** what a missing route (404) or an unhandled error renders in place of the app. It is
+only ever seen signed in — a signed-out visitor is sent to `/login` first.
+
+**The user can:**
+- **Back to your feeds** — the one accent-filled action; clears the error and goes home.
+- **Open Saved** — clears the error and goes to Saved.
+- On a phone, the back arrow returns to where they came from (home when there is nowhere to
+  return to).
+
+**Layout:** the app's mark with its right-hand page missing, an "Error 404" label, a heading, one
+line of explanation. A 404 reads "This page isn't in your feed"; anything else a generic
+"Something went wrong". The wordmark sits in the corner on desktop; the actions are inline under
+the copy on desktop and stacked at the bottom of the screen on a phone. It follows the person's
+theme.
 
 ---
 

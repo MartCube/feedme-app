@@ -9,7 +9,7 @@ the decision log at the bottom records what was chosen and why.
 
 **The backend exists to:**
 
-- authenticate users (Google OAuth) and store their personal state: feeds and the sources in
+- authenticate users (Google OAuth, email + password) and store their personal state: feeds and the sources in
   them, saved posts, settings, home-list order;
 - fetch posts from sources (websites, YouTube channels, subreddits) in the background and
   serve them paginated (infinite scroll);
@@ -124,7 +124,7 @@ Nuxt app are generated from it (e.g. `openapi-typescript`), so the two sides can
 ## Data model
 
 ```
-User          google_sub (unique), email, created_at
+User          google_sub (unique, nullable), email, password (optional — unusable for a Google-only account), created_at
 AuthToken     user FK, token_hash (SHA-256, unique), created_at, last_used_at, device_label
 Source        uid (source_*), type (website|youtube|reddit), feed_url (unique), site_url,
               title, description (the feed's own <description> / <subtitle>, backfilled at
@@ -193,8 +193,10 @@ exception is `DELETE /feeds/{uid}`, which has nothing left to return.
 | Method & path | Purpose |
 | --- | --- |
 | `POST /auth/google` | Body: the Google `credential` (id_token). Verify signature / issuer / audience / expiry → find, link or create the User → issue an opaque bearer token. **Returns the token alone**; the profile comes from `GET /me` |
+| `POST /auth/signup` | Body: `{email, password}`. Create an email + password account and sign it in. Email normalised and lowercased; **409** for a taken email, **422** for an invalid email or a weak password (the message says why). **Returns the token alone**, like `/auth/google`. Throttled — see § Auth |
+| `POST /auth/login` | Body: `{email, password}`. Trade them for a token. **One 401 message for every failure** (unknown email, wrong password, no password set, disabled account). Throttled — see § Auth |
 | `POST /auth/logout` | Revoke the presented token (delete its row) |
-| `GET /me` | Profile: email, member-since, sign-in provider (Settings → Account) |
+| `GET /me` | Profile: email, member-since, sign-in provider — `google` or `email` (Settings → Account) |
 | `DELETE /me` | Delete account + all user data (tokens, feeds and their sources, saved, settings); a source that was nobody else's is deactivated |
 | `GET /home` | **One aggregate round-trip for the home screen:** `feeds` in display order — each `{uid, name, description, sources: [{uid, name, title, type, site_url, feed_url, icon, enabled}]}`, where `name` is the user's rename in that feed or else the source's own `title`, and `icon` is a proxied 64px square or null — plus `saved_counts` per group. There is no separate order field and no folders |
 | `PUT /home/order` | Persist home-list reorder: the ordered list of feed uids — exactly the account's feeds, no more, no less (a duplicate, unknown or missing uid is a 422 that writes nothing). No UI drives it yet |
@@ -216,11 +218,28 @@ exception is `DELETE /feeds/{uid}`, which has nothing left to return.
 
 ## Auth
 
-**Google OAuth only in v1** — verified directly with `google-auth`, since one provider doesn't
-need an auth framework; allauth stays the answer if a second one ever justifies it, and Apple
-becomes relevant when the iOS app ships. The app is **login-only** — no guest mode.
+**Two ways in: Google, and email + password** _(email added 2026-10-28)_. Google is verified
+directly with `google-auth`, since one provider doesn't need an auth framework; allauth stays the
+answer if a further one ever justifies it, and Sign in with Apple becomes required when the iOS
+app ships (T17). The app is **login-only** — no guest mode. Every way in ends the same: our own
+opaque bearer token, answered alone, and the profile from `GET /me`.
 
-Flow (**built on web** as of 2026-09-03; the Capacitor half of step 1 is not):
+**Email + password.** `POST /auth/signup` and `POST /auth/login`. The email is normalised and
+lowercased and looked up case-insensitively. Passwords are checked at signup by Django's
+validators: at least 8 characters, not a common password, not all digits. Login refuses every
+failure with the same 401 message, so it never says which addresses have accounts. Both endpoints
+share one throttle — **10 a minute per client IP**, counted in the Redis cache so it holds across
+worker processes. Which address counts as the client's is `NINJA_NUM_PROXIES` (env `NUM_PROXIES`,
+default 0: the socket's address; set it to the number of reverse proxies in front of the api).
+Email addresses are **not verified** — nothing sends email — and there is no password reset;
+the takeover rule below is what that costs. `GET /me`'s `provider` is `email` for an account with
+no Google identity.
+
+**The takeover rule.** Because an email sign-up proves nothing about the address, a Google
+sign-in onto an address that holds a password **wipes that password and revokes every session**
+it opened. Google has just proved who owns the address; whoever typed it first keeps nothing.
+
+Google flow (**built on web** as of 2026-09-03; the Capacitor half of step 1 is not):
 
 1. Frontend obtains a Google **id_token** — Google Identity Services on web, the native
    Google Sign-In plugin under Capacitor. Google's UI does the heavy lifting: on web that means
@@ -241,12 +260,10 @@ secret exists in this flow and none is stored. The id is optional on both sides:
 sign-in screen renders no Google button and the backend refuses to verify anything, which is a
 degraded app rather than a broken one.
 
-**A dev-token path still exists beside it, temporarily.** `manage.py issue_token <email>` mints a
-working bearer token (T2), and `/login` keeps a field for pasting one below Google's button, so an
-account with no Google identity can still be signed into. It is scheduled for removal — see
-[backend-roadmap.md](./backend-roadmap.md) § Decision log (T8). `GET /me`'s `provider` describes
-the **account**, not the session: a linked account reports `google` even in a session started with
-a pasted token.
+**The dev-token path is gone** _(2026-10-28, T16)_: `manage.py issue_token` and the token field on
+`/login` were removed once email sign-in existed. `GET /me`'s `provider` describes the
+**account**, not the session: a linked account reports `google` even in a session started with
+its password.
 
 Why opaque and not JWT sessions: a JWT can't be revoked before expiry, so real logout forces
 short expiries + refresh tokens + rotation + interceptor logic on both platforms — and the
@@ -558,3 +575,21 @@ Decided 2026-10-13:
   ads), and **`GET /posts/{uid}/article` drops the article's own copy of the lead image** when
   the post's `image` is non-null, since the post page already shows it. Both in
   [images.md](./images.md).
+
+Added 2026-10-28 (T16):
+
+- **A Google sign-in onto an unverified password account takes it over.** Email sign-up verifies
+  nothing, so anyone could register an address they don't own and sit on it with a password. When
+  the real owner arrives with Google — which has proved the address — the account is linked to
+  their `sub`, the password is made unusable and every session it opened is deleted. The owner keeps
+  the account; the squatter keeps nothing. The cost is that a person who signs up by email and
+  later uses Google on the same address loses the password and must use Google from then on, which
+  is the cheaper wrong until email verification exists. A test pins it.
+- **The sign-in throttle keys on `NINJA_NUM_PROXIES`, not on `X-Forwarded-For` as sent.** With the
+  setting unset, django-ninja keys `AnonRateThrottle` on the whole client-supplied header, which a
+  script can change on every request and so never be throttled. `NUM_PROXIES` (default 0) tells it
+  how many trusted proxies sit in front: 0 uses the socket's address, `n` takes the entry `n`
+  hops from the right. A deploy behind one reverse proxy must set it to 1, or every client shares
+  the proxy's address. A test pins that a forged header doesn't reset the count.
+- **`provider` is `google` or `email`; `dev` is gone** along with `manage.py issue_token` and the
+  login screen's token field. It still describes the account, not the session.

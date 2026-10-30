@@ -7,13 +7,16 @@ account and how I like it), even though they are two modules in here.
 from datetime import datetime
 from typing import Literal
 
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
 from ninja import Router, Schema, Status
 from ninja.errors import HttpError
+from ninja.throttling import AnonRateThrottle
 
 from ..auth import issue_token
 from ..google_auth import InvalidGoogleCredential, verify_google_credential
-from ..models import Source, User
+from ..models import AuthToken, Source, User
 from .errors import ErrorSchema
 from .feeds import deactivate_if_orphaned
 
@@ -24,16 +27,16 @@ class MeSchema(Schema):
     email: str
     created_at: datetime
     # Literal, not str, so the generated TypeScript gets a union (T4's decision).
-    provider: Literal['google', 'dev']
+    provider: Literal['google', 'email']
 
     @staticmethod
     def resolve_provider(obj):
-        # Settings → Account renders this as the "Signed in with" row. Note it describes
-        # the *account*, not the session: once an account is linked this says 'google'
-        # even in a session started by pasting a manage.py issue_token token. Telling the
-        # two apart would need a column on AuthToken, which isn't worth one while the dev
-        # path is temporary.
-        return 'google' if obj.google_sub else 'dev'
+        # Settings → Account renders this as the "Signed in with" row. It describes the
+        # *account*, not the session: a linked account that also has a password (the
+        # admin superuser, or one set through manage.py changepassword) reads as Google
+        # even in a session started with the password. Telling the two apart would need a
+        # column on AuthToken, which the row isn't worth.
+        return 'google' if obj.google_sub else 'email'
 
 
 class GoogleSignInSchema(Schema):
@@ -42,6 +45,19 @@ class GoogleSignInSchema(Schema):
 
 class TokenSchema(Schema):
     token: str  # our opaque bearer token — the plaintext, the only time it exists
+
+
+class EmailSignInSchema(Schema):
+    # str, not EmailStr: pydantic's email validator is an extra dependency, and the one
+    # check worth making — that the address is unique — is the database's job anyway.
+    email: str
+    password: str
+
+
+# Per client IP, shared by both password endpoints' own buckets. Ten a minute is slack
+# for a person retyping a password and a wall for a script guessing one. Counted in the
+# Django cache (Redis), so it holds across the api's worker processes.
+EMAIL_AUTH_THROTTLE = [AnonRateThrottle('10/m')]
 
 
 @router.post(
@@ -53,9 +69,9 @@ class TokenSchema(Schema):
 def google_sign_in(request, payload: GoogleSignInSchema):
     """Trade a verified Google credential for one of our own tokens.
 
-    Returns the token alone, not the profile with it: the dev-token path already sets a
-    token and proves it against /me, so answering with just the token lets both sign-ins
-    share that one path on the frontend.
+    Returns the token alone, not the profile with it: the frontend sets a token and proves
+    it against /me, so answering with just the token lets every way in (this, email log-in,
+    sign-up) share that one path.
     """
     try:
         claims = verify_google_credential(payload.credential)
@@ -64,9 +80,69 @@ def google_sign_in(request, payload: GoogleSignInSchema):
         raise HttpError(401, "Google couldn't verify that sign-in.") from None
 
     user = _user_for_google(claims['sub'], claims['email'])
+    return {'token': issue_token(user, device_label=_device_label(request))}
+
+
+@router.post(
+    '/auth/signup',
+    auth=None,
+    throttle=EMAIL_AUTH_THROTTLE,
+    response={200: TokenSchema, 409: ErrorSchema, 422: ErrorSchema, 429: ErrorSchema},
+    operation_id='email_sign_up',
+)
+def email_sign_up(request, payload: EmailSignInSchema):
+    """Create an email + password account and sign it in.
+
+    Answers with the token alone, like /auth/google, so the frontend proves it against /me
+    on the same path. The address is not verified — nothing sends email yet — which is why
+    a later Google sign-in to the same address takes the account over (_user_for_google).
+    """
+    email = User.objects.normalize_email(payload.email.strip()).lower()
+    if '@' not in email:
+        raise HttpError(422, 'Enter a valid email address.')
+    # iexact for the same reason as _user_for_google: rows created before this endpoint
+    # (Google, the retired dev tokens) were never lowercased.
+    if User.objects.filter(email__iexact=email).exists():
+        raise HttpError(409, 'An account with that email already exists. Log in instead.')
+
+    candidate = User(email=email)
+    try:
+        validate_password(payload.password, user=candidate)
+    except DjangoValidationError as error:
+        raise HttpError(422, ' '.join(error.messages)) from None
+
+    try:
+        user = User.objects.create_user(email=email, password=payload.password)
+    except IntegrityError:
+        # The exists() above and this insert race on the unique column, same as Google's
+        # first sign-in. The loser is told what the winner made true.
+        raise HttpError(409, 'An account with that email already exists. Log in instead.') from None
+
+    return {'token': issue_token(user, device_label=_device_label(request))}
+
+
+@router.post(
+    '/auth/login',
+    auth=None,
+    throttle=EMAIL_AUTH_THROTTLE,
+    response={200: TokenSchema, 401: ErrorSchema, 429: ErrorSchema},
+    operation_id='email_sign_in',
+)
+def email_sign_in(request, payload: EmailSignInSchema):
+    """Trade an email + password for a token. One refusal for every way it can fail."""
+    user = User.objects.filter(email__iexact=payload.email.strip()).first()
+    # Unknown email, wrong password, an account with no password (Google-only, dev) and a
+    # disabled account all read the same, so the answer never says which addresses exist.
+    # check_password on an unusable password is simply False.
+    if user is None or not user.is_active or not user.check_password(payload.password):
+        raise HttpError(401, 'Email or password is wrong.')
+    return {'token': issue_token(user, device_label=_device_label(request))}
+
+
+def _device_label(request):
     # AuthToken already carries device_label and admin already renders it, so the device
-    # list backend.md § Auth promises starts collecting from here.
-    return {'token': issue_token(user, device_label=request.headers.get('User-Agent', '')[:200])}
+    # list backend.md § Auth promises collects from every way in.
+    return request.headers.get('User-Agent', '')[:200]
 
 
 def _user_for_google(sub, email):
@@ -89,7 +165,16 @@ def _user_for_google(sub, email):
                 # hand the new owner of an address the previous owner's feeds and saves.
                 raise HttpError(401, 'That email is already linked to a different Google account.')
             existing.google_sub = sub
-            existing.save(update_fields=['google_sub'])
+            update_fields = ['google_sub']
+            if existing.has_usable_password():
+                # Email sign-up verifies nothing, so anyone could have registered this
+                # address with a password of their own before its owner arrived. Google
+                # has just proved who owns it: the password goes, and every session it
+                # opened with it. The owner keeps the account; a squatter keeps nothing.
+                existing.set_unusable_password()
+                update_fields.append('password')
+                AuthToken.objects.filter(user=existing).delete()
+            existing.save(update_fields=update_fields)
             user = existing
         else:
             try:

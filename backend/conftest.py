@@ -89,7 +89,7 @@ def stub_worker(stub_broker):
 
 @pytest.fixture
 def user(db):
-    """A plain app user. No usable password — sign-in is Google-only (backend.md § Auth)."""
+    """A plain app user with no usable password — a Google or dev-token account."""
     return get_user_model().objects.create_user(email='reader@example.com')
 
 

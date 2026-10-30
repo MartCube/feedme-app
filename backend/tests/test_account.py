@@ -37,7 +37,8 @@ def test_me_returns_the_signed_in_profile(authed_client, user):
     assert response.status_code == 200
     body = response.json()
     assert body['email'] == user.email
-    assert body['provider'] == 'dev'
+    # the fixture user has no Google identity, so it reads as an email account
+    assert body['provider'] == 'email'
     assert body['created_at'].startswith(str(user.created_at.year))
 
 

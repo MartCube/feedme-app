@@ -14,10 +14,10 @@ export const useAuthStore = defineStore('auth', () => {
 
   const signedIn = computed(() => Boolean(token.value))
 
-  // Set the token, then prove it: a mistyped dev token has to fail on the
+  // Set the token, then prove it: a token that doesn't work has to fail on the
   // login screen, not as a redirect loop on the next page. Throws so the form
-  // can say so. Both ways in end here — Google's only extra step is trading a
-  // credential for one of these tokens first.
+  // can say so. Every way in ends here — Google and email each trade what
+  // they have for one of these tokens first.
   async function signInWithToken(candidate: string) {
     const value = candidate.trim()
     if (!value) return
@@ -42,6 +42,25 @@ export const useAuthStore = defineStore('auth', () => {
     const { token: issued } = await nuxtApp.$api<TokenResponse>('/auth/google', {
       method: 'POST',
       body: { credential },
+    })
+    await signInWithToken(issued)
+  }
+
+  // Email + password: the same trade, against our own check instead of
+  // Google's. Both answer with the token alone for the same reason.
+  async function signInWithEmail(email: string, password: string) {
+    const { token: issued } = await nuxtApp.$api<TokenResponse>('/auth/login', {
+      method: 'POST',
+      body: { email, password },
+    })
+    await signInWithToken(issued)
+  }
+
+  // Creating the account signs it in: the API answers with its first token.
+  async function signUp(email: string, password: string) {
+    const { token: issued } = await nuxtApp.$api<TokenResponse>('/auth/signup', {
+      method: 'POST',
+      body: { email, password },
     })
     await signInWithToken(issued)
   }
@@ -75,7 +94,7 @@ export const useAuthStore = defineStore('auth', () => {
     useSettingsStore().reset()
   }
 
-  return { token, me, signedIn, signInWithToken, signInWithGoogle, loadMe, signOut, clear }
+  return { token, me, signedIn, signInWithGoogle, signInWithEmail, signUp, loadMe, signOut, clear }
 }, {
   // Only the token: the profile is a cheap read that should never be served
   // stale from a cookie.

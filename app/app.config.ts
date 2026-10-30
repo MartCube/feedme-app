@@ -8,7 +8,7 @@ export default defineAppConfig({
         extend: {
           theme: {
             spacing: ['2xs', 'xs', 'sm', 'md', 'lg', 'xl'],
-            text: ['caption', 'body', 'subtitle', 'title'],
+            text: ['caption', 'body', 'subtitle', 'title', 'logo', 'hero'],
             // main.css's one shadow token — so shadow-elevated replaces a default
             // like shadow-sm instead of both landing and the default winning
             shadow: ['elevated'],

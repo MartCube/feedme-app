@@ -8,8 +8,9 @@ The two rules:
 
 > **9 color roles, 4 text sizes.** If you need something outside them, that's a design
 > discussion, not a new class. (Standing exceptions: `text-logo`, the wordmark's own
-> size — see § Type scale — and `bg-sunken`, the desktop sidebar's surface — see § Color
-> roles.)
+> size, and `text-hero`, the signed-out headline's — see § Type scale — and `bg-sunken`, the
+> desktop sidebar's surface — see § Color roles. Third-party sign-in buttons sit outside the
+> colour roles too — see § Third-party buttons.)
 
 ## Color roles
 
@@ -147,6 +148,24 @@ doing one job — pick one and let it work. The same goes for gloss: elevated co
   and is smaller than the box, it sits centred at its own size instead of shrinking the box.
 - **The feed search is `h-12` on mobile, `h-10` on desktop**, the height of an `IconButton` at each size, so the two line up on the title row.
 
+### Block buttons
+
+`ui/BlockButton.vue` is the full-width action: `bg-elevated` with `shadow-elevated` and a coloured
+label — `neutral` (`text-default`), `primary` (`text-primary`) or `danger` (`text-error`). A fourth
+variant, **`filled`** (`bg-primary text-inverted`, weight 600, no shadow), is the one accent-filled
+surface in the app. It is for the single action a signed-out screen or the error page exists to
+offer (log in, sign up, back to your feeds) and appears nowhere inside the app. It renders as a
+`submit` button when asked, so a form's own button is one. A disabled button of any variant
+dims to the elevated, `text-dimmed` state.
+
+### Third-party buttons
+
+Sign-in buttons that belong to someone else's brand are an **exception to the colour roles** and
+don't follow the theme. Apple's is white with black ink (one of the three styles its guidelines
+allow: white, black, white-outlined), 40px tall, with the card radius. Google's is its own rendered
+iframe, which paints its own white background; the app clips its bleed and rounds its corners but
+doesn't style the inside.
+
 ## Themes
 
 Six dark themes, switchable in Settings → Appearance, listed Crowd, Blueberry, Ink, Claude, Dracula, Reddit (Ink is the default for new accounts). `bg-sunken` is the
@@ -208,8 +227,16 @@ only these four names.
 **One standing exception: `text-logo`** (1.625rem, weight 600, line-height 1.1, defined alongside
 the scale in `app/assets/css/typography.css`) is the FeedMe wordmark's size and nothing
 else's — a logo is a mark, not a size app code picks from, so it sits outside the four-size
-rule rather than becoming a fifth general-purpose one. It appears in exactly one place: the
-top of the shared feed list (`home/FeedList.vue`), beside the logo mark (`ui/Logo.vue`, below).
+rule rather than becoming a fifth general-purpose one. It appears wherever the wordmark does:
+the top of the shared feed list (`home/FeedList.vue`), the sign-in and sign-up card
+(`auth/AuthShell.vue`) and the corner of the error page (`app/error.vue`), always beside the logo
+mark (`ui/Logo.vue`, below).
+
+**A second standing exception: `text-hero`** (1.875rem, 2.25rem from `lg`; weight 600,
+line-height 1.12, letter-spacing -0.03em; defined beside `text-logo` in `typography.css`) is the
+headline of the signed-out screens (`auth/AuthShell.vue`) and the error page's heading
+(`app/error.vue`) — a line meant to be read from across the screen, which no screen title is. Brand
+and arrival moments only; never inside the app.
 
 **The logo mark** _(2026-10-23)_ is an inline SVG — two stacks of three bars, the left in
 `text-primary`, the right in `text-default`, so it follows the theme — `aria-hidden`, `size-8`,
@@ -270,7 +297,7 @@ buttons; the content below gives that `sm` back rather than stacking on it.
 
 ## Motion
 
-Three timings, defined as theme tokens in `app/assets/css/motion.css` (imported by `main.css`) —
+Four timings, defined as theme tokens in `app/assets/css/motion.css` (imported by `main.css`) —
 the same pattern as spacing and the type scale.
 
 | Timing | Value | Used for |
@@ -278,6 +305,7 @@ the same pattern as spacing and the type scale.
 | Feedback | 250ms, ease-out | Every colour or surface change: hover, selection, the tap flash, the toggle thumb |
 | Slide | `--duration-slide` 350ms, `--ease-slide` (iOS's curve, `cubic-bezier(0.32, 0.72, 0, 1)`) | Page and drawer-panel slides — mobile only |
 | Fold | 200ms, ease-out (`fold-rows` utility) | The desktop sidebar's Feeds and Settings groups folding — an intentional third timing that matches Nuxt UI's collapsible, so the rows slide in step with the box |
+| Drift | 60s, 75s, 85s and 95s, `linear`, infinite (`--animate-drift-up`, `-down`, `-up-slow`, `-down-slow`) | The sample feed behind the sign-in and sign-up screens (`auth/AuthDrift.vue`). Each column holds its cards twice and moves half its own height, so the loop has no seam. Slow on purpose, so it reads as ambient; every column has its own period and the directions alternate, so no two move in step. Stands still under `prefers-reduced-motion` |
 
 Feedback is Tailwind's own transition default (`--default-transition-duration` and
 `--default-transition-timing-function`), so a bare `transition` or `transition-colors` gets it —
@@ -303,7 +331,11 @@ six-name `--spacing-*` rule above: defined as `--container-*` in `app/assets/css
 | `--container-postlist` | 24rem | Posts (master) pane's empty-state measure only — the pane itself takes 40, 50 or 60% of the area right of the sidebar, per the *Reading panes* setting (default 50) |
 | `--container-reading` | 42rem | Post content measure cap; also the width the feed page, Settings and Add hold their content to inside the desktop post pane _(2026-10-13; Settings used to split into two 40% panes)_ — the pane itself spans full width so its scrollbar sits at the edge. A form has a natural width and doesn't get better wider the way an article does |
 | `--container-post` | 56rem | Post body measure — only bites on wide monitors |
-| `--container-signin` | `calc(400px + 2 * var(--spacing-lg))` | The sign-in column on `/login` — the only measure here that isn't a shell one. It is Google's 400px button cap plus the two page-insets, because that button's width can't be raised and a wider column would leave it short of the field below it (see [screens-and-flows.md](./screens-and-flows.md) § 0) |
+| `--container-auth` | 27.5rem | The desktop sign-in / sign-up card (`auth/AuthShell.vue`) — the only measure here that isn't a shell one. Its content box (after the card's `lg` padding) stays under Google's 400px button cap, because that button's width can't be raised and a wider column would leave it short of the field below it (see [screens-and-flows.md](./screens-and-flows.md) § 0) |
+
+**`--radius-sheet`** (1.75rem, utility `rounded-sheet`; defined beside the containers in
+`layout.css`) is the corner of that desktop auth card, a sheet floating over the drifting feed. It is
+one step rounder than a card (`rounded-2xl`) because it is that much larger, and used nowhere else.
 
 **Breakpoint:** a single tier at `lg` (1024px, Tailwind's `lg:` prefix) splits mobile from
 desktop — below it the app is the mobile single-pane stack, at or above it the three-column

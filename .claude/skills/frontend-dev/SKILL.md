@@ -41,8 +41,9 @@ pnpm types:api              # regenerate app/types/api.d.ts from the live OpenAP
 `docker compose up -d` (see the `backend-dev` skill). The API base defaults to
 `http://localhost:8000/api/v1`; override with `NUXT_PUBLIC_API_BASE`.
 
-Signing in needs a token — `docker compose exec api python manage.py issue_token <email>`
-mints one for the dev-token field on `/login`.
+Signing in is email + password on `/login` (or Google). For headless verification, sign up a
+throwaway account on `/signup` and delete it afterwards; for curl, `POST /api/v1/auth/login`
+with `{email, password}` answers with a bearer token.
 
 There is no test harness. Verification is `pnpm lint` + `pnpm typecheck` + driving the app
 with the `verify` skill and looking at pixels. The PostToolUse `eslint --fix` hook fires on the

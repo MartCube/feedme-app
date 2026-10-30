@@ -10,6 +10,8 @@ export default defineNuxtPlugin((nuxtApp) => {
   const config = useRuntimeConfig()
   const auth = useAuthStore()
 
+  const signInPaths = ['/auth/google', '/auth/login', '/auth/signup']
+
   const request = $fetch.create({
     baseURL: config.public.apiBase,
     onRequest({ options }) {
@@ -20,10 +22,11 @@ export default defineNuxtPlugin((nuxtApp) => {
     },
     async onResponseError({ response }) {
       // A refused sign-in is not a dead session — /auth/google 401s when Google
-      // couldn't verify the credential, and the login page reports that itself.
+      // couldn't verify the credential, /auth/login on a wrong password, and the
+      // login page reports both itself (an existing session must survive either).
       // response.url, not the hook's `request`, which is the path as passed,
       // before baseURL is applied.
-      if (response.url?.endsWith('/auth/google')) return
+      if (response.url && signInPaths.some(path => response.url.endsWith(path))) return
 
       // The token was revoked, expired, or never valid. Opaque tokens die
       // server-side at any moment, so this is a normal event, not an error

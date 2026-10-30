@@ -37,11 +37,55 @@ export interface paths {
          * Google Sign In
          * @description Trade a verified Google credential for one of our own tokens.
          *
-         *     Returns the token alone, not the profile with it: the dev-token path already sets a
-         *     token and proves it against /me, so answering with just the token lets both sign-ins
-         *     share that one path on the frontend.
+         *     Returns the token alone, not the profile with it: the frontend sets a token and proves
+         *     it against /me, so answering with just the token lets every way in (this, email log-in,
+         *     sign-up) share that one path.
          */
         post: operations["google_sign_in"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/signup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email Sign Up
+         * @description Create an email + password account and sign it in.
+         *
+         *     Answers with the token alone, like /auth/google, so the frontend proves it against /me
+         *     on the same path. The address is not verified — nothing sends email yet — which is why
+         *     a later Google sign-in to the same address takes the account over (_user_for_google).
+         */
+        post: operations["email_sign_up"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email Sign In
+         * @description Trade an email + password for a token. One refusal for every way it can fail.
+         */
+        post: operations["email_sign_in"];
         delete?: never;
         options?: never;
         head?: never;
@@ -366,6 +410,13 @@ export interface components {
             /** Credential */
             credential: string;
         };
+        /** EmailSignInSchema */
+        EmailSignInSchema: {
+            /** Email */
+            email: string;
+            /** Password */
+            password: string;
+        };
         /** MeSchema */
         MeSchema: {
             /** Email */
@@ -379,7 +430,7 @@ export interface components {
              * Provider
              * @enum {string}
              */
-            provider: "google" | "dev";
+            provider: "google" | "email";
         };
         /**
          * FeedSourceSchema
@@ -680,6 +731,99 @@ export interface operations {
             };
             /** @description Unauthorized */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+        };
+    };
+    email_sign_up: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailSignInSchema"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenSchema"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+        };
+    };
+    email_sign_in: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailSignInSchema"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenSchema"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

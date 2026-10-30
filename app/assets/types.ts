@@ -52,8 +52,8 @@ export type PostPage = Schemas['PostPageSchema']
 export type Settings = Schemas['SettingsSchema']
 export type Me = Schemas['MeSchema']
 
-// What POST /auth/google answers with: our own bearer token, and nothing else.
-// The profile comes from /me afterwards, the same way the dev-token path gets it.
+// What every way in (/auth/google, /auth/login, /auth/signup) answers with:
+// our own bearer token, and nothing else. The profile comes from /me afterwards.
 export type TokenResponse = Schemas['TokenSchema']
 
 // A search result before it is added: a candidate source with no uid yet.

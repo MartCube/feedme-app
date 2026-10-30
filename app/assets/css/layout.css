@@ -9,12 +9,27 @@
   --container-postlist: 24rem; /* empty-state measure (the pane itself is 40–60%, by setting) */
   --container-reading: 42rem; /* form measure: the feed page and settings content in the post pane */
   --container-post: 56rem; /* post body measure — only bites on wide monitors */
-  /* sign-in column: the width cap Google enforces on its own button, plus the
-     two page-insets around it. Derived rather than written out, so retuning the
-     inset can't silently break the edge alignment this token exists for. A wider
-     column leaves that button short of the field under it, which no option on
-     renderButton can fix. */
-  --container-signin: calc(400px + 2 * var(--spacing-lg));
+  /* the desktop sign-in / sign-up card (auth/AuthShell.vue). Its content box
+     stays under the 400px cap Google enforces on its own button, so the button
+     and the fields under it share edges. */
+  --container-auth: 27.5rem;
+
+  /* The desktop auth card's corner — a sheet floating over the drifting feed,
+     one step rounder than a card (rounded-2xl) because it is that much larger. */
+  --radius-sheet: 1.75rem;
+}
+
+/* The drifting feed behind the auth screens (auth/AuthDrift.vue) fades out
+   with a mask rather than an overlay, so the page background shows through in
+   every theme. On a phone it is the band above the form, fading out at both
+   of its own edges; on desktop it fills the page and fades only at the top and
+   bottom of the screen. */
+@utility drift-mask {
+  mask-image: linear-gradient(to bottom, transparent, #000 25%, #000 50%, transparent);
+
+  @variant lg {
+    mask-image: linear-gradient(to bottom, transparent, #000 18%, #000 82%, transparent);
+  }
 }
 
 /* A Short's player box (feed/PostVideo.vue). A Short is a vertical video, so

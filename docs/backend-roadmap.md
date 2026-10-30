@@ -78,6 +78,8 @@ reading order.
 | T15d | Images — the bucket (stage 2) | ⬜ after T15a |
 | T15e | Images — CDN, then paid (stage 3) | ⬜ needs a deploy target |
 | T15f | Images — the loading placeholder | ✅ done _(2026-10-13)_ |
+| T16 | Email + password sign-in, the auth screens, the error page | ✅ done _(2026-10-28)_ |
+| T17 | Sign in with Apple | ⬜ needs an Apple Developer account and an HTTPS domain |
 
 ## Current state
 
@@ -1374,7 +1376,8 @@ Google's button and clips its iframe bleed rather than styling it.
 screen, and no dev-token path remains on `/login`. — **Amended _(2026-09-03)_:** the second half
 was reversed while building; the dev-token field stays for now (see As built). The first half
 stands as the acceptance, and `backend/tests/test_google_signin.py` pins the endpoint with 13
-tests (172 backend tests green overall).
+tests (172 backend tests green overall). **Closed by T16 _(2026-10-28)_:** the dev-token path is
+gone, replaced by email + password sign-in.
 
 ### T9 — Dramatiq, `worker`, `scheduler` ✅
 
@@ -2099,6 +2102,136 @@ ingest's `_pick_image` now falls back to the first `<img>` in the entry's conten
 132 posts with images. Extraction also drops text-less image links to other sites (badges,
 ads), and the article's copy of the post's lead image is dropped at read time. See
 [images.md](./images.md) § Decision log.
+
+### T16 — Email + password sign-in, the auth screens, the error page ✅
+
+**Goal.** A way in that needs no third party, and signed-out screens worth arriving at: `/login`
+and `/signup` redesigned around one form, plus an app-level error page. This is also the task
+that retires T8's dev-token path.
+
+**Depends on:** T8 (the token machinery and the identity rule), T6 (the frontend wiring).
+
+**Build, backend.**
+- `POST /auth/signup` and `POST /auth/login`, both answering `TokenSchema` — the token alone, like
+  `/auth/google`, so every way in converges on one frontend action that sets a token and proves it
+  against `/me`.
+- Email is normalised and lowercased on the way in; lookups use `iexact`, because rows created
+  before this task (Google, the dev tokens) were never lowercased.
+- Signup answers **409** for a taken email and **422** for an invalid email or a weak password.
+  Passwords are checked by Django's `AUTH_PASSWORD_VALIDATORS`: minimum length 8, not a common
+  password, not all digits.
+- Login answers **one 401 message for every failure** — unknown email, wrong password, an account
+  with no usable password, a disabled account — so the answer never says which addresses exist.
+- **Throttle:** `AnonRateThrottle` at 10 per minute per client IP, one bucket shared by both
+  endpoints, counted in the Django cache (Redis) so it holds across the api's worker processes.
+- **`settings.NINJA_NUM_PROXIES`** (env `NUM_PROXIES`, default 0). Ninja's default keys the throttle
+  on the whole client-supplied `X-Forwarded-For` header, so a forged header per request bypassed
+  it. `0` keys on the socket address; a deploy behind one proxy sets `1`. A test pins it.
+- **The takeover rule.** A Google sign-in onto an address that holds an unverified password wipes
+  the password and revokes every session it opened (§ Decision log in
+  [backend.md](./backend.md)). Nothing verifies an email address yet, so the password may belong
+  to someone who merely typed the address first.
+- `MeSchema.provider` is now `'google' | 'email'`; `'dev'` is gone. It still describes the account,
+  not the session.
+- **Removed:** `manage.py issue_token` and the dev-token field on `/login`. Sessions are issued by
+  signing in, and admin still revokes them.
+
+**Build, frontend.** `/login` and `/signup` are one page component under one key (so switching
+between them remounts nothing), made of `auth/AuthShell.vue` (frame, hero, copy), `auth/AuthForm.vue`
+(Apple, Google's button, "or", email + password) and `auth/AuthDrift.vue` (the drifting sample
+feed). The Apple button is rendered ahead of its integration and answers "Sign in with Apple isn't
+available yet." until T17. `app/error.vue` is the app-level 404 / error page. See
+[screens-and-flows.md](./screens-and-flows.md) § 0 and [design-system.md](./design-system.md).
+
+**Not in this task.** Email verification and password reset — nothing sends email yet, which is
+the reason for the takeover rule. Sign in with Apple is T17.
+
+**Done when.** A person can sign up with an email and password, land on the home screen, sign out
+and log back in; a Google sign-in onto that address takes the account over; a forged
+`X-Forwarded-For` does not reset the throttle. `backend/tests/test_email_auth.py` pins the
+endpoints, the single login refusal, the throttle (and the forged header) and the takeover rule.
+**Built _(2026-10-28)_.**
+
+### T17 — Sign in with Apple
+
+**Goal.** The Apple button on `/login` and `/signup` signs people in. It is already rendered (T16),
+and until this task it answers "Sign in with Apple isn't available yet."
+
+**Why it matters before iOS.** The App Store requires Sign in with Apple in any iOS app that offers
+another third-party sign-in such as Google (App Review Guideline 4.8), so it has to exist by the
+time the Capacitor build ships. Doing the web half first means the iOS half only adds a native
+plugin.
+
+**Depends on:** T8 (the identity rule it copies) and T16 (the button, the takeover rule).
+**Gated on two things outside the code:**
+- an **Apple Developer Program** membership (paid, yearly);
+- a **real HTTPS domain**. Apple refuses `localhost` and plain-http return URLs, so end-to-end
+  testing needs the deployed site or an HTTPS tunnel (e.g. a Cloudflare tunnel) pointed at the
+  dev server.
+
+**Apple-side setup (in the developer portal).**
+1. An **App ID** with the *Sign in with Apple* capability. It becomes the iOS bundle id later.
+2. A **Services ID**, e.g. `com.feedme.web`. This is the web client id. Configure it with the
+   site's domain and its return URL.
+3. A **private key (.p8)** for Sign in with Apple. Only needed if the code flow below is chosen.
+   Store its key id, the team id and the key itself in `.env`, never in git.
+
+**Build: the same shape as Google (T8).**
+- **Frontend.** Load Apple's JS SDK the way `AuthForm.vue` loads Google's script
+  (`useScriptTag`, manual). Call `AppleID.auth.init({ clientId, scope: 'name email',
+  redirectURI, usePopup: true, nonce })` and then, on the existing button,
+  `AppleID.auth.signIn()`. The popup answers with an `id_token`, plus the user's name and email
+  **only on their very first sign-in**. The button is already ours. Apple allows a custom button
+  that follows its guidelines (Apple logo, "Sign in with Apple" wording, black/white styles),
+  so no rendered widget is needed, unlike Google.
+  - The public Services ID goes in the Nuxt config as `NUXT_PUBLIC_APPLE_SERVICES_ID`.
+  - It's optional, like Google's client id. Without it the button keeps today's "not available"
+    message.
+- **Backend.** Add `POST /auth/apple` with `{id_token, nonce}`, answering `TokenSchema` like
+  every other way in. Put the verification in a new `core/apple_auth.py`, the twin of
+  `core/google_auth.py`:
+  - fetch Apple's public keys from `https://appleid.apple.com/auth/keys`, cached for a day;
+  - check the signature;
+  - check `iss` = `https://appleid.apple.com`;
+  - check `aud` against **a list**: the Services ID now, plus the iOS bundle id once the app
+    exists;
+  - check expiry and the nonce.
+  - The settings key is `APPLE_SERVICES_ID`. As with Google, an unset id must refuse
+    everything, never skip the audience check.
+- **Identity.** Add a `User.apple_sub` column (unique, nullable), with a generated migration.
+  Accounts are resolved exactly like `_user_for_google`:
+  - look up by `apple_sub` first;
+  - otherwise link onto an existing account with the same verified email, but only if no other
+    Apple identity has claimed it, and **apply T16's takeover rule** (wipe a password nobody
+    verified, revoke its sessions);
+  - otherwise create a new account.
+- **Hidden emails.** Apple users can hide their email. They then arrive with a private-relay
+  address (`…@privaterelay.appleid.com`, flagged `is_private_email`). That address won't match
+  an existing account, so such a person gets a new account rather than a link. That's correct,
+  but Settings → Account should show the relay address as is, without trying to explain it.
+- `MeSchema.provider` gains `'apple'`. `settings/Account.vue` gains its label and icon.
+
+**Check first** (with the `librarian` agent before writing code):
+- **Which JWT library?** `google-auth` verifies x509 certs, but Apple publishes JWKs. Is
+  `PyJWT[crypto]` (`PyJWKClient`) already installed as a dependency of something else, or is it
+  a new dependency?
+- **Nonce handling.** How Apple's JS flow echoes the nonce: raw, or SHA-256 hashed as in the
+  native flow.
+- **Code flow vs id_token only.** With id_token only, there is no client secret and nothing to
+  revoke. Does that still satisfy Apple's rule that deleting an account (`DELETE /me`) revokes
+  the user's Apple tokens? If revocation is required, the task switches to the
+  authorization-code exchange: build a client-secret JWT from the .p8 key, store the refresh
+  token, and call `/auth/revoke` on delete.
+
+**Done when.**
+- A real Apple ID can do all of these on the HTTPS dev domain, ending on the home screen:
+  - sign up from `/signup`;
+  - sign in again from `/login`;
+  - sign in with "Hide My Email" turned on.
+- `backend/tests/test_apple_signin.py` pins the verifier the way `test_google_signin.py` does, at
+  the library boundary: bad signature, wrong `iss`, wrong `aud`, expired token, bad nonce, the
+  link/claim/collision rules, and the takeover rule.
+- `DELETE /me` meets Apple's revocation requirement.
 
 ## Housekeeping
 

@@ -23,6 +23,22 @@
   --text-logo: 1.625rem;
   --text-logo--line-height: 1.1;
   --text-logo--font-weight: 600;
+
+  /* Brand only, like text-logo — the two-line hero on the sign-in and sign-up
+     screens (auth/AuthShell.vue) and the error page's heading, nothing else.
+     A headline set to be seen from across the screen, so it sits outside the
+     four-size scale for the same reason the logo does. One utility for both
+     shells: the size steps up at lg below. */
+  --text-hero: 1.875rem;
+  --text-hero--line-height: 1.12;
+  --text-hero--letter-spacing: -0.03em;
+  --text-hero--font-weight: 600;
+}
+
+@media (width >= 64rem) {
+  :root {
+    --text-hero: 2.25rem;
+  }
 }
 
 @layer base {

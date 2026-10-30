@@ -60,8 +60,8 @@ class AuthTokenInline(admin.TabularInline):
     verbose_name_plural = 'Sessions (bearer tokens)'
 
     def has_add_permission(self, request, obj=None):
-        """Deleting a row is the revoke button; issuing is `manage.py issue_token`, which is
-        the only place the plaintext token ever exists — admin only ever sees the hash."""
+        """Deleting a row is the revoke button; issuing is signing in, the only moment the
+        plaintext token ever exists — admin only ever sees the hash."""
         return False
 
 

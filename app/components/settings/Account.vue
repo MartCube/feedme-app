@@ -12,13 +12,13 @@ const memberSince = computed(() =>
     : '',
 )
 
-// T8 makes 'google' the only value; until then a token minted by
-// manage.py issue_token signs in as 'dev' and should say so.
-const provider = computed(() =>
-  me.value?.provider === 'google'
-    ? { label: 'Google', icon: 'i-ph-google-logo-bold' }
-    : { label: 'Development token', icon: 'i-ph-terminal-window-bold' },
-)
+// The account's way in, not this session's (backend.md § Auth): an account
+// with Google linked reads as Google even when this session used a password.
+const providers = {
+  google: { label: 'Google', icon: 'i-ph-google-logo-bold' },
+  email: { label: 'Email and password', icon: 'i-ph-envelope-simple-bold' },
+}
+const provider = computed(() => providers[me.value?.provider ?? 'email'])
 </script>
 
 <template>
@@ -35,7 +35,7 @@ const provider = computed(() =>
           />
           <span class="shrink-0">{{ provider.label }}</span>
           <!-- The email is what gives, not the label: a long address must not
-               wrap "Development token" onto two lines. -->
+               wrap "Email and password" onto two lines. -->
           <span class="ml-auto truncate text-caption text-muted">{{ me?.email }}</span>
         </div>
         <div class="flex items-center justify-between bg-elevated p-sm">
