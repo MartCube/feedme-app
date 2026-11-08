@@ -40,6 +40,26 @@ IMGPROXY_KEY = os.environ.get('IMGPROXY_KEY', '')
 IMGPROXY_SALT = os.environ.get('IMGPROXY_SALT', '')
 IMGPROXY_PUBLIC_URL = os.environ.get('IMGPROXY_PUBLIC_URL', 'http://localhost:8080')
 
+# Where the app itself lives, for the links in account emails (core/emails.py) — the
+# production origin at deploy, the Nuxt dev server here.
+APP_URL = os.environ.get('APP_URL', 'http://localhost:3000').rstrip('/')
+
+# Outgoing mail: Django's own SMTP backend, pointed at whichever server .env names. The
+# defaults are compose's Mailpit, a local inbox at http://localhost:8025 that catches every
+# message and sends none. Production fills these in for Resend or Gmail
+# (docs/beta-launch.md § Email).
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'mailpit')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '1025'))
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', '0') == '1'
+EMAIL_USE_SSL = os.environ.get('EMAIL_USE_SSL', '0') == '1'
+EMAIL_TIMEOUT = 15
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'FeedMe <noreply@feedme.local>')
+# The stock ceiling every link token is checked against first. Each kind narrows it to its
+# own max age (core/emails.py), so this must be at least the longest of them: three days.
+PASSWORD_RESET_TIMEOUT = 3 * 24 * 60 * 60
+
 # The Dramatiq broker the worker and scheduler share with the api. Compose's own service
 # name is the default, so a dev machine needs nothing in .env; feedme/broker.py reads it.
 REDIS_URL = os.environ.get('REDIS_URL', 'redis://redis:6379/0')

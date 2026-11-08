@@ -110,5 +110,14 @@ services:
     ports:
       - '8080:8080'
 
+  # A local inbox for the account emails (core/emails.py): catches every message on SMTP
+  # :1025 and sends none. Read them at http://localhost:8025. Dev only; production points
+  # EMAIL_HOST at Resend or Gmail instead (docs/beta-launch.md § Email).
+  mailpit:
+    image: axllent/mailpit:v1.27
+    restart: unless-stopped
+    ports:
+      - '8025:8025'
+
 volumes:
   pgdata:

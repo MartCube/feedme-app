@@ -36,6 +36,11 @@ class UserManager(BaseUserManager):
 class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
     google_sub = models.CharField(max_length=64, unique=True, null=True, blank=True)
+    # True once the owner of the address has proved it: a confirmation link clicked, a
+    # password reset completed, or a Google sign-in (Google vouches for its addresses).
+    # Nothing is gated on it — it decides whether a later Google sign-in may keep the
+    # password (core/api/account.py `_user_for_google`), and Settings shows it.
+    email_verified = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)

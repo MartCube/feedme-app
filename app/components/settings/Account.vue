@@ -19,6 +19,21 @@ const providers = {
   email: { label: 'Email and password', icon: 'i-ph-envelope-simple-bold' },
 }
 const provider = computed(() => providers[me.value?.provider ?? 'email'])
+
+// Nothing waits on confirming (docs/screens-and-flows.md § Login), so this is a
+// quiet row, not a banner. "Sent" stays until the panel closes. The API holds
+// repeats to one a minute, so a second tap needs no guard here.
+const resend = ref<'idle' | 'sending' | 'sent' | 'failed'>('idle')
+async function resendConfirmation() {
+  resend.value = 'sending'
+  try {
+    await auth.resendConfirmation()
+    resend.value = 'sent'
+  }
+  catch {
+    resend.value = 'failed'
+  }
+}
 </script>
 
 <template>
@@ -38,6 +53,25 @@ const provider = computed(() => providers[me.value?.provider ?? 'email'])
                wrap "Email and password" onto two lines. -->
           <span class="ml-auto truncate text-caption text-muted">{{ me?.email }}</span>
         </div>
+        <div
+          v-if="me && !me.email_verified"
+          class="flex items-center justify-between gap-sm bg-elevated p-sm"
+        >
+          <span class="whitespace-nowrap">Email not confirmed</span>
+          <span
+            v-if="resend === 'sent'"
+            class="text-caption text-muted"
+          >Sent</span>
+          <button
+            v-else
+            type="button"
+            class="text-caption font-semibold text-primary transition-colors hover-darken"
+            :disabled="resend === 'sending'"
+            @click="resendConfirmation"
+          >
+            {{ resend === 'failed' ? 'Couldn\u2019t send · Retry' : 'Resend link' }}
+          </button>
+        </div>
         <div class="flex items-center justify-between bg-elevated p-sm">
           <span>Member since</span>
           <span class="text-caption text-muted">{{ memberSince }}</span>
@@ -53,6 +87,13 @@ const provider = computed(() => providers[me.value?.provider ?? 'email'])
       >
         Sign out
       </button>
+    </section>
+
+    <section>
+      <DangerButton
+        label="Delete account"
+        to="/settings/account/delete"
+      />
     </section>
   </SettingsPage>
 </template>

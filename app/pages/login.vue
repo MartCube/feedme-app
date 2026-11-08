@@ -67,12 +67,22 @@ useHead({ title: () => form[mode.value].heading })
           class="col-start-1 row-start-1 flex flex-col gap-sm transition-opacity"
           :class="mode === 'signup' ? 'opacity-100' : 'invisible opacity-0'"
         >
-          <!-- Not links yet: neither page exists, and a link to a 404 is
-               worse than none. nowrap keeps each name whole; balance keeps a
-               word from being left alone on the last line. -->
+          <!-- A new tab, so reading them doesn't lose what was typed here.
+               nowrap keeps each name whole; balance keeps a word from being
+               left alone on the last line. -->
           <p class="text-center text-caption text-balance text-muted">
-            By signing up you agree to our <span class="whitespace-nowrap">Terms</span>
-            and <span class="whitespace-nowrap">Privacy Policy</span>.
+            By signing up you agree to our
+            <NuxtLink
+              to="/terms"
+              target="_blank"
+              class="whitespace-nowrap font-semibold text-primary transition-colors hover-darken"
+            >Terms</NuxtLink>
+            and
+            <NuxtLink
+              to="/privacy"
+              target="_blank"
+              class="whitespace-nowrap font-semibold text-primary transition-colors hover-darken"
+            >Privacy Policy</NuxtLink>.
           </p>
           <p class="text-center text-caption text-muted">
             Already have an account?

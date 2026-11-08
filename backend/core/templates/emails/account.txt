@@ -1,0 +1,8 @@
+{% autoescape off %}{{ heading }}
+
+{{ body }}
+
+{{ button }}: {{ url }}
+
+— FeedMe
+{% endautoescape %}

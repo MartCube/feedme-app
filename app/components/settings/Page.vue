@@ -1,7 +1,10 @@
 <script setup lang="ts">
-defineProps<{
+const props = withDefaults(defineProps<{
   title: string
-}>()
+  // Where back goes. A section's own page goes back to the list; a page under a
+  // section (the delete-account confirm) goes back to that section.
+  back?: string
+}>(), { back: '/settings' })
 
 // vue-router's live route, not Nuxt's useRoute(): on desktop this renders
 // without a NuxtPage, where Nuxt's route object never re-syncs.
@@ -14,7 +17,7 @@ const icon = computed(() => settingsSections.find(section => section.to === rout
 // Swipe right to pop back to the settings home panel; the panel-slide
 // transition animates this same root div, so the pop plays as usual.
 const panel = useTemplateRef('panel')
-const { style: swipeStyle } = useSwipeBack(panel, '/settings')
+const { style: swipeStyle } = useSwipeBack(panel, props.back)
 
 // Desktop lists the sections in the sidebar, so there's no section list to go
 // back to — the top button closes to the reading position instead.
@@ -35,7 +38,7 @@ const closeContent = inject(settingsDrawerCloseKey, () => {})
          settings list doesn't read better stretched across a wide pane. -->
     <div class="max-w-reading">
       <IconButton
-        v-if="isDesktop"
+        v-if="isDesktop && back === '/settings'"
         icon="i-ph-x-bold"
         aria-label="Close settings"
         @click="closeContent"
@@ -43,8 +46,8 @@ const closeContent = inject(settingsDrawerCloseKey, () => {})
       <IconButton
         v-else
         icon="i-ph-caret-left-bold"
-        to="/settings"
-        aria-label="Back to settings"
+        :to="back"
+        :aria-label="back === '/settings' ? 'Back to settings' : 'Back'"
       />
 
       <!-- The icon leads, on the text-inset edge, so it sits in line with

@@ -235,6 +235,16 @@ const field = { base: 'h-12 px-sm text-body rounded-2xl bg-muted ring-default pl
         :ui="field"
       />
     </label>
+    <!-- Invisible rather than absent at sign-up, so switching modes moves
+         nothing (the same rule as the footers in pages/login.vue). -->
+    <NuxtLink
+      to="/reset-password"
+      class="self-end text-caption font-semibold text-primary transition-colors hover-darken"
+      :class="mode === 'login' ? '' : 'invisible'"
+      :tabindex="mode === 'login' ? undefined : -1"
+    >
+      Forgot password?
+    </NuxtLink>
 
     <BlockButton
       type="submit"

@@ -9,12 +9,12 @@
 // Every mode's hero is rendered, stacked in one grid cell with only the
 // active one visible, so the cell is always as tall as the longest. Switching
 // between log in and sign up then moves nothing: the copy changes in place.
-// `invisible` takes the others out of the accessibility tree as well.
-type Mode = 'login' | 'signup'
-
+// `invisible` takes the others out of the accessibility tree as well. Login
+// has two modes; the email-link screens (reset password, confirm email) pass
+// theirs the same way.
 defineProps<{
-  mode: Mode
-  copy: Record<Mode, { hero: readonly [string, string], lede: string }>
+  mode: string
+  copy: Record<string, { hero: readonly [string, string], lede: string }>
 }>()
 </script>
 

@@ -62,8 +62,9 @@ export interface paths {
          * @description Create an email + password account and sign it in.
          *
          *     Answers with the token alone, like /auth/google, so the frontend proves it against /me
-         *     on the same path. The address is not verified — nothing sends email yet — which is why
-         *     a later Google sign-in to the same address takes the account over (_user_for_google).
+         *     on the same path. The address starts unconfirmed: a confirmation email goes out from the
+         *     worker, and until its link is clicked a later Google sign-in to the same address takes
+         *     the account over (_user_for_google).
          */
         post: operations["email_sign_up"];
         delete?: never;
@@ -86,6 +87,100 @@ export interface paths {
          * @description Trade an email + password for a token. One refusal for every way it can fail.
          */
         post: operations["email_sign_in"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/password/forgot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Forgot Password
+         * @description Email a reset link, if the address has an account. The answer is 204 either way, so it
+         *     never says which addresses exist. The send happens in the worker, so the timing doesn't
+         *     say either.
+         *
+         *     A Google-only account gets a link too: the inbox proves the owner, and the reset gives
+         *     the account its first password.
+         */
+        post: operations["forgot_password"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/password/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset Password
+         * @description Set a new password from an emailed link, and sign in with it.
+         *
+         *     Every existing session ends: a reset is what you do when a password may be known to
+         *     someone else. The link proved the inbox, so it confirms the address too. The token
+         *     answer is the same shape as sign-in's, for the same one path through /me.
+         */
+        post: operations["reset_password"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/email/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Email
+         * @description Mark the address confirmed from an emailed link.
+         *
+         *     No bearer required: the link is often opened on a different device, or in a mail app's
+         *     browser, from the one that signed up. The token is the whole proof.
+         */
+        post: operations["confirm_email"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/email/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resend Confirmation
+         * @description Send the confirmation email again. A no-op for a confirmed address. Repeats are held
+         *     to one a minute by core/emails.py's cooldown rather than refused, so tapping twice is
+         *     harmless.
+         */
+        post: operations["resend_confirmation"];
         delete?: never;
         options?: never;
         head?: never;
@@ -261,6 +356,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/discover/posts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Discover Posts
+         * @description A candidate's newest posts, so a feed can be judged before it is added. Writes nothing.
+         *
+         *     The twin of GET /feeds/{uid}/posts for a source you don't have yet, keyed by the one field
+         *     the wizard keeps from a /discover result. Unlike /discover, a miss is an error here: an
+         *     empty list is the honest answer "this feed has nothing in it", so a feed that couldn't be
+         *     fetched or parsed must not be spelled the same way.
+         */
+        get: operations["discover_posts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/feeds/{uid}/posts": {
         parameters: {
             query?: never;
@@ -417,6 +537,23 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** ForgotPasswordSchema */
+        ForgotPasswordSchema: {
+            /** Email */
+            email: string;
+        };
+        /** ResetPasswordSchema */
+        ResetPasswordSchema: {
+            /** Token */
+            token: string;
+            /** Password */
+            password: string;
+        };
+        /** ConfirmEmailSchema */
+        ConfirmEmailSchema: {
+            /** Token */
+            token: string;
+        };
         /** MeSchema */
         MeSchema: {
             /** Email */
@@ -431,6 +568,8 @@ export interface components {
              * @enum {string}
              */
             provider: "google" | "email";
+            /** Email Verified */
+            email_verified: boolean;
         };
         /**
          * FeedSourceSchema
@@ -563,6 +702,24 @@ export interface components {
             already_subscribed: boolean;
         };
         /**
+         * DiscoverPostSchema
+         * @description One of a candidate's newest posts: PostSchema minus what only a stored post has (`uid`,
+         *     `source`, `saved_group`). Same names on purpose, so a preview row speaks a post card's
+         *     vocabulary.
+         */
+        DiscoverPostSchema: {
+            /** Title */
+            title: string;
+            /** Post Url */
+            post_url: string;
+            image: components["schemas"]["ImageSchema"] | null;
+            video: components["schemas"]["VideoSchema"] | null;
+            /** Summary */
+            summary: string;
+            /** Published At */
+            published_at: string | null;
+        };
+        /**
          * ImageSchema
          * @description Ready <img> attributes — docs/images.md § Wire contract. `src` is the 960w URL, a safe
          *     default for a tag that ignores srcset; `srcset` is the finished attribute string, because
@@ -573,6 +730,17 @@ export interface components {
             src: string;
             /** Srcset */
             srcset: string;
+        };
+        /**
+         * VideoSchema
+         * @description A YouTube post's player: the ready embed `src`, and whether it is a vertical Short.
+         *     Built by the backend like the image attributes, so the app never assembles a URL.
+         */
+        VideoSchema: {
+            /** Src */
+            src: string;
+            /** Vertical */
+            vertical: boolean;
         };
         /** PostPageSchema */
         PostPageSchema: {
@@ -619,17 +787,6 @@ export interface components {
             type: "website" | "youtube" | "reddit";
             /** Site Url */
             site_url: string;
-        };
-        /**
-         * VideoSchema
-         * @description A YouTube post's player: the ready embed `src`, and whether it is a vertical Short.
-         *     Built by the backend like the image attributes, so the app never assembles a URL.
-         */
-        VideoSchema: {
-            /** Src */
-            src: string;
-            /** Vertical */
-            vertical: boolean;
         };
         /** ArticleSchema */
         ArticleSchema: {
@@ -824,6 +981,146 @@ export interface operations {
             };
             /** @description Too Many Requests */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+        };
+    };
+    forgot_password: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForgotPasswordSchema"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+        };
+    };
+    reset_password: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetPasswordSchema"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenSchema"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+        };
+    };
+    confirm_email: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmEmailSchema"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+        };
+    };
+    resend_confirmation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1307,6 +1604,46 @@ export interface operations {
             };
             /** @description Service Unavailable */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+        };
+    };
+    discover_posts: {
+        parameters: {
+            query: {
+                feed_url: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscoverPostSchema"][];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

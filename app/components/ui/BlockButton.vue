@@ -8,7 +8,7 @@
 // offer (log in, sign up, back to your feeds). Nowhere inside the app.
 type Variant = 'neutral' | 'primary' | 'danger' | 'filled'
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   label: string
   icon?: string
   variant?: Variant
@@ -26,6 +26,13 @@ const tone: Record<Variant, string> = {
   danger: 'bg-elevated text-error shadow-elevated',
   filled: 'bg-primary text-inverted font-semibold',
 }
+
+// In script, not the template: here `props.variant` is typed with its default
+// applied, while some editors' Vue tooling reads the template's `variant` as
+// possibly undefined and flags the index.
+const toneClass = computed(() =>
+  props.disabled ? 'bg-elevated text-dimmed shadow-elevated' : tone[props.variant],
+)
 </script>
 
 <template>
@@ -33,7 +40,7 @@ const tone: Record<Variant, string> = {
     :type="type"
     :disabled="disabled"
     class="flex w-full items-center justify-center gap-sm rounded-2xl py-sm text-body transition-colors"
-    :class="disabled ? 'bg-elevated text-dimmed shadow-elevated' : tone[variant]"
+    :class="toneClass"
   >
     <UIcon
       v-if="icon"

@@ -65,6 +65,44 @@ export const useAuthStore = defineStore('auth', () => {
     await signInWithToken(issued)
   }
 
+  // The emailed reset link carries the token; the new password signs in. Every
+  // other session of the account has just ended server-side — and whatever this
+  // browser was signed into may be a different account, so it goes first.
+  async function resetPassword(linkToken: string, password: string) {
+    const { token: issued } = await nuxtApp.$api<TokenResponse>('/auth/password/reset', {
+      method: 'POST',
+      body: { token: linkToken, password },
+    })
+    clear()
+    await signInWithToken(issued)
+  }
+
+  // Always "sent", known address or not — the API answers 204 either way.
+  async function requestPasswordReset(email: string) {
+    await nuxtApp.$api('/auth/password/forgot', { method: 'POST', body: { email } })
+  }
+
+  // Needs no session: the link is the proof. If this browser happens to hold
+  // the profile, Settings → Account should stop saying "not confirmed".
+  async function confirmEmail(linkToken: string) {
+    await nuxtApp.$api('/auth/email/confirm', { method: 'POST', body: { token: linkToken } })
+    if (me.value) me.value = { ...me.value, email_verified: true }
+  }
+
+  async function resendConfirmation() {
+    await nuxtApp.$api('/auth/email/resend', { method: 'POST' })
+  }
+
+  // Everything goes server-side in one call (DELETE /me). Unlike signOut a
+  // failure must surface — the account still exists — so this throws.
+  async function deleteAccount() {
+    await nuxtApp.$api('/me', { method: 'DELETE' })
+    await nuxtApp.runWithContext(() => {
+      clear()
+      return navigateTo('/login')
+    })
+  }
+
   // Settings → Account renders this; a deep-load straight into /settings/account
   // has a token but no profile yet.
   async function loadMe() {
@@ -94,7 +132,22 @@ export const useAuthStore = defineStore('auth', () => {
     useSettingsStore().reset()
   }
 
-  return { token, me, signedIn, signInWithGoogle, signInWithEmail, signUp, loadMe, signOut, clear }
+  return {
+    token,
+    me,
+    signedIn,
+    signInWithGoogle,
+    signInWithEmail,
+    signUp,
+    resetPassword,
+    requestPasswordReset,
+    confirmEmail,
+    resendConfirmation,
+    deleteAccount,
+    loadMe,
+    signOut,
+    clear,
+  }
 }, {
   // Only the token: the profile is a cheap read that should never be served
   // stale from a cookie.

@@ -19,9 +19,9 @@ from periodiq import cron
 
 from feedme import broker  # noqa: F401 — imported for its import-time side effects
 
-from . import retention
+from . import emails, retention
 from .ingest import POLL_INTERVAL, due_sources, ingest_source
-from .models import Source
+from .models import Source, User
 
 logger = logging.getLogger(__name__)
 
@@ -102,3 +102,24 @@ def prune_posts():
 def prune_expired_tokens():
     """Delete token rows already past their sliding window. See core/auth.py."""
     logger.info('prune_expired_tokens: deleted %d row(s)', retention.prune_expired_tokens())
+
+
+@dramatiq.actor(max_retries=3, min_backoff=10_000, max_backoff=120_000, time_limit=60_000)
+def send_account_email(user_id, kind):
+    """Send a confirm-your-email or reset-your-password email (core/emails.py).
+
+    Takes the user's pk, not a ready-made link: the link is minted here, so a message waiting
+    in Redis holds nothing that works, and an account deleted in the meantime gets nothing.
+    Retries cover a mail server that's briefly down; emails.send releases its cooldown when
+    the send fails, so the retry isn't swallowed by it.
+    """
+    user = User.objects.filter(pk=user_id, is_active=True).first()
+    if user is None:
+        logger.info('send_account_email: user %s is gone, skipping', user_id)
+        return
+    if kind == 'confirm' and user.email_verified:
+        return
+    sent = emails.send(user, kind)
+    logger.info(
+        'send_account_email: %s to user %s — %s', kind, user_id, 'sent' if sent else 'cooldown'
+    )

@@ -1,5 +1,5 @@
 import type { Component } from 'vue'
-import { SettingsAbout, SettingsAccount, SettingsAppearance, SettingsHome, SettingsReport, SettingsShortcuts } from '#components'
+import { SettingsAbout, SettingsAccount, SettingsAppearance, SettingsDeleteAccount, SettingsHome, SettingsReport, SettingsShortcuts } from '#components'
 
 // Route → panel component map for the settings screens. Shared by the mobile
 // bottom sheet (settings/Drawer.vue) and the desktop content page — panels are
@@ -8,6 +8,7 @@ export const settingsPanels: Record<string, Component> = {
   '/settings': SettingsHome,
   '/settings/about': SettingsAbout,
   '/settings/account': SettingsAccount,
+  '/settings/account/delete': SettingsDeleteAccount,
   '/settings/appearance': SettingsAppearance,
   '/settings/report': SettingsReport,
   '/settings/shortcuts': SettingsShortcuts,

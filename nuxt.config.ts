@@ -82,6 +82,9 @@ export default defineNuxtConfig({
       // NUXT_PUBLIC_GOOGLE_CLIENT_ID. Empty is a supported state: /login renders
       // no Google button without it and the dev-token field still signs you in.
       googleClientId: '',
+      // Where Terms and Privacy tell people to write, from NUXT_PUBLIC_CONTACT_EMAIL
+      // (docs/beta-launch.md). Empty renders the pages without the contact line.
+      contactEmail: '',
     },
   },
   compatibilityDate: '2025-07-15',
@@ -106,6 +109,15 @@ export default defineNuxtConfig({
         pages.push({
           name: 'settings',
           path: '/settings/:panel?',
+          file: home.file,
+          meta: { key: 'home' },
+        })
+        // The delete-account confirm, one level under Account so the panel slide
+        // reads it as a push. Its own record because the param above is a single
+        // segment — and a record, not an alias, for the same duplicate-drop reason.
+        pages.push({
+          name: 'settings-delete-account',
+          path: '/settings/account/delete',
           file: home.file,
           meta: { key: 'home' },
         })
