@@ -1,0 +1,98 @@
+{
+  "query": {
+    "type": "website",
+    "q": "https://news.ycombinator.com"
+  },
+  "candidate": {
+    "name": "Hacker News",
+    "type": "website",
+    "site_url": "https://news.ycombinator.com",
+    "feed_url": "https://news.ycombinator.com/rss",
+    "icon": "https://news.ycombinator.com/y18.svg",
+    "subscribers": null,
+    "already_subscribed": false
+  },
+  "preview_status": 200,
+  "preview": [
+    {
+      "title": "Nvidia Board of Directors Is Investigating Jensen Huang",
+      "post_url": "https://nvidianews.nvidia.com/news/statement-from-nvidia-board-of-directors",
+      "image": null,
+      "video": null,
+      "summary": "<a href=\"https://news.ycombinator.com/item?id=50416801\">Comments</a>",
+      "published_at": "2026-11-08T20:26:43Z"
+    },
+    {
+      "title": "Starship Flight 15 on 11/13 plans to catch both booster and ship",
+      "post_url": "https://www.spacex.com/launches/starship-flight-15",
+      "image": null,
+      "video": null,
+      "summary": "<a href=\"https://news.ycombinator.com/item?id=50416471\">Comments</a>",
+      "published_at": "2026-11-08T19:49:46Z"
+    },
+    {
+      "title": "The Web Is More Than Enough, by Paul Ford",
+      "post_url": "https://ftrain.com/aboard-the-web-is-more-than-enough",
+      "image": null,
+      "video": null,
+      "summary": "<a href=\"https://news.ycombinator.com/item?id=50416456\">Comments</a>",
+      "published_at": "2026-11-08T19:48:32Z"
+    },
+    {
+      "title": "How I Fight AI Brain Fry",
+      "post_url": "https://sergeykuhne.com/blog/fighting-ai-brain-fry",
+      "image": null,
+      "video": null,
+      "summary": "<a href=\"https://news.ycombinator.com/item?id=50416363\">Comments</a>",
+      "published_at": "2026-11-08T19:37:42Z"
+    },
+    {
+      "title": "Outlook.com Is Quietly Rejecting Email from Domains Without DMARC",
+      "post_url": "https://mailroute.net/blog/outlook-rejecting-email-without-dmarc",
+      "image": null,
+      "video": null,
+      "summary": "<a href=\"https://news.ycombinator.com/item?id=50416158\">Comments</a>",
+      "published_at": "2026-11-08T19:20:32Z"
+    },
+    {
+      "title": "Dux: Free, open-source Wayland desktop shell with file manager and theming",
+      "post_url": "https://duxlabs.dev/",
+      "image": null,
+      "video": null,
+      "summary": "<a href=\"https://news.ycombinator.com/item?id=50416053\">Comments</a>",
+      "published_at": "2026-11-08T19:08:51Z"
+    },
+    {
+      "title": "Silicon Valley Promises AI Will Cure Disease. Drugmaker CEOs Aren't Buying It",
+      "post_url": "https://www.wsj.com/tech/ai/silicon-valley-promises-ai-will-cure-disease-drugmaker-ceos-arent-buying-it-5218511c",
+      "image": null,
+      "video": null,
+      "summary": "<a href=\"https://news.ycombinator.com/item?id=50415817\">Comments</a>",
+      "published_at": "2026-11-08T18:43:07Z"
+    },
+    {
+      "title": "Playing Zork 1 on a CP/M emulator on Linux (2021)",
+      "post_url": "https://kevinboone.me/cpmzork.html",
+      "image": null,
+      "video": null,
+      "summary": "<a href=\"https://news.ycombinator.com/item?id=50415750\">Comments</a>",
+      "published_at": "2026-11-08T18:33:50Z"
+    },
+    {
+      "title": "Goldman Sachs Is Pulling Claude Code from Its Bankers and Traders",
+      "post_url": "https://www.thestateofai.com/news/goldman-sachs-claude-code-traders-bankers",
+      "image": null,
+      "video": null,
+      "summary": "<a href=\"https://news.ycombinator.com/item?id=50415628\">Comments</a>",
+      "published_at": "2026-11-08T18:16:07Z"
+    },
+    {
+      "title": "Ads in Popular Apps Give Police a Powerful Tool to Spy on Users",
+      "post_url": "https://www.bloomberg.com/features/2026-police-phone-tracking-advertising-tech/",
+      "image": null,
+      "video": null,
+      "summary": "<a href=\"https://news.ycombinator.com/item?id=50415281\">Comments</a>",
+      "published_at": "2026-11-08T17:32:55Z"
+    }
+  ]
+}

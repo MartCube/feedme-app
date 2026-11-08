@@ -1,0 +1,7 @@
+{
+  "feed_url": "https://example.com/not-a-feed.xml",
+  "status": 422,
+  "body": {
+    "detail": "Couldn't read that feed."
+  }
+}

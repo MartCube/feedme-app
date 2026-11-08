@@ -1,0 +1,98 @@
+{
+  "query": {
+    "type": "website",
+    "q": "https://www.paulgraham.com"
+  },
+  "candidate": {
+    "name": "Paul Graham",
+    "type": "website",
+    "site_url": "https://www.paulgraham.com",
+    "feed_url": "http://www.aaronsw.com/2002/feeds/pgessays.rss",
+    "icon": "http://ycombinator.com/arc/arc.png",
+    "subscribers": null,
+    "already_subscribed": false
+  },
+  "preview_status": 200,
+  "preview": [
+    {
+      "title": "Superlinear Returns",
+      "post_url": "http://www.paulgraham.com/superlinear.html",
+      "image": null,
+      "video": null,
+      "summary": "",
+      "published_at": null
+    },
+    {
+      "title": "How to Do Great Work",
+      "post_url": "http://www.paulgraham.com/greatwork.html",
+      "image": null,
+      "video": null,
+      "summary": "",
+      "published_at": null
+    },
+    {
+      "title": "How to Get New Ideas",
+      "post_url": "http://www.paulgraham.com/getideas.html",
+      "image": null,
+      "video": null,
+      "summary": "",
+      "published_at": null
+    },
+    {
+      "title": "The Need to Read",
+      "post_url": "http://www.paulgraham.com/read.html",
+      "image": null,
+      "video": null,
+      "summary": "",
+      "published_at": null
+    },
+    {
+      "title": "What You (Want to)* Want",
+      "post_url": "http://www.paulgraham.com/want.html",
+      "image": null,
+      "video": null,
+      "summary": "",
+      "published_at": null
+    },
+    {
+      "title": "Alien Truth",
+      "post_url": "http://www.paulgraham.com/alien.html",
+      "image": null,
+      "video": null,
+      "summary": "",
+      "published_at": null
+    },
+    {
+      "title": "What I've Learned from Users",
+      "post_url": "http://www.paulgraham.com/users.html",
+      "image": null,
+      "video": null,
+      "summary": "",
+      "published_at": null
+    },
+    {
+      "title": "Heresy",
+      "post_url": "http://www.paulgraham.com/heresy.html",
+      "image": null,
+      "video": null,
+      "summary": "",
+      "published_at": null
+    },
+    {
+      "title": "Putting Ideas into Words",
+      "post_url": "http://www.paulgraham.com/words.html",
+      "image": null,
+      "video": null,
+      "summary": "",
+      "published_at": null
+    },
+    {
+      "title": "Is There Such a Thing as Good Taste?",
+      "post_url": "http://www.paulgraham.com/goodtaste.html",
+      "image": null,
+      "video": null,
+      "summary": "",
+      "published_at": null
+    }
+  ]
+}

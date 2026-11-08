@@ -1,0 +1,118 @@
+{
+  "query": {
+    "type": "website",
+    "q": "https://www.theverge.com"
+  },
+  "candidate": {
+    "name": "The Verge",
+    "type": "website",
+    "site_url": "https://www.theverge.com",
+    "feed_url": "https://www.theverge.com/rss/index.xml",
+    "icon": "https://www.theverge.com/static-assets/icons/android-chrome-512x512.png",
+    "subscribers": null,
+    "already_subscribed": false
+  },
+  "preview_status": 200,
+  "preview": [
+    {
+      "title": "Epic Games Launcher is coming to SteamOS",
+      "post_url": "https://www.theverge.com/games/1029557/epic-games-launcher-is-coming-to-steamos",
+      "image": {
+        "src": "https://platform.theverge.com/wp-content/uploads/sites/2/2025/05/STK108_EPIC_GAMES_C.jpg?quality=90&strip=all&crop=0,0,100,100"
+      },
+      "video": null,
+      "summary": "In October, Epic Games said that it was \"investigating\" making Fortnite compatible with Valve's Linux-based SteamOS. At the time, Epic Games Launcher was in preview, but SteamOS was not specifically listed as a supported distro. Now, Communications Director Jake Jones has confirmed SteamOS compatibility, along with a handful of other distros, to GamingOnLinux. In response [&#8230;]",
+      "published_at": "2026-11-08T20:52:05Z"
+    },
+    {
+      "title": "Nvidia is investigating Jensen Huang’s relationship with a Chinese spy",
+      "post_url": "https://www.theverge.com/ai-artificial-intelligence/1029562/nvidia-investigating-jensen-huang-relationship-chinese-spy",
+      "image": {
+        "src": "https://platform.theverge.com/wp-content/uploads/sites/2/2026/07/STKP210_JENSEN_HUANG_A.jpg?quality=90&strip=all&crop=0,0,100,100"
+      },
+      "video": null,
+      "summary": "Nvidia has announced that it is opening an investigation into CEO Jensen Huang and his relationship with Megaspeed executive Alice Huang, who was reportedly recruited by China's Ministry of State Security to spy on the company. A statement posted by the board of directors reads: The NVIDIA Board is initiating an independent investigation in light [&#8230;]",
+      "published_at": "2026-11-08T20:22:39Z"
+    },
+    {
+      "title": "Apple is racing to make Siri more agentic",
+      "post_url": "https://www.theverge.com/ai-artificial-intelligence/1029552/apple-siri-ai-agentic",
+      "image": {
+        "src": "https://platform.theverge.com/wp-content/uploads/sites/2/2026/07/Siri-AI-Being-invoked-3.jpg?quality=90&strip=all&crop=0,0,100,100"
+      },
+      "video": null,
+      "summary": "Bloomberg's Mark Gurman says CEO John Ternus is pressuring AI czar Craig Federighi to accelerate the Siri roadmap and deliver a powerful AI agent that can compete with OpenAI's Dots or Meta's Muse. While Federighi has delivered a functional version of Siri AI on an incredibly short timeline, the company has no illusions that it's [&#8230;]",
+      "published_at": "2026-11-08T19:18:19Z"
+    },
+    {
+      "title": "Elvis and Eminem rights holders are suing Suno",
+      "post_url": "https://www.theverge.com/ai-artificial-intelligence/1029533/elvis-eminem-suno-ai-music-clone-lawsuit",
+      "image": {
+        "src": "https://platform.theverge.com/wp-content/uploads/sites/2/chorus/uploads/chorus_asset/file/22202367/517216004.jpg?quality=90&strip=all&crop=0,0,100,100"
+      },
+      "video": null,
+      "summary": "Suno is facing yet another pair of lawsuits. A group of rights holders of Elvis Presley's music and the publisher of some of Eminem's biggest records are suing the AI music company, claiming it illegally generates music and lyrics that mimic those artists. The lawyers in the Presley suit claim that Suno has violated Tennessee's [&#8230;]",
+      "published_at": "2026-11-08T17:23:19Z"
+    },
+    {
+      "title": "Apple’s M5 MacBook Air is down to its lowest price since July",
+      "post_url": "https://www.theverge.com/gadgets/1029019/apple-macbook-air-13-15-inch-m5-deal-sale",
+      "image": {
+        "src": "https://platform.theverge.com/wp-content/uploads/sites/2/2026/03/268408_Apple_MacBook_Air_15_M5_laptop_ADiBenedetto_0005.jpg?quality=90&strip=all&crop=0,0,100,100"
+      },
+      "video": null,
+      "summary": "The latest 13-inch MacBook Air is currently available for $1,099.99, marking the second time we’ve seen this $200 discount following the company’s hefty price increases over the summer. Although the base model — which features Apple’s M5 processor, 16GB of RAM, and 512GB of storage — often sold for around $950 to $1,000 shortly after [&#8230;]",
+      "published_at": "2026-11-08T16:00:00Z"
+    },
+    {
+      "title": "Chatbots might be coming to Apple’s HomeView",
+      "post_url": "https://www.theverge.com/tech/1029526/chatbots-might-be-coming-to-apples-homeview",
+      "image": {
+        "src": "https://platform.theverge.com/wp-content/uploads/sites/2/2026/10/IMG_0250-1.jpeg?quality=90&strip=all&crop=0,0,100,100"
+      },
+      "video": null,
+      "summary": "Code in the iOS 27.3 beta suggests that Apple could add support for chatbots to its smart home hub. There's a flag listed for a \"Conversational Apps\" category. While there are no details about what apps would fall under that heading, it seems reasonable that AI chatbots like ChatGPT and Claude could be added to [&#8230;]",
+      "published_at": "2026-11-08T15:00:30Z"
+    },
+    {
+      "title": "There’s no slowing down media’s pivot-to-video 2.0",
+      "post_url": "https://www.theverge.com/column/1026252/video-media-news-tiktok-pivot",
+      "image": {
+        "src": "https://platform.theverge.com/wp-content/uploads/sites/2/2026/11/gettyimages-2264895316.jpg?quality=90&strip=all&crop=0,0,100,100"
+      },
+      "video": null,
+      "summary": "This is The Stepback, a weekly newsletter breaking down one essential story from the tech world. For more on the pressures of creating content for the internet, follow Mia Sato. The Stepback arrives in our subscribers' inboxes on Sunday at 8AM ET. Opt in for The Stepback here. How it started Almost exactly a decade [&#8230;]",
+      "published_at": "2026-11-08T13:00:00Z"
+    },
+    {
+      "title": "The UV-tracking Gem made me rethink how sunlight affects my health, not just my appearance",
+      "post_url": "https://www.theverge.com/tech/1023230/the90-gem-necklace-hands-on-impressions",
+      "image": {
+        "src": "https://platform.theverge.com/wp-content/uploads/sites/2/2026/10/268829_The90_Gem_SVasani_0002.jpg?quality=90&strip=all&crop=0,0,100,100"
+      },
+      "video": null,
+      "summary": "With temperatures rising to the 90s in Los Angeles, avoiding the heat wasn't exactly an option while I was at a relative's outdoor party in August. So I sat beneath a patio umbrella with a powerful fan nearby, figuring I was protected from the sun and heat. Half an hour later, I felt exhausted, dizzy, [&#8230;]",
+      "published_at": "2026-11-07T17:00:00Z"
+    },
+    {
+      "title": "Costco members can get $5 off the reimagined Ocarina of Time",
+      "post_url": "https://www.theverge.com/gadgets/1028917/legend-of-zelda-ocarina-of-time-remake-switch-2-costco-deal-sale",
+      "image": {
+        "src": "https://platform.theverge.com/wp-content/uploads/sites/2/2026/11/Ocarina-of-Time-Press-Image.jpg?quality=90&strip=all&crop=0,0,100,100"
+      },
+      "video": null,
+      "summary": "While some retailers were offering preorder discounts on the remastered Legend of Zelda: The Ocarina of Time, it’s not too late to save if you missed out. Costco members can currently get $5 off the digital version online, bringing the price down to $54.99. Considering an annual Costco membership runs $65, that discount almost offsets [&#8230;]",
+      "published_at": "2026-11-07T16:00:00Z"
+    },
+    {
+      "title": "Discogs’ Kevin Lewandowski can’t live without his AeroPress",
+      "post_url": "https://www.theverge.com/tech/1029474/discogs-kevin-lewandowski-aeropress-interview",
+      "image": {
+        "src": "https://platform.theverge.com/wp-content/uploads/sites/2/2026/11/2023-12-7-Discogs-Kevin-1-Warm.jpg?quality=90&strip=all&crop=0,0,100,100"
+      },
+      "video": null,
+      "summary": "Twenty-five years ago, Kevin Lewandowski founded Discogs, arguably the destination online for obsessive vinyl collectors and music nerds of all stripes. It is a marketplace for buying and selling records, obviously, but it's also become so much more. It's a shockingly comprehensive database that covers not just albums and singles, but all the various versions [&#8230;]",
+      "published_at": "2026-11-07T16:00:00Z"
+    }
+  ]
+}

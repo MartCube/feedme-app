@@ -1,0 +1,54 @@
+{
+  "query": {
+    "type": "youtube",
+    "q": "veritasium"
+  },
+  "status": 200,
+  "results": [
+    {
+      "name": "Veritasium",
+      "type": "youtube",
+      "site_url": "https://www.youtube.com/channel/UCHnyfMqiRRG1u-2MsSQLbXA",
+      "feed_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCHnyfMqiRRG1u-2MsSQLbXA",
+      "icon": "https://yt3.ggpht.com/7vCbvtCqtjQ3YLgsJt7Y952MQV1sBvhllSCSxHP8_sVZdcPCBrITfhkN2RdyCuwPnsByq-1GoA=s88-c-k-c0xffffffff-no-rj-mo",
+      "subscribers": 21400000,
+      "already_subscribed": false
+    },
+    {
+      "name": "Veritasium en español",
+      "type": "youtube",
+      "site_url": "https://www.youtube.com/channel/UCXtxgWwk55kVJo9lCCZRdmg",
+      "feed_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCXtxgWwk55kVJo9lCCZRdmg",
+      "icon": "https://yt3.ggpht.com/eEzOCQszM2PCifAaJlJhjRsewotTEIqDdqt9YN4qS2Y-JldCdUMHW19ULcIqd-3WvQi70qvENqU=s88-c-k-c0xffffffff-no-rj-mo",
+      "subscribers": 2970000,
+      "already_subscribed": false
+    },
+    {
+      "name": "Veritasium em Português",
+      "type": "youtube",
+      "site_url": "https://www.youtube.com/channel/UCnopJilYkHmuK-sdl07vkVg",
+      "feed_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCnopJilYkHmuK-sdl07vkVg",
+      "icon": "https://yt3.ggpht.com/XYVOuyuIUVBEzjDrMJnK-mEyb0SYnu8nBJt0cvplTpiJkUeaP3BVYjfvZwW3MX-bQIAn2QyyhA=s88-c-k-c0xffffffff-no-rj-mo",
+      "subscribers": 210000,
+      "already_subscribed": false
+    },
+    {
+      "name": "Veritasium 한국어 - 베리타시움",
+      "type": "youtube",
+      "site_url": "https://www.youtube.com/channel/UCOgK3J7WTOl5f5Fd51kcoSg",
+      "feed_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCOgK3J7WTOl5f5Fd51kcoSg",
+      "icon": "https://yt3.ggpht.com/Ng7StsJ1fSq83GTUARsSofeOAfqDQuzSQZNwm8vaTnUbDFt5gGZj1ECfK8uWyIBFkoBxrxKZ9w=s88-c-k-c0xffffffff-no-rj-mo",
+      "subscribers": 312000,
+      "already_subscribed": false
+    },
+    {
+      "name": "Veritasium po Polsku",
+      "type": "youtube",
+      "site_url": "https://www.youtube.com/channel/UCQV_lwBnBsWeH7xtVWLzcOw",
+      "feed_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCQV_lwBnBsWeH7xtVWLzcOw",
+      "icon": "https://yt3.ggpht.com/ENnY7-Ki0UN5_XH3mgGNvKQ9HJT6gq1oE1A6YnW0mxCAP-nqHjjiBj2WGSyznGG6mmo49zReU5g=s88-c-k-c0xffffffff-no-rj-mo",
+      "subscribers": 38200,
+      "already_subscribed": false
+    }
+  ]
+}
