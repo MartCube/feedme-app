@@ -17,7 +17,7 @@ deliberate checkpoint that wires the real frontend before the backlog grows furt
 **Last completed:** T15b — Images: feed icons _(2026-09-28)_, after T15c — Images: article
 images _(2026-09-23)_ and T15a — Images: proxy, post images, card toggle _(2026-09-22, amended
 2026-09-23 with the declared-width floor)_
-**Next up:** **T14 — Feed preview** _(planned 2026-09-15)_, ungated. **T15d — the bucket**
+**Next up:** **T14 — Feed preview** _(backend built 2026-11-08; the wizard UI is pending)_, ungated. **T15d — the bucket**
 builds on T15a, and is
 the one that makes `image: null` truthful and retires T15a's two stand-in floors; **T15f — the
 loading placeholder** shipped 2026-10-13. T11c (Reddit app credentials) and T11d (a catalog worth
@@ -71,7 +71,7 @@ reading order.
 | T11d | Discovery — keyword search over our own catalog | ⬜ needs a catalog worth searching |
 | T12 | Search | ✅ done _(2026-09-06)_ |
 | T13 | Retention | ✅ done _(2026-09-07)_ |
-| T14 | Feed preview — a candidate's latest posts | ⬜ ungated, beside T15a |
+| T14 | Feed preview — a candidate's latest posts | 🟨 in progress _(2026-11-08)_ — backend done, UI pending |
 | T15a | Images — proxy, post images, card toggle | ✅ done _(2026-09-22)_ |
 | T15b | Images — feed icons | ✅ done _(2026-09-28)_ |
 | T15c | Images — article images | ✅ done _(2026-09-23)_ |
@@ -79,6 +79,7 @@ reading order.
 | T15e | Images — CDN, then paid (stage 3) | ⬜ needs a deploy target |
 | T15f | Images — the loading placeholder | ✅ done _(2026-10-13)_ |
 | T16 | Email + password sign-in, the auth screens, the error page | ✅ done _(2026-10-28)_ |
+| T16+ | Account emails — confirm email, password reset, delete account, Terms and Privacy | ✅ done _(2026-11-08)_ |
 | T17 | Sign in with Apple | ⬜ needs an Apple Developer account and an HTTPS domain |
 
 ## Current state
@@ -1763,7 +1764,9 @@ the search index intact. periodiq registers both new schedules alongside `poll_d
 (confirmed in `docker compose logs scheduler`), and both actors ran end to end over Redis in the
 real worker.
 
-### T14 — Feed preview: a candidate's latest posts
+### T14 — Feed preview: a candidate's latest posts 🟨
+
+**Status _(2026-11-08)_:** the backend (`GET /discover/posts`, `preview_feed`, `entry_to_post`, `test_discover_posts.py`) is built; the response carries `image` and `video` like a post card rather than a raw `image_url`. The wizard's preview UI and the URL-addressable wizard state are **not built**.
 
 _Wording note, 2026-10-08: since the feeds remodel a `Feed` is a user's group of sources, so
 below "feed" means a candidate **source** (an RSS endpoint) and "subscribing" means adding it to
@@ -2143,14 +2146,36 @@ feed). The Apple button is rendered ahead of its integration and answers "Sign i
 available yet." until T17. `app/error.vue` is the app-level 404 / error page. See
 [screens-and-flows.md](./screens-and-flows.md) § 0 and [design-system.md](./design-system.md).
 
-**Not in this task.** Email verification and password reset — nothing sends email yet, which is
-the reason for the takeover rule. Sign in with Apple is T17.
+**Not in this task.** Email verification and password reset — nothing sent email then, which was
+the reason for the takeover rule (both followed 2026-11-08, below). Sign in with Apple is T17.
 
 **Done when.** A person can sign up with an email and password, land on the home screen, sign out
 and log back in; a Google sign-in onto that address takes the account over; a forged
 `X-Forwarded-For` does not reset the throttle. `backend/tests/test_email_auth.py` pins the
 endpoints, the single login refusal, the throttle (and the forged header) and the takeover rule.
 **Built _(2026-10-28)_.**
+
+### T16+ — Account emails ✅ _(2026-11-08)_
+
+**Goal.** Email addresses that can be proved, a way back from a forgotten password, and the
+legal pages a sign-up needs. Follows T16; not a numbered task of its own.
+
+**Build.**
+- `User.email_verified` (migration 0011). Google sign-ins set it; `GET /me` reports it true for any
+  Google-linked account.
+- `core/emails.py` — stateless link tokens (`PasswordResetTokenGenerator`), a one-a-minute
+  per-account send cooldown, and the templates in `core/templates/emails/`. Sent by the
+  `send_account_email` actor, enqueued after commit.
+- Endpoints: `/auth/password/forgot`, `/auth/password/reset`, `/auth/email/confirm`,
+  `/auth/email/resend` (see [backend.md](./backend.md) § API). `DELETE /me` is driven by the new
+  Settings → Account → Delete account panel.
+- The takeover rule narrows to unconfirmed addresses.
+- Mailpit in compose for dev mail; `EMAIL_*`, `APP_URL`, `DEFAULT_FROM_EMAIL` settings.
+- Frontend: `/reset-password`, `/verify-email`, `/terms`, `/privacy`, a Forgot password? link,
+  the Account "Email not confirmed" row. See [screens-and-flows.md](./screens-and-flows.md) § 0.
+
+**Not yet.** Real sending needs a domain and a mail service — [beta-launch.md](./beta-launch.md).
+Tests: `backend/tests/test_account_emails.py`.
 
 ### T17 — Sign in with Apple
 

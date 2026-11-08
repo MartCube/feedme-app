@@ -124,7 +124,7 @@ Nuxt app are generated from it (e.g. `openapi-typescript`), so the two sides can
 ## Data model
 
 ```
-User          google_sub (unique, nullable), email, password (optional — unusable for a Google-only account), created_at
+User          google_sub (unique, nullable), email, email_verified (bool — a confirm link, a reset or a Google sign-in proves it; nothing is gated on it), password (optional — unusable for a Google-only account), created_at
 AuthToken     user FK, token_hash (SHA-256, unique), created_at, last_used_at, device_label
 Source        uid (source_*), type (website|youtube|reddit), feed_url (unique), site_url,
               title, description (the feed's own <description> / <subtitle>, backfilled at
@@ -195,8 +195,12 @@ exception is `DELETE /feeds/{uid}`, which has nothing left to return.
 | `POST /auth/google` | Body: the Google `credential` (id_token). Verify signature / issuer / audience / expiry → find, link or create the User → issue an opaque bearer token. **Returns the token alone**; the profile comes from `GET /me` |
 | `POST /auth/signup` | Body: `{email, password}`. Create an email + password account and sign it in. Email normalised and lowercased; **409** for a taken email, **422** for an invalid email or a weak password (the message says why). **Returns the token alone**, like `/auth/google`. Throttled — see § Auth |
 | `POST /auth/login` | Body: `{email, password}`. Trade them for a token. **One 401 message for every failure** (unknown email, wrong password, no password set, disabled account). Throttled — see § Auth |
+| `POST /auth/password/forgot` | Body: `{email}`. Email a reset link if the address has an account — **204 either way**, so it never says which addresses exist; the send happens in the worker, so timing doesn't either. A Google-only account gets a link too (its first password). Throttled |
+| `POST /auth/password/reset` | Body: `{token, password}` (the link's token, as is). Set the password, mark the email confirmed, **end every existing session**, and answer a token like sign-in. **400** for a dead or spent link, **422** for a weak password. Throttled |
+| `POST /auth/email/confirm` | Body: `{token}`. Mark the address confirmed. **No bearer needed** — the link is often opened on another device. **400** for a dead link |
+| `POST /auth/email/resend` | Send the confirmation email again (bearer). A no-op for a confirmed address and for Google accounts; repeats are held to one a minute, not refused |
 | `POST /auth/logout` | Revoke the presented token (delete its row) |
-| `GET /me` | Profile: email, member-since, sign-in provider — `google` or `email` (Settings → Account) |
+| `GET /me` | Profile: email, `email_verified` (true for any Google-linked account), member-since, sign-in provider — `google` or `email` (Settings → Account) |
 | `DELETE /me` | Delete account + all user data (tokens, feeds and their sources, saved, settings); a source that was nobody else's is deactivated |
 | `GET /home` | **One aggregate round-trip for the home screen:** `feeds` in display order — each `{uid, name, description, sources: [{uid, name, title, type, site_url, feed_url, icon, enabled}]}`, where `name` is the user's rename in that feed or else the source's own `title`, and `icon` is a proxied 64px square or null — plus `saved_counts` per group. There is no separate order field and no folders |
 | `PUT /home/order` | Persist home-list reorder: the ordered list of feed uids — exactly the account's feeds, no more, no less (a duplicate, unknown or missing uid is a 422 that writes nothing). No UI drives it yet |
@@ -212,7 +216,7 @@ exception is `DELETE /feeds/{uid}`, which has nothing left to return.
 | `PUT /posts/{uid}/save` | Body: `{group}` (bookmarks \| favorites \| later). Upsert — moving groups is the same call |
 | `DELETE /posts/{uid}/save` | Unsave |
 | `GET /discover` | `?type=website|youtube|reddit&q=<url or keyword>` → candidate sources (`name`, `type`, `site_url`, `feed_url`, `icon`, `subscribers`, `already_subscribed`) — a source row's fields minus the uid, `title` and `enabled` it hasn't earned, plus the flag. `already_subscribed` means the source is **in one of your feeds** already; it no longer blocks picking, since a source can sit in several. Field names follow § Vocabulary (`name`, not `title`). A URL resolves under any card; a bare name is a YouTube channel search under `youtube` (503 when YouTube won't answer) and finds nothing under the other two until T11c/T11d. `subscribers` is a YouTube search hit's subscriber count — one extra `channels.list?part=statistics` call per search for all hits (1 quota unit), cached with the search; null for a hidden count, a pasted URL, or any other type, and a failed statistics call leaves it null without failing the search (and isn't cached) _(2026-10-08)_. Backs the add wizard |
-| `GET /discover/posts` | _(T14, planned)_ `?feed_url=<a candidate's feed_url>` → its newest 10 posts, fetched live and never stored — `PostSchema` minus `uid` / `source` / `saved_group`, with `published_at` nullable. The twin of `GET /feeds/{uid}/posts` for a source you haven't added yet. Unreachable or not a feed → 422 with a message; a real feed with no entries → `[]` |
+| `GET /discover/posts` | _(T14, backend built 2026-11-08; no UI yet)_ `?feed_url=<a candidate's feed_url>` → its newest 10 posts, fetched live and never stored — `PostSchema` minus `uid` / `source` / `saved_group`, with `published_at` nullable. The twin of `GET /feeds/{uid}/posts` for a source you haven't added yet. Unreachable or not a feed → 422 with a message; a real feed with no entries → `[]` |
 | `GET /search` | `?q=&scope=<all \| saved \| saved_* \| feed_*>&cursor=&limit=` (scope defaults to `all`) — **the post list narrowed by `q`**: same polymorphic scope uid, same page shape, same cursor, newest-first. A blank `q` is an empty page, not an error. Engine-neutral contract — no tsquery syntax in, no rank out; see [Search](#search) |
 | `GET /settings` · `PUT /settings` | The persisted `UserSettings` (theme — `ink`/`claude`/`dracula`/`reddit`/`crowd`/`blueberry` — post-card style, desktop `pane_split`, …) — replaces cookie-only persistence so settings follow the account across devices |
 
@@ -231,13 +235,21 @@ failure with the same 401 message, so it never says which addresses have account
 share one throttle — **10 a minute per client IP**, counted in the Redis cache so it holds across
 worker processes. Which address counts as the client's is `NINJA_NUM_PROXIES` (env `NUM_PROXIES`,
 default 0: the socket's address; set it to the number of reverse proxies in front of the api).
-Email addresses are **not verified** — nothing sends email — and there is no password reset;
-the takeover rule below is what that costs. `GET /me`'s `provider` is `email` for an account with
+**Account emails** _(2026-11-08)_: **confirm your email** (sent at sign-up, valid three days) and
+**reset your password** (valid one hour). Each link carries one opaque token — Django's
+`PasswordResetTokenGenerator` under `SECRET_KEY` — so nothing is stored and a link dies when what
+it proves changes: a reset spends itself, a confirmation spends itself. They are sent from the
+worker (`send_account_email`), never inline, at most one of a kind per account per minute. Links
+point at `APP_URL`. Dev mail lands in **Mailpit** (`http://localhost:8025`, a compose service);
+production points the `EMAIL_*` settings at a real service ([beta-launch.md](./beta-launch.md)
+§ Email). **Nothing is gated on confirming.** `GET /me`'s `provider` is `email` for an account with
 no Google identity.
 
-**The takeover rule.** Because an email sign-up proves nothing about the address, a Google
-sign-in onto an address that holds a password **wipes that password and revokes every session**
-it opened. Google has just proved who owns the address; whoever typed it first keeps nothing.
+**The takeover rule.** An unconfirmed email sign-up proves nothing about the address, so a Google
+sign-in onto an unconfirmed address that holds a password **wipes that password and revokes every
+session** it opened. Google has just proved who owns the address; whoever typed it first keeps
+nothing. A **confirmed** address was already proved by its owner, so there the password stays
+alongside Google.
 
 Google flow (**built on web** as of 2026-09-03; the Capacitor half of step 1 is not):
 
@@ -591,5 +603,8 @@ Added 2026-10-28 (T16):
   how many trusted proxies sit in front: 0 uses the socket's address, `n` takes the entry `n`
   hops from the right. A deploy behind one reverse proxy must set it to 1, or every client shares
   the proxy's address. A test pins that a forged header doesn't reset the count.
+Amended 2026-11-08: the takeover now applies only to an **unconfirmed** address, since
+`email_verified` exists (the "until email verification exists" cost above is paid down).
+
 - **`provider` is `google` or `email`; `dev` is gone** along with `manage.py issue_token` and the
   login screen's token field. It still describes the account, not the session.

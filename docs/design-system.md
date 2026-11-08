@@ -154,7 +154,9 @@ doing one job — pick one and let it work. The same goes for gloss: elevated co
 label — `neutral` (`text-default`), `primary` (`text-primary`) or `danger` (`text-error`). A fourth
 variant, **`filled`** (`bg-primary text-inverted`, weight 600, no shadow), is the one accent-filled
 surface in the app. It is for the single action a signed-out screen or the error page exists to
-offer (log in, sign up, back to your feeds) and appears nowhere inside the app. It renders as a
+offer (log in, sign up, send the reset link, save the new password, back to log in, open FeedMe
+after confirming an email, back to your feeds) and appears nowhere inside the app. The
+reset-password and confirm-email screens use it; the legal pages have no action. It renders as a
 `submit` button when asked, so a form's own button is one. A disabled button of any variant
 dims to the elevated, `text-dimmed` state.
 
@@ -228,9 +230,12 @@ only these four names.
 the scale in `app/assets/css/typography.css`) is the FeedMe wordmark's size and nothing
 else's — a logo is a mark, not a size app code picks from, so it sits outside the four-size
 rule rather than becoming a fifth general-purpose one. It appears wherever the wordmark does:
-the top of the shared feed list (`home/FeedList.vue`), the sign-in and sign-up card
-(`auth/AuthShell.vue`) and the corner of the error page (`app/error.vue`), always beside the logo
-mark (`ui/Logo.vue`, below).
+the top of the shared feed list (`home/FeedList.vue`), the sign-in and sign-up card and the other
+email-link screens, reset password and confirm email (all on `auth/AuthShell.vue`), and the corner
+of the error page (`app/error.vue`), always beside the logo mark (`ui/Logo.vue`, below). **The
+legal pages (`legal/Page.vue`, Terms and Privacy) are the odd one out:** their wordmark is set at
+`text-subtitle`, not `text-logo`, as built. Whether that is deliberate (a reading page's quieter
+mark) or drift is an open question.
 
 **A second standing exception: `text-hero`** (1.875rem, 2.25rem from `lg`; weight 600,
 line-height 1.12, letter-spacing -0.03em; defined beside `text-logo` in `typography.css`) is the

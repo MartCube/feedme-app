@@ -118,8 +118,9 @@ changes the copy and the form's wording in place and moves nothing else.
 - **Log in or sign up with an email and a password** — the same fields, the button and the
   endpoint (`/auth/login` or `/auth/signup`) follow the mode. A new account is signed in at once.
 - Switch between the two modes with the link under the form.
-- Nothing else. There is no password recovery and no email verification (neither exists yet), and
-  no way past these screens.
+- **Forgot password?** — a link above the log-in button (present but invisible at sign-up, so a
+  mode switch moves nothing) to `/reset-password`, below.
+- Nothing else — no way past these screens.
 
 **Layout:** on a phone, a band of drifting sample feed above the form, then the brand, a two-line
 hero (second line in the accent), one line of what the app is for, and the sign-in block at the
@@ -130,7 +131,8 @@ width; **Google owns the chrome inside its button** (theme, size, text and a 400
 the whole surface), so the card's content box stays under that cap and the button shares the
 fields' edges. Both modes' copy and footers occupy the same space, so nothing jumps on a switch.
 The screens render **without the app layout**, so the desktop shell never appears around them.
-Sign-up's footer names Terms and Privacy Policy, which are not links yet.
+Sign-up's footer names Terms and Privacy Policy, both links opening in a new tab so what was
+typed isn't lost.
 
 **Feedback:** a rejected sign-in says so on this screen (the token is proved before it's kept),
 rather than letting the user through into a redirect loop — **one message per control** (Apple,
@@ -142,6 +144,21 @@ never counts as a dead session: an existing one survives it untouched.
 **Data:** `POST /auth/google`, `/auth/login` or `/auth/signup` — each trades what the person has for
 our bearer token — and `GET /me`, the profile that proves the token. Nothing else on these
 screens calls the API, and no other screen loads anything until they have been passed.
+
+**Related screens, outside the gate.** These render on the same frame (`auth/AuthShell.vue`),
+without the app layout, and are **open signed in or out** — the email links land in a mail app's
+browser, often with no session or another account's:
+- **Reset password** — `/reset-password`. Without a token: enter the email, and a link is sent
+  (the screen says so whether or not the address has an account). With the emailed `?token=`:
+  choose a new password; it signs you in and ends every other session. A dead link says so and
+  offers a new one.
+- **Confirm email** — `/verify-email?token=`. Confirms on arrival, then says *Email confirmed* (or
+  that the link didn't work — each works once, for three days — and to send a new one from
+  Settings → Account). Needs no session.
+- **Terms** and **Privacy** — `/terms`, `/privacy`. Plain reading pages: wordmark, title, date last
+  updated, sections, and a contact line when a contact address is configured.
+
+Confirming an address is never required: nothing waits on it.
 
 **Flow:**
 - Signed out, any route → `/login`. After signing in or up → the feeds list (`/`).
@@ -407,7 +424,11 @@ to a section list.
 
 **Subpages:**
 - **Account** — `/settings/account` — how you're signed in, member since, and **Sign out**
-  (which ends the session server-side and returns to screen 0).
+  (which ends the session server-side and returns to screen 0). An email account whose address
+  isn't confirmed gets a quiet **Email not confirmed · Resend link** row (the link goes out at
+  most once a minute). **Delete account** sits at the foot and opens `/settings/account/delete`,
+  a confirm panel naming the account: everything is removed at once, on every device, and it
+  can't be undone; *Cancel* backs out, and a failure keeps the account and says so.
 - **Appearance** — `/settings/appearance` — theme,
   **Post cards** (Image / Compact, T15a — [images.md](./images.md) § Rendering), **Post
   actions** _(2026-10-13)_ (Copy link, Open source and Save sit on the **left**, the default, or

@@ -3,7 +3,7 @@
 A snapshot of what's actually built vs. what the spec (these docs) describes. The goal is to
 make the gap visible so implementation has a clear backlog. Update this as work lands.
 
-_Last reviewed: 2026-10-26._
+_Last reviewed: 2026-11-08._
 
 ## Summary
 
@@ -306,6 +306,27 @@ own status: **read that file's § Status for what to build next.**
   error page: a 404 gets "This page isn't in your feed", anything else a generic version, with
   *Back to your feeds* (the one `filled` button) and *Open Saved*. Nuxt renders it instead of
   `app.vue`, so it restates the theme attribute and `UApp`.
+- **Account emails** _(2026-11-08)_ — two emails, sent by the worker and caught by **Mailpit**
+  in dev (`http://localhost:8025`, a compose service). **Confirm your email** goes out at
+  sign-up; **reset your password** goes out from `/reset-password`. `User.email_verified`
+  (migration 0011) records it, and **nothing is gated on it**: Settings → Account shows an
+  "Email not confirmed · Resend link" row (hidden for Google accounts) and Google sign-in
+  decides on it (see [backend.md](./backend.md#auth) § The takeover rule). Two open pages,
+  reachable signed in or out (`auth.global.ts`'s `openRoutes`, alongside the legal pages), since
+  the links land in mail apps' browsers: `/reset-password` (no token: ask for a link; with `?token=`: choose a new
+  password, which signs you in and ends every other session), `/verify-email` (confirms on
+  arrival). The login screen gains a **Forgot password?** link, kept invisible rather than absent
+  at sign-up so a mode switch moves nothing. **Delete account** is a danger row at the foot of
+  Settings → Account leading to `/settings/account/delete`, a confirm panel (`DELETE /me`; a
+  failure shows and keeps the account). **`/terms` and `/privacy`** are plain reading pages
+  (`legal/Page.vue`, no app layout, open either way), linked from sign-up's footer in a new tab;
+  the contact address is `runtimeConfig.public.contactEmail`, shown when set.
+- **Feed preview, backend half** _(2026-11-08, T14)_ — `GET /discover/posts?feed_url=` returns a
+  candidate's newest 10 posts, fetched live through the SSRF-guarded discovery fetch and never
+  stored: the same entry mapping subscribing uses (`ingest.entry_to_post`, made public), a
+  YouTube candidate read through the videos-only feed, `published_at` nullable, an unreadable
+  feed a 422 and a real empty one `[]`. **No UI consumes it yet**: tapping a candidate in the add
+  wizard still just picks it ([backend-roadmap.md](./backend-roadmap.md) § T14).
 - **Data layer** — the `feeds` store loads `GET /home` once (in-flight-guarded; a failure is
   swallowed rather than raised, so it can never surface as Nuxt's error page, and retries from
   the home screen's **Try again** or the next app boot) into `feeds` — each a group with its
@@ -507,7 +528,7 @@ own status: **read that file's § Status for what to build next.**
   `feed_url` stays the source's identity, so no migration. On a 404 (a channel with no regular
   uploads) it falls back to the channel feed, and `_entry_to_post` skips Shorts (`/shorts/` links).
   The playlist is titled "Videos", so name and `site_url` come from the feed's author. The T14
-  feed preview must read the same videos-only feed for YouTube (see
+  feed preview reads the same videos-only feed for YouTube (see
   [backend-roadmap.md](./backend-roadmap.md) § T14).
 - **Article extraction cleanup** _(2026-10-26)_ — backend, `core/extract.py`. Before trafilatura,
   `_drop_boilerplate` removes containers and paragraphs whose class / id / `data-testid` /
@@ -670,7 +691,8 @@ own status: **read that file's § Status for what to build next.**
   Appearance and Account are real, including the Post cards switch (see Built); About's version
   string is hardcoded and Report still needs real content and a way to actually send anything.
 - **Add feed (rest)** — keyword search for subreddits and our own catalog (T11c, T11d), a
-  candidate's latest posts before adding it (T14, planned — `GET /discover/posts`), putting the
+  candidate's latest posts before adding it (T14, **in progress** — `GET /discover/posts` is
+  built; the preview UI is not), putting the
   wizard's type and query on the URL so a reload doesn't lose them (decided 2026-09-18, deferred
   to T14 — see [backend-roadmap.md](./backend-roadmap.md) § Decision log), sub counts, and input
   validation via VeeValidate/Zod. The wizard UI, RSS discovery from a pasted URL, YouTube search
@@ -683,9 +705,9 @@ own status: **read that file's § Status for what to build next.**
   login). Not built: **Sign in with Apple** (T17 — the button is on the screens and says it isn't
   available yet); **native Google sign-in**, the Capacitor plugin that is the other half of
   [backend.md](./backend.md#auth) § Auth's step 1, since no Capacitor build exists yet; and
-  **email verification and password reset**, which don't exist — nothing sends email, which is why
-  a later Google sign-in takes over an unverified password account. Terms and Privacy Policy are
-  named on `/signup` but aren't links yet; neither page exists. Noted for a deploy:
+  **sending email for real** — account emails work end to end in dev (Mailpit), but production
+  needs a domain and a mail service first ([beta-launch.md](./beta-launch.md) § Email). Noted for
+  a deploy:
   `ux_mode: 'popup'` needs a `Cross-Origin-Opener-Policy: same-origin-allow-popups` header if one
   is ever set, and `NUM_PROXIES` must match the proxies in front of the api
   ([backend.md](./backend.md) § Decision log, 2026-10-28).
@@ -703,8 +725,8 @@ own status: **read that file's § Status for what to build next.**
 
 ## Installed but unused
 
-- **VeeValidate + Zod** — not wired into any form yet.
-- **@vueuse/motion** — available for animations.
+- **VeeValidate + Zod** — not wired into any form yet. (`@vueuse/motion` and
+  `@iconify-json/solar` were removed on 2026-11-08 as unused.)
 
 ## Open decisions
 

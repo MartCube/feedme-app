@@ -21,6 +21,7 @@ screen or feature is ambiguous in code, this folder wins.
 | [backend-roadmap.md](./backend-roadmap.md) | The backend build order — what's done, what's next, and what "done" means per task |
 | [ai-feed.md](./ai-feed.md) | The AI reading-companion feed — book chapters → AI posts → a custom RSS feed (separate `feedme-books` repo) |
 | [images.md](./images.md) | How every image reaches an `<img>` — the proxy → bucket → CDN stages, the image inventory, the wire contract, and the rendering rules |
+| [beta-launch.md](./beta-launch.md) | What must exist outside the code before the beta: domain, email sending, deploy settings |
 | [current-state.md](./current-state.md) | What's built today vs. not-yet-built (the gap to close) |
 
 ## Tech stack (at a glance)
@@ -31,7 +32,7 @@ screen or feature is ambiguous in code, this folder wins.
 - **Django + django-ninja** API in `backend/`; the app's TypeScript types are generated from its
   OpenAPI document (`pnpm types:api`)
 - **VeeValidate + Zod** for forms/validation (installed, not yet used)
-- **@formkit/auto-animate** + **@vueuse/motion** for animation
+- **@formkit/auto-animate** for animation
 - **pnpm** package manager; **ESLint** (`@nuxt/eslint`, stylistic)
 
 See [current-state.md](./current-state.md) for what is actually wired up.
