@@ -100,7 +100,7 @@ def fetch_feed(source):
 
     A YouTube channel is polled through its videos-only feed (core/youtube.py), not the
     feed_url it is stored under. A channel with no regular uploads has no such playlist and
-    answers 404; its own feed is read instead, and _entry_to_post skips the Shorts in it.
+    answers 404; its own feed is read instead, and entry_to_post skips the Shorts in it.
     """
     if source.type == Source.Type.YOUTUBE:
         videos = youtube.videos_feed(source.feed_url)
@@ -191,7 +191,7 @@ def ingest_source(source):
             _backfill_source_metadata(source, metadata)
             _record_success(source, now, fetched)
     except DataError as exc:
-        # Content Postgres refuses — a NUL byte, a tsvector past its 1 MB cap. _entry_to_post
+        # Content Postgres refuses — a NUL byte, a tsvector past its 1 MB cap. entry_to_post
         # sanitises the cases we know, but whatever comes next must still be *this* source's
         # failure, on its own backoff ladder, rather than an exception the actor retries
         # three times and the sweep re-enqueues forever with error_count never moving.
@@ -221,11 +221,15 @@ def _upsert_posts(source, entries):
     the window keeps tracking whatever its source now says about it.
     """
     created = updated = 0
+    now = timezone.now()
     cutoff = age_cutoff()
     for entry in entries:
-        guid, fields = _entry_to_post(entry)
+        guid, fields = entry_to_post(entry)
         if guid is None:
             continue
+        # A stored post needs a date: lists read newest-first and retention's age window has
+        # to be able to reach it. A feed that gives none is dated by the poll that found it.
+        fields['published_at'] = fields['published_at'] or now
         if fields['published_at'] < cutoff:
             updated += Post.objects.filter(source=source, guid=guid).update(**fields)
             continue
@@ -237,8 +241,12 @@ def _upsert_posts(source, entries):
     return created, updated
 
 
-def _entry_to_post(entry):
+def entry_to_post(entry):
     """Map one feedparser entry onto Post fields, or (None, None) to skip it.
+
+    Public for the add wizard's preview (core/discover.py), which shows exactly what
+    subscribing would store. The one field left for the caller is an undated entry's
+    `published_at`, None here: storing dates it now, a preview says it has no date.
 
     `id` is feedparser's normalised <guid> / Atom <id> — a real identifier on all three
     source types (`yt:video:…`, Reddit's `t3_…` URL, the blog's permalink). Falling back
@@ -357,13 +365,14 @@ def _published_at(entry):
 
     Clamped to now: lists read newest-first, so a post dated in the future would head every
     one of them until that date arrives — and retention's age window would never reach it.
+    None when the entry carries no date at all; entry_to_post's callers decide what that means.
     """
     now = timezone.now()
     for key in ('published_parsed', 'updated_parsed'):
         parsed = entry.get(key)
         if parsed:
             return min(datetime(*parsed[:6], tzinfo=UTC), now)
-    return now
+    return None
 
 
 def feed_metadata(feed):

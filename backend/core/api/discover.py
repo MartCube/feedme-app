@@ -1,4 +1,5 @@
-"""GET /discover — what the add wizard's search step asks.
+"""GET /discover — what the add wizard's search step asks — and GET /discover/posts, what
+it shows of one candidate before it is picked.
 
 Read-only and stateless: nothing is created by looking. A candidate becomes real only when
 POST /feeds is called with its `feed_url`, which is why that field is the only one of these
@@ -10,16 +11,18 @@ follow.
 """
 
 from dataclasses import asdict
+from datetime import datetime
 from typing import Literal
 
 from ninja import Router, Schema
 from ninja.errors import HttpError
 
-from .. import images
-from ..discover import discover
+from .. import images, youtube
+from ..discover import discover, preview_feed
 from ..models import Source
 from ..youtube import YouTubeUnavailable
 from .errors import ErrorSchema
+from .posts import ImageSchema, VideoSchema
 
 # The same Literal HomeFeedSchema uses, and for the same reason: the OpenAPI document then
 # carries the three values, so the generated TypeScript keeps the FeedType union.
@@ -91,3 +94,46 @@ def discover_feeds(request, type: SourceType, q: str = ''):
         )
         for candidate in candidates
     ]
+
+
+class DiscoverPostSchema(Schema):
+    """One of a candidate's newest posts: PostSchema minus what only a stored post has (`uid`,
+    `source`, `saved_group`). Same names on purpose, so a preview row speaks a post card's
+    vocabulary."""
+
+    title: str
+    post_url: str
+    image: ImageSchema | None
+    video: VideoSchema | None
+    # raw feed HTML, as PostSchema.summary is
+    summary: str
+    # null when the feed gives the entry no date. A stored post is dated by the poll that
+    # found it; a preview saying "just now" would mislead on the thing it was opened to check
+    published_at: datetime | None
+
+    @staticmethod
+    def resolve_image(obj):
+        return images.post_image(obj['image_url'])
+
+    @staticmethod
+    def resolve_video(obj):
+        return youtube.video(obj['post_url'])
+
+
+@router.get(
+    '/discover/posts',
+    response={200: list[DiscoverPostSchema], 401: ErrorSchema, 422: ErrorSchema},
+    operation_id='discover_posts',
+)
+def discover_posts(request, feed_url: str):
+    """A candidate's newest posts, so a feed can be judged before it is added. Writes nothing.
+
+    The twin of GET /feeds/{uid}/posts for a source you don't have yet, keyed by the one field
+    the wizard keeps from a /discover result. Unlike /discover, a miss is an error here: an
+    empty list is the honest answer "this feed has nothing in it", so a feed that couldn't be
+    fetched or parsed must not be spelled the same way.
+    """
+    posts = preview_feed(feed_url)
+    if posts is None:
+        raise HttpError(422, "Couldn't read that feed.")
+    return posts

@@ -20,6 +20,7 @@ does not do is look at a *page* and find the feed on it, which is what `feed_lin
 import logging
 import re
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
@@ -28,7 +29,7 @@ import requests
 
 from . import icons, youtube
 from .fetch import PageUnavailable, fetch_url
-from .ingest import feed_metadata
+from .ingest import entry_to_post, feed_metadata
 from .models import Source
 
 logger = logging.getLogger(__name__)
@@ -55,6 +56,10 @@ COMMON_PATHS = ('/feed', '/rss', '/rss.xml', '/atom.xml', '/index.xml')
 # A site declaring more than this many alternates is listing per-tag feeds, not offering
 # a choice worth scrolling.
 MAX_RESULTS = 5
+# How many of a candidate's newest posts the wizard's preview shows (`preview_feed`).
+PREVIEW_LIMIT = 10
+# Where an undated post sorts in a preview: after every dated one.
+UNDATED = datetime.min.replace(tzinfo=UTC)
 # How many pages above the pasted one to try. Three covers /blog/2026/some-post, and the
 # walk only happens at all when the pasted page declared nothing.
 MAX_ANCESTORS = 3
@@ -139,6 +144,45 @@ def _from_channel(channel):
         icon_url=channel.thumbnail,
         subscribers=channel.subscribers,
     )
+
+
+def preview_feed(feed_url):
+    """A candidate's newest posts, mapped exactly as subscribing would store them — or None
+    when the feed couldn't be read at all. Read-only, and live on every call.
+
+    None and [] mean different things on purpose: [] is a real feed with nothing in it, the
+    answer to "is this alive", so it must never stand in for a fetch that failed.
+
+    A YouTube channel is read through its videos-only feed, the one polling reads
+    (core/ingest.fetch_feed), so the preview carries no Shorts the source would never ingest.
+    Any failure there falls back to the channel feed — fetch_page can't tell a 404 from
+    another miss, and the channel feed is a sound second try either way: entry_to_post skips
+    its Shorts too.
+    """
+    body = None
+    videos = youtube.videos_feed(feed_url)
+    for url in [videos, feed_url] if videos else [feed_url]:
+        try:
+            body = fetch_page(url)
+            break
+        except (PageUnavailable, requests.RequestException) as exc:
+            logger.info('preview: %s — %s', url, exc)
+    if body is None:
+        return None
+
+    parsed = feedparser.parse(body, response_headers={'content-location': feed_url})
+    if not parsed.get('version'):
+        return None
+
+    posts = [fields for _, fields in map(entry_to_post, parsed.entries) if fields]
+    # Feeds aren't reliably ordered, so the order is ours: newest first, undated last in
+    # the feed's own order (a reverse sort is still stable).
+    posts.sort(key=lambda post: post['published_at'] or UNDATED, reverse=True)
+    posts = posts[:PREVIEW_LIMIT]
+    for post in posts:
+        # the 1280 × 720 poster ingest swaps in for a video's thumbnail; a no-op elsewhere
+        post['image_url'] = youtube.poster(post['image_url'])
+    return posts
 
 
 def fetch_page(url):
