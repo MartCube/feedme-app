@@ -1,5 +1,7 @@
 <script setup lang="ts">
-// The four-phase add wizard (type → input → destination → new feed) as sliding
+import type { FeedCandidate } from '~/assets/types'
+
+// The add wizard (type → input → [preview] → destination → new feed) as sliding
 // panels. Hosted by the mobile bottom sheet (add/Drawer.vue) and the desktop
 // content page; wizard state is global (useAddFeedWizard), so hosts only
 // decide what close/done mean — dismiss the sheet vs return to the reader.
@@ -14,7 +16,7 @@ const props = withDefaults(defineProps<{ slide?: boolean }>(), { slide: true })
 const emit = defineEmits<{ close: [], done: [feedUid: string] }>()
 
 const wizard = useAddFeedWizard()
-const { step, direction } = wizard
+const { step, direction, previewing } = wizard
 
 // Same push/pop mechanism as the settings drawer (utils/panel-slide.ts), but
 // the direction comes from the wizard rather than from path depth: forward =
@@ -36,11 +38,11 @@ async function onCreate(name: string) {
   if (landed) emit('done', landed)
 }
 
-// Opened from a feed page, the feed is already chosen: the search step's
-// forward commits into it and the destination step is skipped.
-function onForward() {
-  if (wizard.target.value) onChoose(wizard.target.value)
-  else wizard.proceedToDestination()
+// Picking a result (its card, or the phone preview's Add) moves on to
+// Destination — or, opened from a feed page, commits straight into that feed.
+async function onPick(candidate: FeedCandidate) {
+  const landed = await wizard.pick(candidate)
+  if (landed) emit('done', landed)
 }
 </script>
 
@@ -70,7 +72,16 @@ function onForward() {
         key="input"
         @back="wizard.back"
         @close="emit('close')"
-        @forward="onForward"
+        @pick="onPick"
+      />
+      <!-- The phone's preview; desktop opens it in the posts pane instead
+           (DesktopShell), so there the step never becomes 'preview'. -->
+      <AddPreviewStep
+        v-else-if="step === 'preview' && previewing"
+        key="preview"
+        @back="wizard.back"
+        @close="emit('close')"
+        @add="previewing && onPick(previewing)"
       />
       <AddDestinationStep
         v-else-if="step === 'destination'"

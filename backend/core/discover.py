@@ -321,7 +321,10 @@ def _candidates(links, page, page_title, page_body):
     icon_url = icons.page_icon(page_body, page) or icons.fallback_icon(page)
     return _dedupe(
         Candidate(
-            name=(title or page_title if prefer_link_title else page_title or title) or _host(page),
+            name=_without_site_suffix(
+                (title or page_title if prefer_link_title else page_title or title) or _host(page),
+                infer_type(href),
+            ),
             type=infer_type(href),
             feed_url=href[:FEED_URL_MAX],
             site_url=_origin(page),
@@ -329,6 +332,17 @@ def _candidates(links, page, page_title, page_body):
         )
         for href, title in links
     )
+
+
+def _without_site_suffix(name, source_type):
+    """A channel page's <title> less the " - YouTube" YouTube appends to every one of them.
+
+    The candidate's name is what the wizard shows on the result, the preview, the destination
+    and as the new feed's default name, so "Veritasium - YouTube" would follow it everywhere.
+    """
+    if source_type == Source.Type.YOUTUBE:
+        return name.removesuffix(' - YouTube').strip() or name
+    return name
 
 
 def _guess_paths(url):

@@ -345,25 +345,61 @@ like the others.
 shows a **Paste** chip (reads the clipboard on tap — browsers block silent reads). Submit → a
 loading skeleton while `/discover` answers → a short **results list** (name + its **feed URL**,
 which is what tells two feeds off one page apart; a YouTube channel leads with its avatar, and
-there is no type icon since the type is in the header), each a multi-select card. A result
-that is already in one of the user's feeds stays pickable — a source can sit in several — and
-carries an **"In your feeds ·"** caption before its feed URL. A **YouTube search hit** is
-captioned with its **subscriber count** instead ("61.4K subscribers · In your feeds"), and
-every result has an **open-in-new-tab icon** linking its channel or site, so it can be judged
-before it's picked _(2026-10-08)_. The select button stretches over the card and the link sits
-above it — the post card's pattern, since a link can't live inside a button.
+there is no type icon since the type is in the header), each a card. **One source per pass**
+_(2026-11-09; the multi-select with checkmarks and a Continue button is gone)_: tapping a
+card **picks** it and advances. A result that is already in one of the user's feeds stays
+pickable — a source can sit in several. The name wraps to two lines; the caption under it
+leads with the **site link** (YouTube → "YouTube", Reddit → "r/{name}", a website → its feed
+URL, which is what tells two feeds off one page apart), then " · {N} subs" for a YouTube
+search hit and " · In your feeds". The select button stretches over the card and the links
+sit above it — the post card's pattern, since a link can't live inside a button. The avatar
+and the Preview chip rest on `bg-muted` and flip to `bg-elevated` while the card is hovered
+(see [design-system.md](./design-system.md)).
 
-**Phase 3 — choose destination.** The forward button advances here. A quiet "Adding" list of
-the picked sources, then **Add to**: a **New feed** card first (always there, and the common
-case for a first source), then one card per existing feed with its source count. Tapping a
-feed **commits** — every picked source joins it, the drawer closes, and the home list reflects
-it. **New feed** advances to phase 4.
+**Preview** _(2026-11-09, T14)._ Each result carries one **Preview** chip that shows the
+candidate's newest posts before it is picked. Its states:
 
-**Phase 4 — name the new feed.** A name input, prefilled with the first picked source's name
-(so a one-source feed costs one tap); submitting creates the feed holding the picks and closes
-the drawer. With several picks the feed is created with the first, then the rest are added to
-it. The feed's description starts as that first source's own, and is edited later on the feed
-page.
+| State | Label | Notes |
+|---|---|---|
+| Idle | Preview | Neutral chip |
+| Loading | Preview, pulsing | Muted, `aria-busy`; not clickable twice |
+| Previewing | Preview, primary | Desktop only; clicking closes the preview |
+| Failed | Couldn't load | Error colour; the server's reason is in the aria label; tapping retries |
+| Empty | No posts yet | Disabled |
+
+The chip has no tooltip. The fetch is `GET /discover/posts` with a 10 s timeout and no retry;
+results are cached per feed URL for the life of the wizard and cleared by a new search, a type
+change or a reset. Only a non-empty list opens a preview; `[]` is "No posts yet" and a failure
+is "Couldn't load" — Reddit often answers 429 right after a search (see T11c in
+[backend-roadmap.md](./backend-roadmap.md)).
+
+- **Desktop:** the preview **replaces the posts list** in the posts pane, under the same
+  sticky title row: the candidate's name, a muted "· Preview", and icon buttons **+** (Add
+  feed, or "Add to {feed}" when pointed at one — resting `primary`), **↗** Open website and
+  **×** Close preview. The feed's own info and search buttons are hidden meanwhile, since
+  they act on the hidden list. **Esc** closes the preview first, then the wizard; closing
+  restores the posts list's scroll position.
+- **Mobile:** the preview is a wizard step between the results and Destination. The header has
+  close, back ("Back to results") and ↗ Open website, with the title "{name} · Preview"; the
+  posts scroll by touch (dragging the sheet down still closes it from the top) and a docked
+  primary button reads "Add feed" or "Add to {feed}".
+- **Preview posts** are post cards in a preview mode: the meta row shows the previewed source
+  as a link and the date (none when the feed gives none), there is no Save, the title opens the
+  original in a new tab, and an excerpt that is only "Comments" is dropped.
+
+**Phase 3 — choose destination.** Title "Add {name} to". A **New feed** card first (always
+there, and the common case for a first source), then one card per existing feed with its
+source count. Tapping a feed **commits** — the source joins it, the drawer closes, and the
+home list reflects it. **New feed** advances to phase 4.
+
+**Phase 4 — name the new feed.** A name input, prefilled with the picked source's name
+(so a one-source feed costs one tap); submitting creates the feed holding it and closes
+the drawer. The feed's description starts as that source's own, and is edited later on the
+feed page.
+
+**Busy indicator.** While the wizard is searching, previewing or adding, a spinner sits
+beside the step title; the wordmark's spinner stays still meanwhile so only one spins
+(see [design-system.md](./design-system.md)).
 
 Adding is the first step that can be **refused**: the sheet stays open with the server's reason
 on it (a URL that turns out not to be a feed — which leaves no empty feed behind — or a source
@@ -372,18 +408,21 @@ reach, and only closes once the add lands. If several picks are going in and one
 the ones already in stay in.
 
 **Pointed at a feed.** Opened from a feed's page with *Add source* (screen 6), the wizard
-already knows its destination: it skips phases 3 and 4 and commits from the paste/search step,
-reporting the same refusals there.
+already knows its destination: it skips phases 3 and 4 and the pick commits straight into that
+feed, reporting the same refusals there.
 
-**Scope:** several sources → one destination per pass. Putting one source into a second feed is
-a second pass — it stays pickable for exactly that.
+**Scope:** one source → one destination per pass. Putting one source into a second feed, or a
+second source anywhere, is another pass — a source stays pickable for exactly that.
+
+**No URL state.** The wizard's type and query are not on the URL _(decided 2026-11-09)_;
+closing the wizard throws everything away.
 
 **Data:** candidates come from `GET /discover?type=&q=` _(T11a, 2026-09-06)_. A pasted URL of any
 shape resolves — a blog homepage or a post page, a YouTube channel URL or `@handle`, a subreddit
 URL or a bare name — whether or not it is the feed URL itself; a page that declares no feed sends
 the resolver up its own path and then to the usual `/feed`, `/rss.xml` guesses. Candidates
 already in one of the user's feeds come back flagged `already_subscribed` (the caption above).
-A **keyword under the YouTube card** searches
+A pasted YouTube channel page's title loses its " - YouTube" suffix. A **keyword under the YouTube card** searches
 YouTube by channel name _(T11b, 2026-09-11)_ — up to five channels with their avatars; if YouTube
 won't answer (quota spent), the step shows that as an error rather than an empty result. A
 keyword under Website or Reddit still finds nothing (T11c, T11d).
@@ -393,10 +432,11 @@ finds-or-creates the shared source, fetches it, and answers with the whole feed.
 
 **Components:** `add/Drawer.vue` (mobile sheet host: open protocol + commit/close/reset),
 `add/Steps.vue` (the phase switch itself — reused by the desktop presentation below),
-`add/TypeStep.vue`, `add/SearchStep.vue`, `add/DestinationStep.vue`, `add/NewFeedStep.vue`, and
-the `useAddFeedWizard()` composable. **Not yet built:** keyword search for subreddits and our own
-catalog (T11c, T11d), a candidate's latest posts before adding it (T14, `GET /discover/posts` —
-planned), sub counts, and form validation via the installed **VeeValidate + Zod** stack.
+`add/TypeStep.vue`, `add/SearchStep.vue`, `add/ResultCard.vue`, `add/PreviewStep.vue` (mobile),
+`add/PreviewPane.vue` (desktop), `add/PreviewPosts.vue`, `add/DestinationStep.vue`,
+`add/NewFeedStep.vue`, and the `useAddFeedWizard()` composable. **Not yet built:** keyword
+search for subreddits and our own catalog (T11c, T11d), and form validation via the installed
+**VeeValidate + Zod** stack.
 
 **Desktop:** `/add` opens inside the post pane _(2026-10-13)_ instead of a bottom sheet; the
 sidebar and the posts list stay usable beside it, and the reader underneath stays as it was.

@@ -1,96 +1,33 @@
 <script setup lang="ts">
-const emit = defineEmits<{ back: [], close: [], forward: [] }>()
+import type { FeedCandidate } from '~/assets/types'
 
-const isDesktop = useIsDesktop()
+const emit = defineEmits<{ back: [], close: [], pick: [candidate: FeedCandidate] }>()
+
 const wizard = useAddFeedWizard()
-const { type, query, loading, results, searched, error, selectedFeeds } = wizard
+const { type, query, loading, results, searched, error, busy } = wizard
 
 // Heading label/icon and placeholder all come from the type card the user
 // just tapped (website when the type is somehow unset).
 const typeMeta = computed(() => feedTypes.find(option => option.type === type.value) ?? feedTypes[0]!)
-
-// Continue lights primary once, the moment the first pick makes it available,
-// so the eye goes from the card just checked to the way forward. Held as long
-// as the tap flash (useTapSelection); the colour fades in and out on the
-// standard transition.
-const canContinue = computed(() => selectedFeeds.value.length > 0)
-const continueBlink = ref(false)
-let blinkTimer: ReturnType<typeof setTimeout> | undefined
-watch(canContinue, (can) => {
-  if (!can) return
-  continueBlink.value = true
-  clearTimeout(blinkTimer)
-  blinkTimer = setTimeout(() => {
-    continueBlink.value = false
-  }, 450)
-})
-onScopeDispose(() => clearTimeout(blinkTimer))
-
-// Strip the protocol so the URL reads cleanly (css-tricks.com/feed/).
-function displayUrl(url: string) {
-  return url.replace(/^https?:\/\//, '')
-}
-
-// "412K subscribers" — compact, the way YouTube itself shows it.
-const compact = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 })
-function subscriberLabel(count: number) {
-  return `${compact.format(count)} ${count === 1 ? 'subscriber' : 'subscribers'}`
-}
-
-// The fallback when a feed has no icon. UAvatar's own takes the first letter of
-// the first two words, which turns "Vue.js - The progressive…" into "V-" — so
-// only words that start with a letter or digit count.
-function initials(name: string) {
-  return name
-    .split(/\s+/)
-    .filter(word => /^[\p{L}\p{N}]/u.test(word))
-    .slice(0, 2)
-    .map(word => word[0])
-    .join('')
-}
 </script>
 
 <template>
   <!-- touch-none lets vaul own the drag-to-close gesture; revisit once the
        results list needs real touch scrolling. -->
   <div class="flex h-full touch-none flex-col scroll-host bg-default page-inset *:max-w-reading">
-    <header class="flex items-center justify-between gap-sm">
-      <!-- Close then Back hold the leading side on every step, as a bound
-           pair like the post's actions; Continue stands alone on the far side. -->
-      <div class="flex shrink-0 items-center gap-xs">
-        <IconButton
-          icon="i-ph-x-bold"
-          aria-label="Close add feed"
-          @click="emit('close')"
-        />
-        <IconButton
-          icon="i-ph-caret-left-bold"
-          aria-label="Back"
-          @click="emit('back')"
-        />
-      </div>
-      <!-- Same elevated circle and tooltip as an IconButton (not one itself:
-           disabled only dims the icon, and enabled it rests text-default, a
-           step louder than an IconButton's muted icon). -->
-      <UTooltip
-        text="Continue"
-        :disabled="!isDesktop"
-        :content="{ side: 'top', sideOffset: 2, collisionPadding: 0 }"
-      >
-        <button
-          type="button"
-          class="flex size-12 lg:size-10 shrink-0 items-center justify-center rounded-full bg-elevated shadow-elevated transition-colors"
-          :disabled="!canContinue"
-          aria-label="Continue"
-          @click="emit('forward')"
-        >
-          <UIcon
-            name="i-ph-caret-right-bold"
-            class="size-6 lg:size-5 transition-colors"
-            :class="continueBlink ? 'text-primary' : canContinue ? 'text-default' : 'text-dimmed'"
-          />
-        </button>
-      </UTooltip>
+    <!-- Close then Back, as a bound pair like the post's actions. No forward
+         button: one source per pass, so tapping a result is the way on. -->
+    <header class="flex items-center gap-xs">
+      <IconButton
+        icon="i-ph-x-bold"
+        aria-label="Close add feed"
+        @click="emit('close')"
+      />
+      <IconButton
+        icon="i-ph-caret-left-bold"
+        aria-label="Back"
+        @click="emit('back')"
+      />
     </header>
 
     <h1 class="mt-lg flex items-center gap-sm text-title tracking-tight">
@@ -99,6 +36,7 @@ function initials(name: string) {
         class="size-6 text-muted"
       />
       {{ typeMeta.label }}
+      <Spinner :active="busy" />
     </h1>
 
     <SearchInput
@@ -124,88 +62,16 @@ function initials(name: string) {
       </li>
     </ul>
 
-    <!-- Tapping anywhere on a card toggles its checkbox — multi-select, the
-         header's forward button advances once at least one feed is picked. The
-         card isn't the button itself: its link out would be interactive inside
-         interactive. The select button stretches over the whole card instead
-         (absolute inset-0), and the link sits above it (relative z-10) — the
-         post card's pattern; isolate keeps that z-10 inside the card. -->
     <ul
       v-else-if="results.length"
       class="mt-md flex flex-col gap-sm"
     >
-      <li
+      <AddResultCard
         v-for="result in results"
         :key="result.feed_url"
-        class="relative isolate flex items-center gap-sm rounded-2xl bg-elevated p-sm shadow-elevated transition-colors hover-lift"
-      >
-        <button
-          type="button"
-          class="absolute inset-0 rounded-2xl"
-          :aria-pressed="wizard.isSelected(result)"
-          :aria-label="`Select ${result.name}`"
-          @click="wizard.toggleFeed(result)"
-        />
-        <!-- Every type has a face: five channels named "One Piece" are told apart by
-             their avatars, and a site by its icon. `icon` is a square proxied crop, or
-             null — then, and when the image fails to load, UAvatar shows the name's
-             initials. alt="" because the button's aria-label already names the feed.
-             Not loading="lazy": at most five rows, all on screen, and inside the
-             drawer Chrome never got round to fetching a lazy one at all. -->
-        <UAvatar
-          :src="result.icon ?? undefined"
-          alt=""
-          :text="initials(result.name)"
-          size="xl"
-          class="shrink-0"
-          :ui="{ root: 'bg-muted', fallback: 'text-caption font-semibold text-muted uppercase' }"
-        />
-        <span class="min-w-0 flex-1">
-          <span class="block truncate text-body">{{ result.name }}</span>
-          <!-- A YouTube search hit says how big the channel is; anything else shows its
-               feed URL, not the site: one page can declare several feeds, and this is the
-               only thing that tells them apart. A source can sit in several feeds, so one
-               you follow stays pickable — the caption just says it's already in one,
-               after the short count but before a URL that truncates anyway. -->
-          <span class="block truncate text-caption text-muted">
-            <template v-if="result.subscribers !== null">
-              {{ subscriberLabel(result.subscribers) }}<template v-if="result.already_subscribed"> · In your feeds</template>
-            </template>
-            <template v-else>
-              <template v-if="result.already_subscribed">In your feeds · </template>{{ displayUrl(result.feed_url) }}
-            </template>
-          </span>
-        </span>
-        <!-- The channel or site itself, in a new tab — to judge it before
-             picking it. -->
-        <a
-          v-if="result.site_url"
-          :href="result.site_url"
-          target="_blank"
-          rel="noopener noreferrer"
-          :aria-label="`Open ${result.name} in a new tab`"
-          class="group/icon relative z-10 flex size-10 shrink-0 items-center justify-center rounded-full"
-        >
-          <UIcon
-            name="i-ph-arrow-square-out-bold"
-            class="size-5 text-muted transition-colors [@media(hover:hover)]:group-hover/icon:text-primary"
-          />
-        </a>
-        <!-- Page-bg circle reads as a well punched into the card; checking
-             only drops a primary checkmark in, nothing else changes. -->
-        <span
-          class="flex size-10 shrink-0 items-center justify-center"
-          aria-hidden="true"
-        >
-          <span class="flex size-8 items-center justify-center rounded-full bg-default">
-            <UIcon
-              v-if="wizard.isSelected(result)"
-              name="i-ph-check-bold"
-              class="size-5 text-primary"
-            />
-          </span>
-        </span>
-      </li>
+        :result="result"
+        @pick="emit('pick', result)"
+      />
     </ul>
 
     <!-- /discover resolves links, channels and subreddits, and searches YouTube by name;

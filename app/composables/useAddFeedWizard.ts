@@ -1,11 +1,28 @@
-import type { FeedCandidate, FeedType } from '~/assets/types'
+import type { DiscoverPost, FeedCandidate, FeedType } from '~/assets/types'
 
-export type WizardStep = 'type' | 'input' | 'destination' | 'new-feed'
+// 'preview' is the phone's: there the preview is a step inside the drawer. On
+// desktop it opens in the posts pane beside the wizard instead (DesktopShell),
+// and the step never changes.
+export type WizardStep = 'type' | 'input' | 'preview' | 'destination' | 'new-feed'
 export type WizardDirection = 'forward' | 'back'
 
-// Shared, SSR-safe wizard state (useState) so every step component and the
-// Drawer host read/drive the same flow. reset() is called by the Drawer once
-// the sheet has fully closed.
+// A result's Preview button, per feed_url. No entry is Idle. 'ready' doubles as
+// the cache, so Back → Preview again opens without a second fetch.
+export type PreviewState
+  = | { status: 'loading' }
+    | { status: 'error', detail: string }
+    | { status: 'empty' }
+    | { status: 'ready', posts: DiscoverPost[] }
+
+// The one preview fetch in flight, so starting another can cancel it. A plain
+// module variable, not useState: an AbortController doesn't serialise, and a
+// preview only ever starts from a click, so this never exists on the server.
+let previewFetch: { feedUrl: string, controller: AbortController } | null = null
+
+// Shared, SSR-safe wizard state (useState) so every step component, the
+// Drawer host and the desktop shell read/drive the same flow. reset() is
+// called by the hosts once the wizard has closed — closing throws the whole
+// flow away, search and previews included.
 export function useAddFeedWizard() {
   const feedsStore = useFeedsStore()
   const { $api } = useNuxtApp()
@@ -15,7 +32,13 @@ export function useAddFeedWizard() {
   const query = useState('add-query', () => '')
   const loading = useState('add-loading', () => false)
   const results = useState<FeedCandidate[]>('add-results', () => [])
-  const selectedFeeds = useState<FeedCandidate[]>('add-selected', () => [])
+  // One source per pass: tapping a result picks it and moves on. Several sources
+  // into one feed is several passes (the feed page's Add source makes that cheap).
+  const picked = useState<FeedCandidate | null>('add-picked', () => null)
+  const previews = useState<Record<string, PreviewState>>('add-previews', () => ({}))
+  // The candidate whose posts are open: the phone's preview step, or the
+  // desktop posts pane.
+  const previewing = useState<FeedCandidate | null>('add-previewing', () => null)
   const direction = useState<WizardDirection>('add-direction', () => 'forward')
   // Distinguishes "haven't searched yet" from "searched and found nothing", so
   // the step only explains itself once the user has actually asked.
@@ -29,10 +52,20 @@ export function useAddFeedWizard() {
   // slower answer land last and win, and the Drawer's reset() has to be able to
   // disown an in-flight search from a step component that is already gone.
   const searchSeq = useState('add-search-seq', () => 0)
-  // The feed page's "Add source": the feed is already chosen, so the search
-  // step commits straight into it and the destination step never shows. Set
+  // The feed page's "Add source": the feed is already chosen, so picking a
+  // result commits straight into it and the destination step never shows. Set
   // by the opener before it navigates to /add; reset() clears it with the rest.
   const target = useState<string | null>('add-target', () => null)
+
+  // Previews belong to the result list they were started from: a new search, a
+  // new type or a closed wizard drops them, and the fetch still in flight.
+  function clearPreviews() {
+    const inFlight = previewFetch
+    previewFetch = null
+    inFlight?.controller.abort()
+    previews.value = {}
+    previewing.value = null
+  }
 
   function selectType(t: FeedType) {
     searchSeq.value++
@@ -44,7 +77,8 @@ export function useAddFeedWizard() {
     loading.value = false
     searched.value = false
     error.value = null
-    selectedFeeds.value = []
+    picked.value = null
+    clearPreviews()
     type.value = t
     direction.value = 'forward'
     step.value = 'input'
@@ -62,9 +96,7 @@ export function useAddFeedWizard() {
     direction.value = 'forward'
     loading.value = true
     error.value = null
-    // A new search invalidates prior picks — stale selections would keep the
-    // forward button enabled on feeds no longer visible in the list.
-    selectedFeeds.value = []
+    clearPreviews()
     searched.value = true
     try {
       const found = await $api<FeedCandidate[]>('/discover', {
@@ -83,32 +115,119 @@ export function useAddFeedWizard() {
     }
   }
 
-  function isSelected(feed: FeedCandidate) {
-    return selectedFeeds.value.some(f => f.feed_url === feed.feed_url)
+  // Cancelling sends that result's button back to Idle: it was never answered.
+  function cancelPreviewFetch() {
+    const inFlight = previewFetch
+    if (!inFlight) return
+    previewFetch = null
+    inFlight.controller.abort()
+    const { [inFlight.feedUrl]: _, ...rest } = previews.value
+    previews.value = rest
   }
 
-  function toggleFeed(feed: FeedCandidate) {
-    selectedFeeds.value = isSelected(feed)
-      ? selectedFeeds.value.filter(f => f.feed_url !== feed.feed_url)
-      : [...selectedFeeds.value, feed]
+  // GET /discover/posts, live and never stored. Only posts open anything: loading,
+  // a failure and an empty feed all show on the result's button. One fetch at a
+  // time — starting another cancels this one. Measured answers take 0.2–1.3s and a
+  // slow site several seconds, so 10s without one is a failure, not a wait.
+  async function preview(candidate: FeedCandidate) {
+    const feedUrl = candidate.feed_url
+    const known = previews.value[feedUrl]
+    if (known?.status === 'ready') return openPreview(candidate)
+    if (known?.status === 'loading') return
+    cancelPreviewFetch()
+    const controller = new AbortController()
+    previewFetch = { feedUrl, controller }
+    previews.value = { ...previews.value, [feedUrl]: { status: 'loading' } }
+    // The timeout aborts the same controller by hand: ofetch ignores its own
+    // `timeout` whenever a `signal` is passed. A cancel or a reset unsets
+    // previewFetch before aborting, so a fetch that is no longer the current one
+    // was disowned, while one that still is ran out of time. retry: 0 — ofetch
+    // retries a failed GET once by default, which would double the 10s.
+    const timer = setTimeout(() => controller.abort(), 10_000)
+    const disowned = () => previewFetch?.controller !== controller
+    try {
+      const posts = await $api<DiscoverPost[]>('/discover/posts', {
+        query: { feed_url: feedUrl },
+        signal: controller.signal,
+        retry: 0,
+      })
+      if (disowned()) return
+      previews.value = {
+        ...previews.value,
+        [feedUrl]: posts.length ? { status: 'ready', posts } : { status: 'empty' },
+      }
+      if (posts.length) openPreview(candidate)
+    }
+    catch (failure) {
+      // our own cancel, not the feed's failure — the button is already back to Idle
+      if (disowned()) return
+      previews.value = {
+        ...previews.value,
+        [feedUrl]: { status: 'error', detail: detailOf(failure, 'Couldn\'t load that feed.') },
+      }
+    }
+    finally {
+      clearTimeout(timer)
+      if (!disowned()) previewFetch = null
+    }
   }
 
-  function proceedToDestination() {
-    if (!selectedFeeds.value.length) return
+  // On the phone the preview is the next step, and only from the results: an
+  // answer landing after the user moved on must not yank them back.
+  function openPreview(candidate: FeedCandidate) {
+    if (!isDesktopNow()) {
+      if (step.value !== 'input') return
+      direction.value = 'forward'
+      step.value = 'preview'
+    }
+    previewing.value = candidate
+  }
+
+  function closePreview() {
+    previewing.value = null
+  }
+
+  // What both preview hosts (the phone's step, the desktop pane) show and say,
+  // derived once here so the two never drift apart.
+  const previewPosts = computed(() => {
+    const open = previewing.value && previews.value[previewing.value.feed_url]
+    return open && open.status === 'ready' ? open.posts : []
+  })
+  // Anything the wizard is waiting on — a search, a preview, an add — for the
+  // spinner in its header (ui/Spinner.vue), next to what you're working on.
+  const busy = computed(() => loading.value || adding.value
+    || Object.values(previews.value).some(entry => entry.status === 'loading'))
+  // Pointed at a feed, adding commits straight into it — so say which.
+  const previewAddLabel = computed(() => {
+    const into = target.value && feedsStore.feeds.find(feed => feed.uid === target.value)
+    return into ? `Add to ${into.name}` : 'Add feed'
+  })
+
+  // A result's card, the phone preview's docked button and the desktop preview's
+  // + all land here. Pointed at a feed, it commits straight into it and answers
+  // with that feed's uid (or null on a refusal); otherwise it moves on to
+  // Destination and answers null. An open desktop preview stays beside it.
+  async function pick(candidate: FeedCandidate): Promise<string | null> {
+    if (adding.value) return null
+    cancelPreviewFetch()
+    picked.value = candidate
+    error.value = null
+    if (target.value) return addTo(target.value)
     direction.value = 'forward'
     step.value = 'destination'
+    return null
   }
 
   // Every add awaits and answers with the feed it landed in, or null: the host
   // only closes on success — and then opens that feed — because a URL that
-  // isn't a feed comes back as a 422 the step has to show. The candidates go
-  // in one at a time — a refusal stops the rest, and the ones already in stay in.
-  async function run(work: () => Promise<string>, fallback: string): Promise<string | null> {
-    if (!selectedFeeds.value.length || adding.value) return null
+  // isn't a feed comes back as a 422 the step has to show.
+  async function run(work: (candidate: FeedCandidate) => Promise<string>, fallback: string): Promise<string | null> {
+    const candidate = picked.value
+    if (!candidate || adding.value) return null
     adding.value = true
     error.value = null
     try {
-      return await work()
+      return await work(candidate)
     }
     catch (failure) {
       error.value = detailOf(failure, fallback)
@@ -121,20 +240,17 @@ export function useAddFeedWizard() {
 
   // Into one of the user's feeds — the destination step's pick, or the target.
   function addTo(feedUid: string) {
-    return run(async () => {
-      for (const candidate of selectedFeeds.value) await feedsStore.addSource(feedUid, candidate)
+    return run(async (candidate) => {
+      await feedsStore.addSource(feedUid, candidate)
       return feedUid
     }, 'Couldn\'t add that source.')
   }
 
-  // A new feed holding the picks: created with the first, so a first URL that
-  // isn't a feed leaves no empty feed behind, then the rest join it. A blank
-  // name takes the first source's own title (the backend's default).
+  // A new feed holding the pick. A blank name takes the source's own title (the
+  // backend's default).
   function addToNewFeed(name: string) {
-    return run(async () => {
-      const [first, ...rest] = selectedFeeds.value
-      const feed = await feedsStore.addFeed({ name, candidate: first })
-      for (const candidate of rest) await feedsStore.addSource(feed.uid, candidate)
+    return run(async (candidate) => {
+      const feed = await feedsStore.addFeed({ name, candidate })
       return feed.uid
     }, 'Couldn\'t create that feed.')
   }
@@ -159,6 +275,10 @@ export function useAddFeedWizard() {
     error.value = null
     if (step.value === 'new-feed') step.value = 'destination'
     else if (step.value === 'destination') step.value = 'input'
+    else if (step.value === 'preview') {
+      previewing.value = null
+      step.value = 'input'
+    }
     else if (step.value === 'input') step.value = 'type'
   }
 
@@ -173,10 +293,11 @@ export function useAddFeedWizard() {
     searched.value = false
     adding.value = false
     error.value = null
-    selectedFeeds.value = []
+    picked.value = null
+    clearPreviews()
     direction.value = 'forward'
     target.value = null
   }
 
-  return { step, type, query, loading, results, searched, adding, error, selectedFeeds, direction, target, selectType, search, isSelected, toggleFeed, proceedToDestination, addTo, addToNewFeed, goToNewFeed, back, reset }
+  return { step, type, query, loading, results, searched, adding, busy, error, picked, previews, previewing, previewPosts, previewAddLabel, direction, target, selectType, search, preview, closePreview, pick, addTo, addToNewFeed, goToNewFeed, back, reset }
 }

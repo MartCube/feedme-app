@@ -26,6 +26,11 @@ export type FeedType = Source['type']
 // /posts/{uid}/article.
 export type Post = Schemas['PostSchema']
 
+// What a post's meta row needs of its source: the name, the type's mark, the
+// site to link to. A preview post has no source of its own — the candidate
+// being previewed (a FeedCandidate) has these same three fields and stands in.
+export type PostSource = Pick<Post['source'], 'name' | 'type' | 'site_url'>
+
 // Which saved pile a post is in. The backend keeps three; the app shows one
 // Saved list and files every save under the default (composables/usePost.ts).
 export type SavedGroupName = NonNullable<Post['saved_group']>
@@ -61,3 +66,9 @@ export type TokenResponse = Schemas['TokenSchema']
 // `already_subscribed` means it's in one of your feeds already — it can still
 // go into another.
 export type FeedCandidate = Schemas['DiscoverResultSchema']
+
+// One of a candidate's newest posts, fetched live by GET /discover/posts for the
+// add wizard's preview and never stored: a Post minus what only a stored post
+// has (`uid`, `source`, `saved_group`), and `published_at` may be null. The
+// post card tells the two apart by `uid`.
+export type DiscoverPost = Schemas['DiscoverPostSchema']

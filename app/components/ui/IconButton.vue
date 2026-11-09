@@ -8,6 +8,9 @@ const props = withDefaults(defineProps<{
   to?: string
   size?: 'sm' | 'md'
   variant?: 'elevated' | 'quiet'
+  // The icon rests primary instead of muted: the one action a row exists to
+  // offer (the desktop feed preview's Add).
+  accent?: boolean
 }>(), {
   size: 'md',
   variant: 'elevated',
@@ -73,7 +76,7 @@ const surface = computed(() => {
          flash already covers touch. -->
       <UIcon
         :name="icon"
-        :class="[iconSize, 'transition-colors [@media(hover:hover)]:group-hover/icon:text-primary', flashing ? 'text-primary' : 'text-muted']"
+        :class="[iconSize, 'transition-colors [@media(hover:hover)]:group-hover/icon:text-primary', flashing || accent ? 'text-primary' : 'text-muted']"
       />
     </UButton>
   </UTooltip>

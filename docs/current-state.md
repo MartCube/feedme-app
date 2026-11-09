@@ -3,7 +3,7 @@
 A snapshot of what's actually built vs. what the spec (these docs) describes. The goal is to
 make the gap visible so implementation has a clear backlog. Update this as work lands.
 
-_Last reviewed: 2026-11-08._
+_Last reviewed: 2026-11-09._
 
 ## Summary
 
@@ -109,28 +109,23 @@ own status: **read that file's § Status for what to build next.**
   `app/components/add/Steps.vue` (`AddSteps`, emits `close`/`done` — the host decides what those
   mean, which is what lets the desktop content overlay reuse it), state in
   `useAddFeedWizard()`: **pick type** (`add/TypeStep.vue`, cards with an accent caret tap flash) →
-  **paste/search** with a Paste chip, a loading skeleton (kept for the real search; nothing is
-  in flight today), and results as **multi-select cards**
-  (whole card toggles a trailing page-bg circle "well" that gains an accent checkmark when
-  picked; a header forward button at IconButton size — disabled until ≥1 picked, accent when
-  enabled — advances) (`add/SearchStep.vue`) → **choose destination** — a quiet "Adding"
-  caption + plain titles list of the picked sources above an "Add to" caption + destination
-  cards: **New feed** first (always there, the common case for a first source), then one card
-  per existing feed with its source count, so only tappable things read as cards; **tapping a
-  feed commits all picked sources there** (many sources → one destination) and closes
-  (`add/DestinationStep.vue`) → or **New feed** → a name input, prefilled with the first picked
+  **paste/search** with a Paste chip, a loading skeleton, and results as cards
+  (`add/SearchStep.vue`, `add/ResultCard.vue`; **one source per pass** since 2026-11-09 — the
+  multi-select checkmarks and forward button are gone, tapping a card picks it) → **choose
+  destination** — titled "Add {name} to": **New feed** first (always there, the common case for
+  a first source), then one card per existing feed with its source count, so only tappable
+  things read as cards; **tapping a feed commits the source there** and closes
+  (`add/DestinationStep.vue`) → or **New feed** → a name input, prefilled with the picked
   source's name, whose submit arrow creates the feed and closes (`add/NewFeedStep.vue`, the old
-  `FolderStep.vue` renamed and re-pointed). With several picks the feed is created with the
-  first (`POST /feeds` carrying its `feed_url`, so one that isn't a feed leaves no empty feed
-  behind) and the rest are added to it one at a time; a refusal stops the rest, and the ones
-  already in stay in. Phases slide with the `panel-slide` classes in
+  `FolderStep.vue` renamed and re-pointed). The feed is created with `POST /feeds` carrying its
+  `feed_url`, so one that isn't a feed leaves no empty feed behind. Phases slide with the `panel-slide` classes in
   `transitions.css`. Headers follow the settings drawer's language: step 1 has an in-flow close
   above the title; steps 2–4 have a md caret back + `text-subtitle` title (no close). The search
   input is enlarged for mobile (taller padding, `text-body`, `rounded-2xl`).
   **Pointed at a feed** _(2026-10-08)_: the feed page's *Add source* sets the wizard's `target`
   to that feed (`useAddFeedWizard().target`, cleared by `reset()`) before opening `/add`; the
-  wizard then skips the destination step and commits straight from the search step.
-  Committing calls `useFeedsStore().addFeed()` for a new feed or `addSource()` per picked source
+  wizard then skips the destination step and the pick commits straight into that feed.
+  Committing calls `useFeedsStore().addFeed()` for a new feed or `addSource()`
   for an existing one, which `POST` to `/feeds` and `/feeds/{uid}/sources` and await the
   server's whole feed (uids are minted server-side). Adding is the one step that can be
   **refused**, and the refusal surfaces in every place that commits: `add/DestinationStep.vue`,
@@ -144,9 +139,10 @@ own status: **read that file's § Status for what to build next.**
   bare name. A result already in one of the user's feeds **stays pickable** _(changed
   2026-10-08; it used to be dimmed and locked as "Following")_ with an **"In your feeds ·"**
   caption in front of its feed URL, and each row is captioned with that **feed URL**, since one
-  page can declare several feeds and that is what tells them apart. _(2026-10-08)_ A YouTube
-  search hit shows its **subscriber count** instead of the URL, and every result carries an
-  open-in-new-tab link to its channel or site (`site_url`). A **keyword under the YouTube card** searches
+  page can declare several feeds and that is what tells them apart. _(Reworked 2026-11-09)_ The
+  caption leads with the site link (YouTube, r/{name}, or the feed URL for a website), then
+  " · {N} subs" for a YouTube hit and " · In your feeds"; the per-result open-in-new-tab icon
+  is gone. A **keyword under the YouTube card** searches
   YouTube by channel name _(T11b, 2026-09-11)_: up to five channels, each row leading with the
   channel's avatar (through the image proxy since T15b, _2026-09-28_ — before that a hotlink
   with `referrerpolicy="no-referrer"`, since Google's image CDN 429s a hotlink carrying a
@@ -155,6 +151,25 @@ own status: **read that file's § Status for what to build next.**
   is the same call either way. YouTube refusing to answer (quota spent, key rejected) is
   a **503** the step shows as an error — not "nothing found", which would be a lie. A keyword
   under Website or Reddit still says "Nothing found. Try pasting a link." (T11c, T11d).
+- **Feed preview, UI half** _(2026-11-09, T14)_ — every result card has a **Preview** chip
+  (idle / loading / previewing / "Couldn't load" with retry / "No posts yet" disabled; no
+  tooltip) that calls `GET /discover/posts` via `$api` with a manual 10 s abort and no retry;
+  results are cached per `feed_url` in wizard state and cleared by a new search, type change or
+  reset. **Desktop:** `add/PreviewPane.vue` replaces the posts list in the posts pane under the
+  same sticky title row (name + muted "· Preview", icon buttons Add / Open website / Close; Add
+  rests `primary` through `IconButton`'s new `accent` prop); the feed's info and search buttons
+  hide meanwhile; Esc closes the preview first, then the wizard; the list's scroll is restored.
+  **Mobile:** `add/PreviewStep.vue` is a wizard step between results and Destination (close,
+  back, Open website; docked primary Add button; touch-scrollable list with vaul drag-to-close
+  intact). Posts render through `add/PreviewPosts.vue` as `FeedPostCard` in preview mode: the
+  previewed candidate stands in as the source (`PostSource` alias in `assets/types.ts`, a
+  `source` prop on `PostCard` / `PostMeta`), no Save, the title opens the original, dateless
+  posts show no date, an excerpt that is exactly "Comments" is dropped. `ui/Spinner.vue`
+  (extracted from the wordmark) also spins beside each wizard step title while the wizard is
+  busy; the wordmark's stays still then. Backend: discovery strips " - YouTube" from a pasted
+  channel page's title. **Known limitation:** Reddit often 429s the preview right after a search
+  (T11c). A latest-post / posts-per-month line on the result card was tried and dropped
+  (2026-11-09).
 - **Feed page** _(2026-10-08)_ — replaces the whole edit drawer. `app/components/feed/Info.vue`
   (`FeedInfo`) is a feed's own page: a back caret (hidden on desktop, where the list is already
   beside it, but keeping its space), a pencil to edit, the name in `text-title`, the
@@ -321,12 +336,11 @@ own status: **read that file's § Status for what to build next.**
   failure shows and keeps the account). **`/terms` and `/privacy`** are plain reading pages
   (`legal/Page.vue`, no app layout, open either way), linked from sign-up's footer in a new tab;
   the contact address is `runtimeConfig.public.contactEmail`, shown when set.
-- **Feed preview, backend half** _(2026-11-08, T14)_ — `GET /discover/posts?feed_url=` returns a
+- **Feed preview, backend half** _(2026-11-08, T14; UI built 2026-11-09, see above)_ — `GET /discover/posts?feed_url=` returns a
   candidate's newest 10 posts, fetched live through the SSRF-guarded discovery fetch and never
   stored: the same entry mapping subscribing uses (`ingest.entry_to_post`, made public), a
   YouTube candidate read through the videos-only feed, `published_at` nullable, an unreadable
-  feed a 422 and a real empty one `[]`. **No UI consumes it yet**: tapping a candidate in the add
-  wizard still just picks it ([backend-roadmap.md](./backend-roadmap.md) § T14).
+  feed a 422 and a real empty one `[]` ([backend-roadmap.md](./backend-roadmap.md) § T14).
 - **Data layer** — the `feeds` store loads `GET /home` once (in-flight-guarded; a failure is
   swallowed rather than raised, so it can never surface as Nuxt's error page, and retries from
   the home screen's **Try again** or the next app boot) into `feeds` — each a group with its
@@ -690,12 +704,9 @@ own status: **read that file's § Status for what to build next.**
 - **Settings content** — the drawer, its five subpages (Shortcuts desktop only), and transitions are built, and
   Appearance and Account are real, including the Post cards switch (see Built); About's version
   string is hardcoded and Report still needs real content and a way to actually send anything.
-- **Add feed (rest)** — keyword search for subreddits and our own catalog (T11c, T11d), a
-  candidate's latest posts before adding it (T14, **in progress** — `GET /discover/posts` is
-  built; the preview UI is not), putting the
-  wizard's type and query on the URL so a reload doesn't lose them (decided 2026-09-18, deferred
-  to T14 — see [backend-roadmap.md](./backend-roadmap.md) § Decision log), sub counts, and input
-  validation via VeeValidate/Zod. The wizard UI, RSS discovery from a pasted URL, YouTube search
+- **Add feed (rest)** — keyword search for subreddits and our own catalog (T11c, T11d), and input
+  validation via VeeValidate/Zod. (Wizard state on the URL was dropped 2026-11-09 — see
+  [backend-roadmap.md](./backend-roadmap.md) § Decision log.) The wizard UI, RSS discovery from a pasted URL, YouTube search
   by name and the add itself (into a feed or a New feed) are built (see Built) — any URL works
   end to end.
 - **Saved posts (rest)** — saving, unsaving and reading the saved streams work end to end (see

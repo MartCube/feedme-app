@@ -43,10 +43,12 @@ function iconClass(uid: string) {
   return isActive(uid) ? 'text-primary' : 'text-muted [@media(hover:hover)]:group-hover:text-primary'
 }
 
-// Spins beside the wordmark while any API call is in flight. Debounced so a
-// call that answers inside 150ms never flashes it.
+// Spins beside the wordmark while any API call is in flight — unless the add
+// wizard is the one waiting: it spins beside its own step title, next to what
+// you're working on, and one wait gets one spinner.
 const { $apiPending } = useNuxtApp()
-const busy = refDebounced(computed(() => $apiPending.value > 0), 150)
+const { busy: wizardBusy } = useAddFeedWizard()
+const busy = computed(() => $apiPending.value > 0 && !wizardBusy.value)
 </script>
 
 <template>
@@ -71,14 +73,7 @@ const busy = refDebounced(computed(() => $apiPending.value > 0), 150)
         <Logo class="size-8" />
         <span><span class="text-primary">Feed</span>Me</span>
       </NuxtLink>
-      <!-- Stock spinner as a stand-in until the app has its own
-           (pending_tasks/custom-spinner.md). -->
-      <UIcon
-        v-if="busy"
-        name="i-ph-circle-notch-bold"
-        aria-hidden="true"
-        class="size-5 animate-spin text-muted"
-      />
+      <Spinner :active="busy" />
     </h1>
 
     <!-- The rows run on the smallest step, so a selected row's rounded

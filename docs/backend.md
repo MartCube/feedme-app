@@ -216,7 +216,7 @@ exception is `DELETE /feeds/{uid}`, which has nothing left to return.
 | `PUT /posts/{uid}/save` | Body: `{group}` (bookmarks \| favorites \| later). Upsert — moving groups is the same call |
 | `DELETE /posts/{uid}/save` | Unsave |
 | `GET /discover` | `?type=website|youtube|reddit&q=<url or keyword>` → candidate sources (`name`, `type`, `site_url`, `feed_url`, `icon`, `subscribers`, `already_subscribed`) — a source row's fields minus the uid, `title` and `enabled` it hasn't earned, plus the flag. `already_subscribed` means the source is **in one of your feeds** already; it no longer blocks picking, since a source can sit in several. Field names follow § Vocabulary (`name`, not `title`). A URL resolves under any card; a bare name is a YouTube channel search under `youtube` (503 when YouTube won't answer) and finds nothing under the other two until T11c/T11d. `subscribers` is a YouTube search hit's subscriber count — one extra `channels.list?part=statistics` call per search for all hits (1 quota unit), cached with the search; null for a hidden count, a pasted URL, or any other type, and a failed statistics call leaves it null without failing the search (and isn't cached) _(2026-10-08)_. Backs the add wizard |
-| `GET /discover/posts` | _(T14, backend built 2026-11-08; no UI yet)_ `?feed_url=<a candidate's feed_url>` → its newest 10 posts, fetched live and never stored — `PostSchema` minus `uid` / `source` / `saved_group`, with `published_at` nullable. The twin of `GET /feeds/{uid}/posts` for a source you haven't added yet. Unreachable or not a feed → 422 with a message; a real feed with no entries → `[]` |
+| `GET /discover/posts` | _(T14, built 2026-11-08; consumed by the wizard's Preview chip since 2026-11-09)_ `?feed_url=<a candidate's feed_url>` → its newest 10 posts, fetched live and never stored — `PostSchema` minus `uid` / `source` / `saved_group`, with `published_at` nullable. The twin of `GET /feeds/{uid}/posts` for a source you haven't added yet. Unreachable or not a feed → 422 with a message; a real feed with no entries → `[]` |
 | `GET /search` | `?q=&scope=<all \| saved \| saved_* \| feed_*>&cursor=&limit=` (scope defaults to `all`) — **the post list narrowed by `q`**: same polymorphic scope uid, same page shape, same cursor, newest-first. A blank `q` is an empty page, not an error. Engine-neutral contract — no tsquery syntax in, no rank out; see [Search](#search) |
 | `GET /settings` · `PUT /settings` | The persisted `UserSettings` (theme — `ink`/`claude`/`dracula`/`reddit`/`crowd`/`blueberry` — post-card style, desktop `pane_split`, …) — replaces cookie-only persistence so settings follow the account across devices |
 
@@ -608,3 +608,11 @@ Amended 2026-11-08: the takeover now applies only to an **unconfirmed** address,
 
 - **`provider` is `google` or `email`; `dev` is gone** along with `manage.py issue_token` and the
   login screen's token field. It still describes the account, not the session.
+
+Added 2026-11-09 (T14 UI):
+
+- **A pasted YouTube channel page's title loses its " - YouTube" suffix.** Discovery names a
+  candidate from the page's `<title>`, which YouTube ends with the site name; the name now
+  strips it (`core/discover._without_site_suffix`), so a pasted channel reads like a searched
+  one and prefills the New feed name cleanly. Only the discovered name changes; an already
+  stored source keeps its name.

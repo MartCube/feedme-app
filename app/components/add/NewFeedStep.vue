@@ -1,13 +1,13 @@
 <script setup lang="ts">
 const emit = defineEmits<{ back: [], close: [], create: [name: string] }>()
 
-const { selectedFeeds, adding, error } = useAddFeedWizard()
+const { picked, adding, error, busy } = useAddFeedWizard()
 
-// Prefilled with the first source's name: a one-source feed is the common
+// Prefilled with the source's name: a one-source feed is the common
 // case, and it should cost one tap. Local on purpose — the panel remounts
 // fresh on every visit, so the name never needs a wizard-level reset. The
 // description is the source's own until the feed page edits it.
-const name = ref(selectedFeeds.value[0]?.name ?? '')
+const name = ref(picked.value?.name ?? '')
 
 function submit() {
   if (!name.value.trim() || adding.value) return
@@ -32,7 +32,10 @@ function submit() {
     </header>
 
     <h1 class="mt-lg text-title tracking-tight">
-      New feed
+      New feed<Spinner
+        :active="busy"
+        class="ms-sm align-middle"
+      />
     </h1>
 
     <!-- The trailing arrow only appears once there's text — the "disabled

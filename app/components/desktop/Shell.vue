@@ -63,6 +63,32 @@ watch(onAdd, (on, was) => {
   if (was && !on) wizard.reset()
 })
 
+// The add wizard's feed preview opens in the posts pane, beside the wizard,
+// and closes with it (reset() above drops it). The list stays mounted under
+// it (v-show), so closing the preview brings back the same loaded pages — and,
+// restored here, the same scroll — unless the add landed in another feed,
+// which then opens from the top as any feed does.
+const previewOpen = computed(() => onAdd.value && Boolean(wizard.previewing.value))
+const postsPane = useTemplateRef<HTMLElement>('postsPane')
+let listScroll = { uid: '', top: 0 }
+watch(() => (onAdd.value ? wizard.previewing.value?.feed_url : undefined), async (now, was) => {
+  const pane = postsPane.value
+  if (!pane) return
+  if (now && !was) listScroll = { uid: readerFeedUid.value, top: pane.scrollTop }
+  await nextTick()
+  if (now) pane.scrollTop = 0
+  else if (readerFeedUid.value === listScroll.uid) pane.scrollTop = listScroll.top
+})
+
+// The preview's + is the result card's click: on to Destination, or — pointed
+// at a feed — straight into it, and then that feed opens.
+async function addPreviewed() {
+  const candidate = wizard.previewing.value
+  if (!candidate) return
+  const landed = await wizard.pick(candidate)
+  if (landed) openLanded(landed)
+}
+
 // Closing returns to the frozen reading position; the reused settings panels
 // close themselves via the injected key (on mobile it collapses the sheet).
 function closeContent() {
@@ -77,6 +103,8 @@ provide(settingsDrawerCloseKey, closeContent)
 // list's search box stops its own Esc, so there it closes only the search.
 // An Esc that cancels an IME composition belongs to the field, not the shell.
 function closeTop() {
+  // The preview sits above the wizard it came from, so it goes first.
+  if (previewOpen.value) return wizard.closePreview()
   if (contentOpen.value) return closeContent()
   const uid = readerFeedUid.value
   let to: string | undefined
@@ -122,10 +150,16 @@ useHead({
            toward whichever pane the account chose (Appearance). -->
       <section
         v-if="hasFeeds"
+        ref="postsPane"
         class="shrink-0 scroll-host page-inset"
         :class="postsPaneBasis"
       >
+        <AddPreviewPane
+          v-if="previewOpen"
+          @add="addPreviewed"
+        />
         <FeedPostList
+          v-show="!previewOpen"
           :uid="readerFeedUid"
           :q="readerQuery"
           :active-post-uid="readerPostUid"
@@ -138,7 +172,16 @@ useHead({
         class="flex shrink-0"
         :class="contentOpen ? postsPaneBasis : 'w-full'"
       >
-        <HomeEmptyState class="h-full w-full" />
+        <div
+          v-if="previewOpen"
+          class="h-full w-full scroll-host page-inset"
+        >
+          <AddPreviewPane @add="addPreviewed" />
+        </div>
+        <HomeEmptyState
+          v-else
+          class="h-full w-full"
+        />
       </section>
 
       <!-- relative: the positioning context Settings/Add lay over. -->

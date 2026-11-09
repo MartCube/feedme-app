@@ -1,11 +1,19 @@
 <script setup lang="ts">
-import type { Post } from '~/assets/types'
+import type { DiscoverPost, Post, PostSource } from '~/assets/types'
 
+// A post with no uid is a preview post (the add wizard's GET /discover/posts):
+// never stored, so there's no in-app reader to open — its title goes to the
+// original in a new tab, and no `to` is needed. It carries no source either, so
+// the preview passes its candidate as `source` and the meta row reads the same
+// as a feed's.
 const props = defineProps<{
-  post: Post
-  to: string
+  post: Post | DiscoverPost
+  source?: PostSource
+  to?: string
   selected?: boolean
 }>()
+
+const isPreview = computed(() => !('uid' in props.post))
 
 // Which card version the account chose. Read here rather than passed down: the
 // card is the only thing that acts on it, and both hosts render this component.
@@ -18,10 +26,15 @@ const hasImage = computed(() => settings.postCardStyle === 'image' && Boolean(pr
 // [link] [comments]", and Hacker News's "Article URL: … Comments URL: …
 // Points: … # Comments: …" — which is the whole summary there, so none shows.
 // A text post (Ask HN, Show HN) has no article, so its footer starts at
-// "Comments URL:" after the post's own words, which do show.
-const excerpt = computed(() => stripHtml(props.post.summary)
-  .replace(/\s*submitted by \/u\/\S+\s*\[link\]\s*\[comments\]\s*$/, '')
-  .replace(/\s*(?:Article URL: \S+\s*)?Comments URL: \S+\s*Points: \d+\s*# Comments: \d+\s*$/, ''))
+// "Comments URL:" after the post's own words, which do show. Hacker News's
+// front-page feed (the one a preview reads) has no footer at all, just a link
+// labelled "Comments", so a summary that is only that word shows nothing either.
+const excerpt = computed(() => {
+  const text = stripHtml(props.post.summary)
+    .replace(/\s*submitted by \/u\/\S+\s*\[link\]\s*\[comments\]\s*$/, '')
+    .replace(/\s*(?:Article URL: \S+\s*)?Comments URL: \S+\s*Points: \d+\s*# Comments: \d+\s*$/, '')
+  return text === 'Comments' ? '' : text
+})
 </script>
 
 <template>
@@ -40,9 +53,13 @@ const excerpt = computed(() => stripHtml(props.post.summary)
     <!-- Desktop gives the title room on both sides: xs to the meta above
          and the excerpt below. -->
     <div class="flex min-w-0 flex-1 flex-col gap-2xs lg:gap-xs">
-      <FeedPostMeta :post="post" />
+      <FeedPostMeta
+        :post="post"
+        :source="source"
+      />
       <NuxtLink
-        :to="to"
+        :to="isPreview ? post.post_url : to"
+        :target="isPreview ? '_blank' : undefined"
         class="text-subtitle after:absolute after:inset-0 after:rounded-2xl"
       >
         {{ post.title }}

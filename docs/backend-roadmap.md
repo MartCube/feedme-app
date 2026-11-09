@@ -17,7 +17,8 @@ deliberate checkpoint that wires the real frontend before the backlog grows furt
 **Last completed:** T15b — Images: feed icons _(2026-09-28)_, after T15c — Images: article
 images _(2026-09-23)_ and T15a — Images: proxy, post images, card toggle _(2026-09-22, amended
 2026-09-23 with the declared-width floor)_
-**Next up:** **T14 — Feed preview** _(backend built 2026-11-08; the wizard UI is pending)_, ungated. **T15d — the bucket**
+**Last completed (frontend):** T14 — Feed preview _(2026-11-09)_.
+**Next up:** **T15d — the bucket**
 builds on T15a, and is
 the one that makes `image: null` truthful and retires T15a's two stand-in floors; **T15f — the
 loading placeholder** shipped 2026-10-13. T11c (Reddit app credentials) and T11d (a catalog worth
@@ -71,7 +72,7 @@ reading order.
 | T11d | Discovery — keyword search over our own catalog | ⬜ needs a catalog worth searching |
 | T12 | Search | ✅ done _(2026-09-06)_ |
 | T13 | Retention | ✅ done _(2026-09-07)_ |
-| T14 | Feed preview — a candidate's latest posts | 🟨 in progress _(2026-11-08)_ — backend done, UI pending |
+| T14 | Feed preview — a candidate's latest posts | ✅ done _(backend 2026-11-08, UI 2026-11-09)_ |
 | T15a | Images — proxy, post images, card toggle | ✅ done _(2026-09-22)_ |
 | T15b | Images — feed icons | ✅ done _(2026-09-28)_ |
 | T15c | Images — article images | ✅ done _(2026-09-23)_ |
@@ -1105,6 +1106,21 @@ product-level reasoning is in [backend.md](./backend.md) § Decision log):
   edit drawer (the feed page's *Add source* sets a `target` in wizard state instead). The
   direction itself — type and query as query params on `/add`, deferred to T14 — is unchanged.
 
+Decided 2026-11-09 (T14's UI half):
+
+- **The wizard's state is not put on the URL — the 2026-09-18 direction is dropped.** Type and
+  query as `/add` query params, with a tapped candidate addressable, was deferred to T14. With
+  the preview built as one source per pass, nothing in the wizard is worth a deep link, and
+  closing the wizard throws everything away. A reload of `/add` starts over, as it always did.
+- **The wizard is one source per pass.** The multi-select (checkmarks, Continue) is removed:
+  tapping a result picks it, and Destination, New feed and the targeted commit all deal with
+  exactly one source. Several sources into one feed is several passes.
+- **Preview results are cached in the wizard, not on the server** — per `feed_url`, cleared by a
+  new search, a type change or a reset — which is the "hold it in its own state" the T14 spec
+  anticipated. The client gives each fetch 10 s and no retry.
+- **Feed-activity info on the result card was tried and dropped.** A latest-post / posts-per-month
+  line was built and removed by the user; the preview is where activity is judged.
+
 ## Tasks
 
 ### T1 — Foundations: CORS, linting, test harness
@@ -1764,9 +1780,9 @@ the search index intact. periodiq registers both new schedules alongside `poll_d
 (confirmed in `docker compose logs scheduler`), and both actors ran end to end over Redis in the
 real worker.
 
-### T14 — Feed preview: a candidate's latest posts 🟨
+### T14 — Feed preview: a candidate's latest posts ✅
 
-**Status _(2026-11-08)_:** the backend (`GET /discover/posts`, `preview_feed`, `entry_to_post`, `test_discover_posts.py`) is built; the response carries `image` and `video` like a post card rather than a raw `image_url`. The wizard's preview UI and the URL-addressable wizard state are **not built**.
+**Status _(2026-11-09)_:** done. The backend (`GET /discover/posts`, `preview_feed`, `entry_to_post`, `test_discover_posts.py`) was built 2026-11-08; the response carries `image` and `video` like a post card rather than a raw `image_url`. The wizard's preview UI was built 2026-11-09 ([screens-and-flows.md](./screens-and-flows.md) § 4). The URL-addressable wizard state was **dropped** (§ Decision log, 2026-11-09). Known limitation: Reddit often answers 429 right after a search, so its preview shows "Couldn't load" until T11c authenticates the fetch.
 
 _Wording note, 2026-10-08: since the feeds remodel a `Feed` is a user's group of sources, so
 below "feed" means a candidate **source** (an RSS endpoint) and "subscribing" means adding it to
@@ -1790,7 +1806,7 @@ will never ingest. The same 404 fallback to the channel feed applies.
 `/discover`. Backend only; the wizard's presentation is a frontend follow-up that consumes
 this contract (regenerate `app/types/api.d.ts` with `pnpm types:api` when it starts) — and is
 also the occasion to put the wizard's type and query on the URL as query params (decided
-2026-09-18, § Decision log), since a tapped candidate should become addressable at the same time.
+2026-09-18, **dropped 2026-11-09**, § Decision log).
 
 *Why this shape.* A candidate has no uid, so `feed_url` — the one field the wizard already keeps
 from a `/discover` result — is the key. The path is `/discover/posts`, not `/discover/preview`

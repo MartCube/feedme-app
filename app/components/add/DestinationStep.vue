@@ -3,7 +3,7 @@ const emit = defineEmits<{ back: [], close: [], choose: [feedUid: string], newFe
 
 const { feeds } = storeToRefs(useFeedsStore())
 
-const { selectedFeeds, adding, error } = useAddFeedWizard()
+const { picked, adding, error, busy } = useAddFeedWizard()
 </script>
 
 <template>
@@ -23,22 +23,14 @@ const { selectedFeeds, adding, error } = useAddFeedWizard()
       />
     </header>
 
-    <!-- The sources being added, so the choice has context. Deliberately quiet
-         (label + plain rows, no card): here cards mean "tappable". -->
-    <section v-if="selectedFeeds.length">
-      <p class="mt-md text-caption text-muted text-inset">
-        Adding
-      </p>
-      <div class="mt-xs flex flex-col gap-2xs text-inset">
-        <p
-          v-for="candidate in selectedFeeds"
-          :key="candidate.feed_url"
-          class="truncate text-body"
-        >
-          {{ candidate.name }}
-        </p>
-      </div>
-    </section>
+    <!-- The one source being added names the question; the cards below answer
+         it. Wraps rather than truncating — a long name is still the context. -->
+    <h1 class="mt-lg text-title tracking-tight">
+      Add {{ picked?.name }} to<Spinner
+        :active="busy"
+        class="ms-sm align-middle"
+      />
+    </h1>
 
     <!-- Above the destination list, not below it: this panel is touch-none (vaul owns
          the gesture), so anything under a long feed list is unreachable on mobile —
@@ -50,13 +42,10 @@ const { selectedFeeds, adding, error } = useAddFeedWizard()
       {{ error }}
     </p>
 
-    <p class="mt-md text-caption text-muted text-inset">
-      Add to
-    </p>
     <!-- New feed first: it's the common case for a first source, and the one
-         row that's always there. Tapping a feed commits: every selected source
-         joins it and the wizard closes. -->
-    <ul class="mt-xs flex flex-col gap-sm">
+         row that's always there. Tapping a feed commits: the source joins it and
+         the wizard closes. -->
+    <ul class="mt-md flex flex-col gap-sm">
       <li>
         <button
           type="button"

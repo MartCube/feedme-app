@@ -241,10 +241,9 @@ def test_a_youtube_handle_resolves_through_the_channel_page(authed_client, monke
 
     body = search(authed_client, '@SkiEssentials', type='youtube').json()
 
-    # no title= on the link tag, so the name falls back to the page's own <title>
-    assert [(result['name'], result['feed_url']) for result in body] == [
-        ('SkiEssentials - YouTube', VIDEOS)
-    ]
+    # no title= on the link tag, so the name falls back to the page's own <title> — less
+    # the " - YouTube" every channel page appends, which would follow the name everywhere
+    assert [(result['name'], result['feed_url']) for result in body] == [('SkiEssentials', VIDEOS)]
 
 
 def test_a_result_is_typed_by_its_url_not_by_the_wizards_card(authed_client, monkeypatch):
@@ -380,7 +379,7 @@ def test_a_feed_declared_below_head_is_still_found(authed_client, monkeypatch):
     body = search(authed_client, '@SkiEssentials', type='youtube').json()
 
     assert [(result['name'], result['type'], result['feed_url']) for result in body] == [
-        ('SkiEssentials - YouTube', 'youtube', VIDEOS)
+        ('SkiEssentials', 'youtube', VIDEOS)
     ]
 
 
