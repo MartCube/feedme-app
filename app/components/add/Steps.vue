@@ -33,8 +33,8 @@ async function onChoose(feedUid: string) {
   if (landed) emit('done', landed)
 }
 
-async function onCreate(name: string) {
-  const landed = await wizard.addToNewFeed(name)
+async function onCreate(input: { name: string, description: string, removeFromOrigin: boolean }) {
+  const landed = await wizard.addToNewFeed(input)
   if (landed) emit('done', landed)
 }
 

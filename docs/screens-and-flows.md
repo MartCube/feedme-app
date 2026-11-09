@@ -392,10 +392,19 @@ there, and the common case for a first source), then one card per existing feed 
 source count. Tapping a feed **commits** — the source joins it, the drawer closes, and the
 home list reflects it. **New feed** advances to phase 4.
 
-**Phase 4 — name the new feed.** A name input, prefilled with the picked source's name
-(so a one-source feed costs one tap); submitting creates the feed holding it and closes
-the drawer. The feed's description starts as that source's own, and is edited later on the
-feed page.
+**Phase 4 — name the new feed.** A **name** input, prefilled with the picked source's name
+(so a one-source feed costs one tap), and an optional **Description** under it _(2026-11-09)_;
+blank keeps the default, the source's own description, and it can still be edited later on the
+feed page. Submitting — the name field's arrow or the primary **Create feed** button — creates
+the feed holding the source and closes the drawer.
+
+**From a source page** _(2026-11-09)_ the wizard opens straight on this step (screen 7, *New
+feed from this source*): no search, no phases before it, prefilled with the source's name in that
+feed, and the header has Close only, no Back. Only here the step also shows a **Remove from
+{feed}** switch, off by default. Nothing changes until Create succeeds: the new feed is created
+first (the shared source is reused, not refetched), and only then, if the switch is on, the
+source is removed from the old feed. Create comes first so the source is never in no feed; a
+failed create leaves everything as it was.
 
 **Busy indicator.** While the wizard is searching, previewing or adding, a spinner sits
 beside the step title; the wordmark's spinner stays still meanwhile so only one spins
@@ -426,9 +435,11 @@ A pasted YouTube channel page's title loses its " - YouTube" suffix. A **keyword
 YouTube by channel name _(T11b, 2026-09-11)_ — up to five channels with their avatars; if YouTube
 won't answer (quota spent), the step shows that as an error rather than an empty result. A
 keyword under Website or Reddit still finds nothing (T11c, T11d).
-Committing a New feed calls `POST /feeds` (`{name, feed_url}`) through `useFeedsStore().addFeed()`,
+Committing a New feed calls `POST /feeds` (`{name, description, feed_url}`) through `useFeedsStore().addFeed()`,
 and every other source `POST /feeds/{uid}/sources` through `addSource()`; the server
 finds-or-creates the shared source, fetches it, and answers with the whole feed.
+The source-page variant's optional removal is `DELETE /feeds/{uid}/sources/{sourceUid}`,
+optimistic with rollback.
 
 **Components:** `add/Drawer.vue` (mobile sheet host: open protocol + commit/close/reset),
 `add/Steps.vue` (the phase switch itself — reused by the desktop presentation below),
@@ -567,6 +578,10 @@ it is its own button on the feed page.
   old link is never edited.
 - **Save** — commits the name and the link, then returns to the feed page (a new link has to,
   since it is a different source with a different identity).
+- **New feed from this source** _(2026-11-09)_ — a block button above Remove, hidden when the
+  source is the feed's only one. Opens the add wizard on its New feed step (screen 4), prefilled
+  with this source's name in this feed, with an optional switch to remove the source from this
+  feed once the new one exists.
 - **Remove from this feed** — see below.
 
 **Destructive actions** (mirror [data-model.md](./data-model.md#cascade-rules)). Both go through

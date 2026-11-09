@@ -5,9 +5,12 @@ import type { Feed, Source } from '~/assets/types'
 // name falls back to the source's own title. Changing the link swaps which
 // source this is — it's fetched first, so a URL that isn't a feed is refused
 // and nothing changes. Removing it from the feed goes through a confirm.
+// "New feed from this source" hands it to the add wizard's name step (screen 4),
+// which can also take it out of this feed once the new one exists.
 const props = defineProps<{ feed: Feed, source: Source, back: string }>()
 
 const feedsStore = useFeedsStore()
+const wizard = useAddFeedWizard()
 
 // The rename draft starts blank when there is none, so the placeholder can
 // show the title it falls back to.
@@ -45,6 +48,13 @@ async function save() {
   // Back to the feed page, not this one: a new link is a different source,
   // with a different uid in the path.
   navigateTo(`/feed/${props.feed.uid}/info`)
+}
+
+// A fresh flow, like the feed page's Add source: no stale type or results.
+function ownFeed() {
+  wizard.reset()
+  wizard.startOwnFeed(props.feed, props.source)
+  navigateTo('/add')
 }
 </script>
 
@@ -102,10 +112,17 @@ async function save() {
       </p>
     </section>
 
-    <DangerButton
-      class="mt-xl"
-      label="Remove from this feed"
-      :to="`/feed/${feed.uid}/info/source/${source.uid}/remove`"
-    />
+    <div class="mt-xl flex flex-col gap-sm">
+      <!-- A feed's only source already is its own feed. -->
+      <BlockButton
+        v-if="feed.sources.length > 1"
+        label="New feed from this source"
+        @click="ownFeed"
+      />
+      <DangerButton
+        label="Remove from this feed"
+        :to="`/feed/${feed.uid}/info/source/${source.uid}/remove`"
+      />
+    </div>
   </div>
 </template>

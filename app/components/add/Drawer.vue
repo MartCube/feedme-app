@@ -50,7 +50,10 @@ function onAnimationEnd(isOpen: boolean) {
     landedIn.value = null
   }
   // Once the sheet is fully closed, clear wizard state so it reopens fresh.
-  if (!isOpen) {
+  // Only after a real open: vaul's initial closed animationEnd can land after
+  // an opener (Add source, New feed from this source) has already primed the
+  // wizard, and resetting then would throw that away.
+  if (!isOpen && hasOpened.value) {
     wizard.reset()
   }
 }

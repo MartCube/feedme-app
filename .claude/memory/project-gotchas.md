@@ -9,6 +9,7 @@ metadata:
 ---
 
 **pnpm / tooling:**
+- **Edit `app/` files with the Edit/Write tools, not `sed -i` + a follow-up shell write.** `sed -i` replaces the file, the running `pnpm dev` watcher can miss the next write, and Vite keeps serving a stale module even across full reloads (lint/typecheck read disk and pass). Symptom: "X is not a function" for something plainly exported on disk. Fix: `touch` the file, then confirm by fetching `/_nuxt/<path>` in the page.
 - **Do NOT upgrade to TypeScript 7 yet** (tried 2026-07-17, latest was 7.0.2). `vue-tsc` (latest
   3.3.7, Volar-based) still `require.resolve`s `typescript/lib/tsc`, which TS 7 removed from its
   `exports` → `nuxt typecheck` dies with `ERR_PACKAGE_PATH_NOT_EXPORTED`. The app *runs* on TS 7

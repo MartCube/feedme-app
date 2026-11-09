@@ -1,4 +1,4 @@
-import type { DiscoverPost, FeedCandidate, FeedType } from '~/assets/types'
+import type { DiscoverPost, Feed, FeedCandidate, FeedType, Source } from '~/assets/types'
 
 // 'preview' is the phone's: there the preview is a step inside the drawer. On
 // desktop it opens in the posts pane beside the wizard instead (DesktopShell),
@@ -56,6 +56,9 @@ export function useAddFeedWizard() {
   // result commits straight into it and the destination step never shows. Set
   // by the opener before it navigates to /add; reset() clears it with the rest.
   const target = useState<string | null>('add-target', () => null)
+  // A source page's "New feed from this source": the feed the source may leave once
+  // the new one exists. Set by startOwnFeed(); reset() clears it.
+  const origin = useState<{ feedUid: string, sourceUid: string, feedName: string } | null>('add-origin', () => null)
 
   // Previews belong to the result list they were started from: a new search, a
   // new type or a closed wizard drops them, and the fetch still in flight.
@@ -246,13 +249,33 @@ export function useAddFeedWizard() {
     }, 'Couldn\'t add that source.')
   }
 
-  // A new feed holding the pick. A blank name takes the source's own title (the
-  // backend's default).
-  function addToNewFeed(name: string) {
+  // A new feed holding the pick. A blank name or description takes the source's
+  // own (the backend's default). Leaving the origin feed comes second, once the
+  // new feed holds the source, so it is never briefly in no feed at all.
+  function addToNewFeed(input: { name: string, description: string, removeFromOrigin: boolean }) {
     return run(async (candidate) => {
-      const feed = await feedsStore.addFeed({ name, candidate })
+      const feed = await feedsStore.addFeed({ name: input.name, description: input.description, candidate })
+      const from = origin.value
+      if (input.removeFromOrigin && from) feedsStore.removeSource(from.feedUid, from.sourceUid)
       return feed.uid
     }, 'Couldn\'t create that feed.')
+  }
+
+  // Straight to the name step with a source the user already follows, no
+  // search: the opener resets the wizard first, like the feed page's Add source.
+  function startOwnFeed(feed: Feed, source: Source) {
+    picked.value = {
+      name: source.name,
+      type: source.type,
+      site_url: source.site_url,
+      feed_url: source.feed_url,
+      icon: source.icon,
+      subscribers: null,
+      already_subscribed: true,
+    }
+    origin.value = { feedUid: feed.uid, sourceUid: source.uid, feedName: feed.name }
+    direction.value = 'forward'
+    step.value = 'new-feed'
   }
 
   // The API's one error shape, {"detail": string}, as ofetch hands it back. A network
@@ -297,7 +320,8 @@ export function useAddFeedWizard() {
     clearPreviews()
     direction.value = 'forward'
     target.value = null
+    origin.value = null
   }
 
-  return { step, type, query, loading, results, searched, adding, busy, error, picked, previews, previewing, previewPosts, previewAddLabel, direction, target, selectType, search, preview, closePreview, pick, addTo, addToNewFeed, goToNewFeed, back, reset }
+  return { step, type, query, loading, results, searched, adding, busy, error, picked, previews, previewing, previewPosts, previewAddLabel, direction, target, origin, selectType, search, preview, closePreview, pick, addTo, addToNewFeed, startOwnFeed, goToNewFeed, back, reset }
 }

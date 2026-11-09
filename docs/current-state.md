@@ -117,7 +117,8 @@ own status: **read that file's § Status for what to build next.**
   things read as cards; **tapping a feed commits the source there** and closes
   (`add/DestinationStep.vue`) → or **New feed** → a name input, prefilled with the picked
   source's name, whose submit arrow creates the feed and closes (`add/NewFeedStep.vue`, the old
-  `FolderStep.vue` renamed and re-pointed). The feed is created with `POST /feeds` carrying its
+  `FolderStep.vue` renamed and re-pointed). Since 2026-11-09 the step also has an optional **Description** field (blank keeps the source's own)
+  and a primary **Create feed** button beside the name arrow. The feed is created with `POST /feeds` carrying its
   `feed_url`, so one that isn't a feed leaves no empty feed behind. Phases slide with the `panel-slide` classes in
   `transitions.css`. Headers follow the settings drawer's language: step 1 has an in-flow close
   above the title; steps 2–4 have a md caret back + `text-subtitle` title (no close). The search
@@ -151,6 +152,16 @@ own status: **read that file's § Status for what to build next.**
   is the same call either way. YouTube refusing to answer (quota spent, key rejected) is
   a **503** the step shows as an error — not "nothing found", which would be a lie. A keyword
   under Website or Reddit still says "Nothing found. Try pasting a link." (T11c, T11d).
+- **New feed from this source** _(2026-11-09)_ — the source page's block button
+  (`feed/SourceEdit.vue`) opens the add wizard straight on **New feed**, prefilled with the
+  source's name in that feed; no search, Close only (no Back). The step has a **Description**
+  field (all new feeds) and, in this flow only, a **Remove from {feed}** switch, off by default.
+  `useAddFeedWizard()` gained `origin` and `startOwnFeed(feed, source)`; `addToNewFeed` takes
+  `{ name, description, removeFromOrigin }`. It creates first (`POST /feeds`, the shared source
+  reused), then, if switched on, `DELETE /feeds/{uid}/sources/{sourceUid}` (optimistic, rollback),
+  so the source is never in no feed. Fixed in `add/Drawer.vue`: the wizard reset on vaul's initial
+  "closed" animationEnd and could wipe state an opener had just primed after a page load; it now
+  resets only after a close that followed a real open. No backend change.
 - **Feed preview, UI half** _(2026-11-09, T14)_ — every result card has a **Preview** chip
   (idle / loading / previewing / "Couldn't load" with retry / "No posts yet" disabled; no
   tooltip) that calls `GET /discover/posts` via `$api` with a manual 10 s abort and no retry;
@@ -192,7 +203,7 @@ own status: **read that file's § Status for what to build next.**
   | `/feed/:uid/info` | the feed page |
   | `…/info/edit` | `feed/InfoEdit.vue` — Name and Description inputs, a **Save** `ui/PillButton.vue` (live once a draft differs and the name is non-empty; Save returns to the feed page), and a `ui/DangerButton.vue` **Delete feed** |
   | `…/info/delete` | `feed/Confirm.vue` — "Its sources leave your list unless another feed has them. Saved posts stay." Confirming deletes and goes home |
-  | `…/info/source/:sourceUid` | `feed/SourceEdit.vue` — a **Name** input with the source's own title as its placeholder (blank = that title), a **Link** input, a **Save** pill, and a `DangerButton` **Remove from this feed** |
+  | `…/info/source/:sourceUid` | `feed/SourceEdit.vue` — a **Name** input with the source's own title as its placeholder (blank = that title), a **Link** input, a **Save** pill, and a block **New feed from this source** button (hidden when it is the feed's only source), and a `DangerButton` **Remove from this feed** |
   | `…/info/source/:sourceUid/remove` | `feed/Confirm.vue` — "It stays in your other feeds. Saved posts stay." Confirming removes and returns to the feed page |
 
   Back is the parent view (remove → source → feed page → post list; delete → edit → feed page).
