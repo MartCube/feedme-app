@@ -2,6 +2,8 @@
 // The app's one destructive affordance — an elevated card, no icon, that arms
 // (blinks red in place) on tap and then routes to its confirm sheet. It never
 // mutates anything itself: every delete/remove is confirmed on the next panel.
+// Rests muted and only turns red under the pointer (hover-danger), on top of
+// the block buttons' shared surface step (block-feedback).
 const props = defineProps<{ label: string, to: string }>()
 
 const armed = ref(false)
@@ -21,8 +23,8 @@ function arm() {
 <template>
   <button
     type="button"
-    class="w-full rounded-2xl bg-elevated py-sm text-body shadow-elevated transition-colors"
-    :class="armed ? 'animate-pulse text-error' : 'text-muted'"
+    class="w-full rounded-2xl bg-elevated py-sm text-body shadow-elevated transition block-feedback"
+    :class="armed ? 'animate-pulse text-error' : 'text-muted hover-danger'"
     @click="arm"
   >
     {{ label }}

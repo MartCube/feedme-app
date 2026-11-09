@@ -53,6 +53,10 @@ Every hoverable thing takes exactly one cue, picked by how it looks at rest, all
 - Neutral/muted label (rows, nav entries) → `hover-accent` (label lights `primary`).
 - **Link already `primary` at rest → `hover-darken` + `transition-colors`** (accent mixed toward
   black). Article markup can't take classes: `article.css` restates the mix for `a`.
+- Full-width block action → `BlockButton` (its `block-feedback` steps the surface to `bg-muted`
+  and drops the shadow on hover **and press** — the press is ungated, touch's only feedback).
+  Never hand-roll a block button. A destructive one → `DangerButton` (rests muted,
+  `hover-danger` turns it `text-error`).
 - Icon-only → `IconButton` (its icon lights `primary`). A post card → `hover-lift`.
 
 A new kind of hover is a design discussion, not a one-off `hover:` class.

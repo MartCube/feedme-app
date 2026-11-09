@@ -222,6 +222,36 @@ html[data-theme='blueberry'] .bg-sunken {
   }
 }
 
+/* Block button hover and press (ui/BlockButton.vue): hover-lift's surface step,
+   plus the same step while pressed. The press is ungated — touch has no hover,
+   so it's the only feedback a phone gets. The shadow drops with the step, for
+   the reason hover-lift gives: on bg-muted its bg-elevated edge reads as an
+   outline. Pair with a bare `transition` so the shadow fades with the surface. */
+@utility block-feedback {
+  @media (hover: hover) {
+    &:hover {
+      background-color: var(--ui-bg-muted);
+      box-shadow: none;
+    }
+  }
+
+  &:active {
+    background-color: var(--ui-bg-muted);
+    box-shadow: none;
+  }
+}
+
+/* Destructive hover, desktop only: a destructive action rests muted so it
+   doesn't shout from a settings screen, and only names its danger when the
+   pointer is on it (ui/DangerButton.vue). Same touch gate as hover-accent. */
+@utility hover-danger {
+  @media (hover: hover) {
+    &:hover {
+      color: var(--ui-error);
+    }
+  }
+}
+
 /* Inline link hover, desktop only: a link that already rests in primary (a
    post's source link) can't light up to primary like hover-accent, so it
    steps down instead — the accent mixed toward black. Derived from

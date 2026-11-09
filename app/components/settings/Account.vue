@@ -80,13 +80,10 @@ async function resendConfirmation() {
     </section>
 
     <section>
-      <button
-        type="button"
-        class="w-full rounded-2xl bg-elevated p-sm text-left text-error"
+      <BlockButton
+        label="Sign out"
         @click="auth.signOut()"
-      >
-        Sign out
-      </button>
+      />
     </section>
 
     <section>

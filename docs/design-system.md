@@ -85,7 +85,8 @@ mixed 30% toward black (`color-mix(in oklab, var(--ui-primary) 70%, black)`), de
 `hover-darken` utility (`app/assets/css/themes.css`) carries it with the same
 `@media (hover: hover)` gate, paired with `transition-colors`. The rule, by what the link
 looks like at rest: **neutral/muted label → `hover-accent` (lights `primary`); `primary` link →
-`hover-darken`**; icon-only → `IconButton`'s own cue; a card → `hover-lift`. Every link gets
+`hover-darken`**; icon-only → `IconButton`'s own cue; a card → `hover-lift`; a block button →
+`block-feedback` (Block buttons, below; `hover-danger` for the muted destructive one). Every link gets
 exactly one of these, never two. Today's `primary` links: the post's source link
 (`feed/PostMeta.vue`, on cards and the post page), "Read the full post" (`feed/PostView.vue`),
 and links inside an extracted article (`article.css`, which restates the mix because sanitised
@@ -107,7 +108,8 @@ on a surface (`bg-elevated`), so stepping that surface is the cue that reads: on
 to `bg-muted` — the selected surface, so **hovered equals selected, on purpose** — with no
 shadow (see `shadow-elevated` above). The `hover-lift` utility (`app/assets/css/themes.css`)
 carries it, wrapped in `@media (hover: hover)` like `hover-accent`, and a selected card, already
-on `bg-muted`, doesn't take it.
+on `bg-muted`, doesn't take it. Block buttons are the second carve-out, with the same surface
+step plus a press state (Block buttons, below).
 
 **Selected** is the same cue made to stand: the row's label goes `primary` *and* the row takes
 `bg-elevated` + `shadow-elevated` — the tap flash on the way out on mobile, the persistent
@@ -158,7 +160,22 @@ offer (log in, sign up, send the reset link, save the new password, back to log 
 after confirming an email, back to your feeds) and appears nowhere inside the app. The
 reset-password and confirm-email screens use it; the legal pages have no action. It renders as a
 `submit` button when asked, so a form's own button is one. A disabled button of any variant
-dims to the elevated, `text-dimmed` state.
+dims to the elevated, `text-dimmed` state, with no hover or press feedback.
+
+**Hover and press** _(2026-11-09)_. The `neutral`, `primary` and `danger` variants step their
+surface to `bg-muted` and drop `shadow-elevated`, for the same reason as the post card (below):
+the `bg-elevated` shadow edge reads as an outline on `bg-muted`. The label is already coloured,
+so it can't be the cue. The `block-feedback` utility (`app/assets/css/themes.css`) carries it:
+on hover it is gated by `@media (hover: hover)`, but on `:active` it is **not gated**, because a
+press is the only feedback touch gets. The button uses a bare `transition` so the shadow fades
+with the surface. `filled` keeps its own look.
+
+**Every full-width block action is a `BlockButton`**, Settings → Account's **Sign out** (neutral,
+not red: it isn't destructive) and Settings → Report's **Send report** (primary, with a paper-plane
+icon) included. `ui/DangerButton.vue` takes the same `block-feedback`, but rests in `text-muted`
+and turns its label `text-error` only on hover (`hover-danger`, same desktop-only gate as
+`hover-accent`). It still arms red on tap. The dashed **Add source** row in a feed's info is not a
+block button: it is an empty slot, with a muted label and `hover-accent` as its cue.
 
 ### Third-party buttons
 

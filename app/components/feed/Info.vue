@@ -118,10 +118,11 @@ function addSource() {
           No sources yet.
         </p>
 
-        <!-- Dashed ghost row, full width like the rows above it. -->
+        <!-- Dashed ghost row, full width like the rows above it: an empty slot,
+             not a block button. Muted label, so hover-accent is its cue. -->
         <button
           type="button"
-          class="mt-xs flex w-full items-center justify-center gap-xs rounded-2xl border border-dashed border-default py-sm text-body text-muted transition-colors"
+          class="mt-xs flex w-full items-center justify-center gap-xs rounded-2xl border border-dashed border-default py-sm text-body text-muted transition-colors hover-accent"
           @click="addSource"
         >
           <UIcon

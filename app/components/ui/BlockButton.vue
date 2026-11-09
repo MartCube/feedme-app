@@ -20,10 +20,13 @@ const props = withDefaults(defineProps<{
   disabled: false,
 })
 
+// The elevated variants share one hover/press: the surface steps to bg-muted
+// (block-feedback, themes.css) — the label is already coloured, so it can't
+// be the cue. `filled` keeps its own look; it lives outside the app.
 const tone: Record<Variant, string> = {
-  neutral: 'bg-elevated text-default shadow-elevated',
-  primary: 'bg-elevated text-primary shadow-elevated',
-  danger: 'bg-elevated text-error shadow-elevated',
+  neutral: 'bg-elevated text-default shadow-elevated block-feedback',
+  primary: 'bg-elevated text-primary shadow-elevated block-feedback',
+  danger: 'bg-elevated text-error shadow-elevated block-feedback',
   filled: 'bg-primary text-inverted font-semibold',
 }
 
@@ -39,7 +42,7 @@ const toneClass = computed(() =>
   <button
     :type="type"
     :disabled="disabled"
-    class="flex w-full items-center justify-center gap-sm rounded-2xl py-sm text-body transition-colors"
+    class="flex w-full items-center justify-center gap-sm rounded-2xl py-sm text-body transition"
     :class="toneClass"
   >
     <UIcon

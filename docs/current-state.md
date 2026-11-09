@@ -214,12 +214,16 @@ own status: **read that file's § Status for what to build next.**
   another device — sends the reader to the feed page, or home if the feed is gone, held until
   `/home` has answered so a deep link doesn't bounce mid-load.
   `ui/DangerButton.vue` is still the app's one destructive affordance — an elevated full-width
-  card, no icon, muted label — that **arms** on tap (`animate-pulse` + `text-error` for 250ms,
+  card, no icon, muted label (red only on hover, `hover-danger`; _2026-11-09_) — that **arms** on tap (`animate-pulse` + `text-error` for 250ms,
   deliberately under the 0.35s panel-slide since the red flip is instant) and then routes to a
   confirm view; it never mutates the store itself. `feed/Confirm.vue` is the old
   `edit/ConfirmPanel.vue` moved: purely presentational — props
   `action`/`verb`/`subject`/optional `context`/`note`/`backTo`, emits `confirm`; its
-  Confirm/Cancel are `ui/BlockButton.vue`. Row content is inset `sm` as real padding on the row
+  Confirm/Cancel are `ui/BlockButton.vue`. _(2026-11-09)_ All full-width block actions share one
+  hover/press (`block-feedback`: surface steps to `bg-muted`, shadow drops; the press is ungated for
+  touch): Settings → Account **Sign out** is now a neutral `BlockButton` (no longer red) and
+  Settings → Report **Send report** a primary one with a paper-plane icon (still a mock, no
+  handler); the feed info's dashed **Add source** row stays a ghost row with `hover-accent`. Row content is inset `sm` as real padding on the row
   rather than a `text-inset` margin on the list, so row text lines up with the heading.
   **Mobile:** an info icon beside the post list's title (`feed/PostList.vue`) links to `/feed/:uid/info`; the
   middleware's depth rule makes that a push with the page slide, and `useSwipeBack` pops it.
