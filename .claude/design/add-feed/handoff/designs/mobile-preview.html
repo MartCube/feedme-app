@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Preview, mobile, final</title>
+<!-- FeedMe add-feed handoff mockup. Ink theme values; see ../HANDOFF.md § 5 for the token mapping. Yellow .ann notes are annotations, not UI. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600&amp;display=swap">
+<style>
+body{margin:0;background:#121213}
+*{box-sizing:border-box}
+.ph{--bg:#1F1F21;--el:#252527;--mu:#303032;--tx:#F2F2F2;--tm:#9A9A9E;--td:#6E6E72;--bd:rgba(255,255,255,.07);--pr:#2DD4BF;--er:#F87171;--sh:0 0 0 1px #252527,0 6px 20px rgba(0,0,0,.35)}
+.ph{width:390px;height:844px;background:var(--bg);color:var(--tx);font-family:Sora,sans-serif;overflow:hidden;position:relative;display:flex;flex-direction:column;padding:12px 32px 0;border-radius:24px 24px 0 0}
+.lip{width:36px;height:4px;border-radius:2px;background:var(--mu);align-self:center;flex:none}
+.top{display:flex;align-items:center;gap:8px;margin-top:16px;flex:none}
+.sp{flex:1}
+.ib{width:48px;height:48px;border-radius:999px;background:var(--el);box-shadow:var(--sh);border:0;color:var(--tm);display:flex;align-items:center;justify-content:center;flex:none;padding:0}
+.t1{font-size:24px;font-weight:600;line-height:1.25;margin:0}
+.t2{font-size:18px;font-weight:600;line-height:1.35;margin:0}
+.t3{font-size:16px;line-height:1.6;margin:0}
+.t4{font-size:12px;line-height:1.4;margin:0}
+.m{color:var(--tm)}
+.card{background:var(--el);border-radius:16px;padding:16px;text-decoration:none;color:inherit}
+.row{display:flex;align-items:center;gap:16px}
+.col{display:flex;flex-direction:column}
+.pc{display:flex;gap:16px;align-items:flex-start}
+.thumb{width:128px;height:128px;border-radius:12px;background:var(--mu);flex:none;display:flex;align-items:center;justify-content:center;color:var(--td)}
+.clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.dock{position:absolute;left:0;right:0;bottom:0;padding:16px 32px 32px;background:var(--bg)}
+.blk{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:56px;border-radius:16px;background:var(--el);box-shadow:var(--sh);border:0;font:inherit;font-size:16px;color:var(--pr)}
+.ann{position:absolute;font-size:12px;line-height:1.4;color:#1F1F21;background:#FDE68A;border-radius:8px;padding:4px 8px;font-family:Sora,sans-serif;max-width:220px}
+</style>
+</head>
+<body>
+<div class="ph">
+  <div class="lip"></div>
+  <div class="top">
+    <button class="ib" aria-label="Close"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+    <button class="ib" aria-label="Back to results"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></button>
+    <div class="sp"></div>
+    <a class="ib" href="#" aria-label="Open on YouTube"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-8 8M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"></path></svg></a>
+  </div>
+  <h1 class="t1" style="margin-top:32px">Veritasium <span class="m">· Preview</span></h1>
+  <p class="t3 m" style="margin-top:8px">10 posts · latest 4 days ago</p>
+  <div class="col" style="gap:16px;margin-top:24px">
+    <a class="card pc" href="#">
+      <div class="col" style="gap:4px;flex:1;min-width:0"><p class="t4 m">4 Nov 2026</p><p class="t2">I finally saw quantum mechanics with my own eyes... (It's spookier than I expected)</p><p class="t3 m clamp">The world’s coldest liquid is far stranger than you’d imagine. Sponsored by Ground News…</p></div>
+      <div class="thumb"><svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"></path></svg></div>
+    </a>
+    <a class="card pc" href="#">
+      <div class="col" style="gap:4px;flex:1;min-width:0"><p class="t4 m">23 Oct 2026</p><p class="t2">No device could prove Einstein wrong... until now</p><p class="t3 m clamp">Can atomic clocks prove Einstein wrong? The biggest protection in the game!</p></div>
+      <div class="thumb"><svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"></path></svg></div>
+    </a>
+  </div>
+  <div class="dock">
+    <button class="blk"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Add Veritasium</button>
+  </div>
+  <div class="ann" style="left:150px;top:150px">Opens only after posts arrived: no loading state here. Title matches desktop: ‘Name · Preview’.</div>
+  <div class="ann" style="left:24px;top:430px">Feed post cards minus the source link and Save. Tap opens post_url in the browser.</div>
+  <div class="ann" style="left:150px;top:700px">Same as tapping the card → Destination</div>
+</div>
+</body>
+</html>
