@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // The desktop keyboard map. A reference only: each binding lives in the
-// component that owns its state (DesktopShell for Esc, FeedPostList for the
-// rest), so a new shortcut is its binding there plus its row here. Keys are
+// component that owns its state (DesktopShell for Esc, HomeFeedList for
+// moving a feed, FeedPostList for the rest), so a new shortcut is its binding there plus its row here. Keys are
 // UKbd names — it renders arrowdown as ↓, escape as Esc, enter as ↵.
 const groups = [
   {
@@ -17,6 +17,13 @@ const groups = [
     rows: [
       { label: 'Done typing — arrows step through results', keys: ['enter'] },
       { label: 'Close the search', keys: ['escape'] },
+    ],
+  },
+  {
+    title: 'Feeds',
+    rows: [
+      { label: 'Move the focused feed up', keys: ['alt', 'arrowup'] },
+      { label: 'Move the focused feed down', keys: ['alt', 'arrowdown'] },
     ],
   },
   {

@@ -31,7 +31,7 @@ with only the posts inside that window. **Posts are searchable** — `GET /searc
 list, and the post list (mobile page and desktop posts pane) searches through it from a box on
 the list's own title row. What has no endpoint behind it yet says so: the add wizard resolves any
 **pasted URL** and searches **YouTube** by channel name, but a keyword under Website or Reddit
-still finds nothing, and the home reorder has no UI. **The reader is wired to
+still finds nothing. **Feeds reorder** _(2026-11-10)_ by hold-and-drag on the home list and the desktop sidebar (see Built → Home reorder). **The reader is wired to
 `/posts/{uid}/article`** _(2026-09-18)_: the post page renders the extracted article as markup,
 falling back to the RSS summary plus **Open source** when extraction can't produce one. See
 Resolved decisions → Backend stack & API. **Posts carry real images** _(2026-09-22)_: a signed
@@ -356,12 +356,23 @@ own status: **read that file's § Status for what to build next.**
   stored: the same entry mapping subscribing uses (`ingest.entry_to_post`, made public), a
   YouTube candidate read through the videos-only feed, `published_at` nullable, an unreadable
   feed a 422 and a real empty one `[]` ([backend-roadmap.md](./backend-roadmap.md) § T14).
+- **Home reorder** _(2026-11-10)_ — feeds move by press-and-drag, with no edit mode
+  (`app/composables/useDragReorder.ts`, wired in `HomeFeedList`, so the mobile home list and the
+  desktop sidebar share it). Touch holds a row 400ms before it lifts (a tap still opens the feed,
+  a swipe still scrolls); a mouse lifts it after 4px of travel (a click still opens it). The
+  lifted row takes the elevated surface and grows 3%, the rows it passes slide aside by
+  transform, Home / Saved / New Feed dim (they stay pinned), and holding near the list's edge
+  auto-scrolls. On drop the store's `moveFeed` writes `PUT /home/order` optimistically (a
+  failure puts the old order back) and the row gets the tap flash as it settles; auto-animate is
+  paused for the drag so the drop doesn't fly the row in from where it started. **Alt+↑/↓** on a
+  focused feed row moves it one place (listed under Keyboard shortcuts → Feeds).
 - **Data layer** — the `feeds` store loads `GET /home` once (in-flight-guarded; a failure is
   swallowed rather than raised, so it can never surface as Nuxt's error page, and retries from
   the home screen's **Try again** or the next app boot) into `feeds` — each a group with its
   sources — behind a `loaded` gate and an `unreachable` flag. The feeds
   arrive in display order (the server sorts by its one order column) and the response carries no
-  order of its own; reordering waits on its UI — see Not started → Home reorder.
+  order of its own; `moveFeed(uid, to)` reorders them optimistically and sends the whole list
+  to `PUT /home/order` — see Built → Home reorder.
   `app/composables/usePostList.ts` cursor-pages `GET /feeds/{uid}/posts` (limit 10) behind a
   sentinel + VueUse `useIntersectionObserver` rooted on the viewport, so the same composable
   serves the mobile page scroll and the desktop pane; given a query it pages `GET /search`
@@ -743,11 +754,6 @@ own status: **read that file's § Status for what to build next.**
   for permanence, T15d) and stage 3 (a CDN and a paid transformer at deploy, T15e) come after.
   The whole strategy, staged, is [images.md](./images.md); task entries in
   [backend-roadmap.md](./backend-roadmap.md) § Tasks → T15d, T15e.
-- **Home reorder** — `PUT /home/order` exists and is strict (it now takes **feed uids only** —
-  the whole flat list, nothing else to interleave), but **nothing drives it**: the home list has
-  no drag-and-drop and no other way to move a feed, and the `feeds` store has no action for
-  it. Feeds arrive from `/home` already in display order, so the UI, when it lands, writes the
-  new order and swaps the list locally or re-reads `/home`.
 
 ## Installed but unused
 

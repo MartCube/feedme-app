@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useAutoAnimate } from '@formkit/auto-animate/vue'
+
 // The home feed list: wordmark → Home row → pinned Saved row → feeds. Flat on
 // purpose: a feed is already the group (one source or many), and everything
 // you'd do to one — its sources, their on/off, a rename — lives on its feed
@@ -22,6 +24,40 @@ const feedsFolded = ref(false)
 
 const { selectedUid, select } = useTapSelection()
 
+// Reordering the feeds, with no edit mode: hold a row (touch) or drag it
+// (mouse) to move it, Alt+↑/↓ on a focused row for the keyboard. Only the
+// feeds move — Home, Saved and the sidebar's New Feed stay pinned on top,
+// which is also all PUT /home/order takes. A moved row gets the tap flash as
+// it settles.
+const { moveFeed } = useFeedsStore()
+const { draggingUid, setRow, rowStyle, onPointerdown, onTouchmove, onContextmenu } = useDragReorder(
+  () => feeds.value.map(feed => feed.uid),
+  (uid, to) => {
+    moveFeed(uid, to)
+    select(uid)
+  },
+)
+
+// The feed rows' add/remove/move animation (auto-animate), paused while a
+// feed is lifted: on drop it would fly the row in from the slot it started in,
+// which it last measured before the drag. Back on once the list has
+// re-rendered in its new order, two frames on.
+const [feedRows, setRowsAnimated] = useAutoAnimate<HTMLElement>()
+watch(draggingUid, (uid) => {
+  if (uid) setRowsAnimated(false)
+  else requestAnimationFrame(() => requestAnimationFrame(() => setRowsAnimated(true)))
+})
+
+function onKeydown(event: KeyboardEvent, uid: string) {
+  if (!event.altKey || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return
+  event.preventDefault()
+  const link = event.currentTarget as HTMLElement
+  const index = feeds.value.findIndex(feed => feed.uid === uid)
+  moveFeed(uid, index + (event.key === 'ArrowUp' ? -1 : 1))
+  // The row's element moves in the DOM, which can drop its focus.
+  nextTick(() => link.focus())
+}
+
 // Mobile tap flash OR persistent desktop selection.
 function isActive(uid: string) {
   return selectedUid.value === uid || props.activeUid === uid
@@ -33,6 +69,10 @@ function isActive(uid: string) {
 // hover accent (themes.css). A slotted row that isn't a feed (the sidebar's
 // New feed) passes its own `active`.
 function rowClass(uid: string, active = isActive(uid)) {
+  // While a feed is lifted it takes the elevated surface, and the pinned rows
+  // above the feeds dim: they aren't places it can go.
+  if (draggingUid.value === uid) return 'bg-elevated shadow-elevated'
+  if (draggingUid.value && !uid.startsWith('feed_')) return 'text-dimmed'
   return active ? 'bg-elevated shadow-elevated text-primary' : 'hover-accent'
 }
 
@@ -40,6 +80,7 @@ function rowClass(uid: string, active = isActive(uid)) {
 // row's hover accent by the same gate instead of inheriting it (as in
 // settings/Home.vue).
 function iconClass(uid: string) {
+  if (draggingUid.value) return 'text-dimmed'
   return isActive(uid) ? 'text-primary' : 'text-muted [@media(hover:hover)]:group-hover:text-primary'
 }
 
@@ -156,22 +197,31 @@ const busy = computed(() => $apiPending.value > 0 && !wizardBusy.value)
       </template>
       <template #content>
         <ul
-          v-auto-animate
+          ref="feedRows"
           class="flex flex-col gap-2xs"
           :class="[grouped && 'pt-xs', feedsFolded && 'fold-rows']"
         >
+          <!-- transition, not transition-colors: the rows a lifted feed
+               passes slide aside by transform (useDragReorder). -->
           <li
             v-for="feed in feeds"
             :key="feed.uid"
-            class="-mx-sm rounded-2xl transition-colors"
+            :ref="setRow(feed.uid)"
+            class="relative -mx-sm select-none rounded-2xl transition"
             :class="rowClass(feed.uid)"
+            :style="rowStyle(feed.uid)"
+            @pointerdown="onPointerdown($event, feed.uid)"
+            @touchmove="onTouchmove"
+            @contextmenu="onContextmenu"
+            @dragstart.prevent
           >
             <!-- A group carries its source count; a one-source feed is just
                its name. -->
             <NuxtLink
               :to="`/feed/${feed.uid}`"
-              class="flex min-w-0 items-baseline gap-xs p-sm lg:py-xs"
+              class="flex min-w-0 items-baseline gap-xs p-sm [-webkit-touch-callout:none] lg:py-xs"
               @pointerdown="select(feed.uid)"
+              @keydown="onKeydown($event, feed.uid)"
             >
               <span class="truncate text-body">{{ feed.name }}</span>
               <span
