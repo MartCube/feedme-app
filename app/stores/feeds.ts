@@ -201,6 +201,23 @@ export const useFeedsStore = defineStore('feeds', () => {
     )
   }
 
+  // The home order: moves one feed to a new place in the flat list and sends
+  // the whole list, which is what PUT /home/order takes. Optimistic like the
+  // other writes — the list is already in its new order by the time the drag
+  // lets go, and a failed write puts the old order back.
+  function moveFeed(uid: string, to: number) {
+    const previous = feeds.value
+    const from = previous.findIndex(feed => feed.uid === uid)
+    if (from < 0 || to < 0 || to >= previous.length || to === from) return
+    const next = [...previous]
+    next.splice(to, 0, ...next.splice(from, 1))
+    feeds.value = next
+    return commit(
+      nuxtApp.$api('/home/order', { method: 'PUT', body: { uids: next.map(feed => feed.uid) } }),
+      () => { feeds.value = previous },
+    )
+  }
+
   // On/off and the rename. A blank name means "the source's own title" — the
   // optimistic copy shows that straight away; the server's answer confirms it.
   function updateSource(feedUid: string, sourceUid: string, patch: { name?: string, enabled?: boolean }) {
@@ -233,5 +250,5 @@ export const useFeedsStore = defineStore('feeds', () => {
     )
   }
 
-  return { feeds, loaded, unreachable, load, reload, reset, hasFeeds, postsRevision, readerFeedUid, readerPostUid, readerQuery, readerInfo, readerPath, addFeed, addSource, relinkSource, updateFeed, deleteFeed, updateSource, removeSource }
+  return { feeds, loaded, unreachable, load, reload, reset, hasFeeds, postsRevision, readerFeedUid, readerPostUid, readerQuery, readerInfo, readerPath, addFeed, addSource, relinkSource, updateFeed, deleteFeed, moveFeed, updateSource, removeSource }
 })
