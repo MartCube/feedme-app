@@ -347,7 +347,7 @@ images through the proxy, so what's left is permanence and the CDN), and the end
 `/feeds/{uid}`, `/feeds/{uid}/sources`, `/feeds/{uid}/sources/{source_uid}`,
 `/feeds/{uid}/posts`, `/posts/{uid}`, `/posts/{uid}/article`, `/posts/{uid}/save`, `/search`
 and `/discover`.
-`PUT /home/order` still has no drag-and-drop UI driving it. Every served endpoint now has a
+`PUT /home/order` had no drag-and-drop UI driving it at the time (hold-and-drag reorder now does, 2026-11-10). Every served endpoint now has a
 frontend caller — `/posts/{uid}/article` was the last one without, wired 2026-09-18.
 
 ## Contract resolutions
@@ -497,8 +497,8 @@ Decided 2026-08-25 while building T3:
 Decided 2026-08-25 while building T4:
 
 - **`PUT /home/order` is strict** — a stale client half-applying an order is worse than a
-  refusal; the reorder UI doesn't exist yet, so a loud 422 is what will tell the future
-  drag-and-drop it sent the wrong shape.
+  refusal; the reorder UI didn't exist yet, so a loud 422 was what would tell the future
+  drag-and-drop it sent the wrong shape (now built: hold-and-drag, 2026-11-10).
 - **`GET /settings` answers from an unsaved instance** rather than `get_or_create` — a read
   shouldn't cause a write, the same rule T2 set with "expired tokens are rejected, not
   deleted". The row appears on the first `PUT`.
@@ -726,8 +726,8 @@ Recorded 2026-08-26 while reviewing T4 (no code changed):
   are read and validated before `transaction.atomic()` is entered, so two devices reordering at
   once can both pass validation. `select_for_update()` inside the transaction would close the
   concurrent-*reorder* case but not a concurrent *subscribe* (no gap locks under READ
-  COMMITTED). Left alone deliberately: the drag-and-drop UI that would trigger it doesn't exist
-  yet, the failure is cosmetic (a misplaced row, corrected by the next `/home`), and a partial
+  COMMITTED). Left alone deliberately: the drag-and-drop UI that would trigger it didn't exist
+  yet (it does since 2026-11-10), the failure is cosmetic (a misplaced row, corrected by the next `/home`), and a partial
   fix that reads as complete is worse than a recorded one. **Revisit in T7.** — **Closed in T7
   _(2026-09-01)_:** the read, the validation and the write now happen inside one
   `transaction.atomic()` with `select_for_update()` on the caller's folders and feeds.
@@ -1332,7 +1332,8 @@ unsubscribe its members *except* any that also belong to another folder, and ret
 **From T6.** Every write in the add wizard and edit drawer was store-local going in — the store
 actions existed and the UI was finished, so this task is replacing each action's body with a call.
 The home list's `order` is applied as a sort at load and not kept, so the drag-and-drop this
-task unblocks re-reads `/home` after `PUT /home/order` rather than reconciling locally.
+task unblocks re-reads `/home` after `PUT /home/order` rather than reconciling locally (as built
+2026-11-10: on failure only; success keeps the optimistic order).
 
 **As built _(2026-09-01)_.** Three things came out differently. `POST /feeds` takes a **pasted
 `feed_url`**, not a discovery result or a `source_uid` — discovery didn't exist until T11a — and

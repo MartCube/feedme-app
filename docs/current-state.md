@@ -361,9 +361,10 @@ own status: **read that file's § Status for what to build next.**
   desktop sidebar share it). Touch holds a row 400ms before it lifts (a tap still opens the feed,
   a swipe still scrolls); a mouse lifts it after 4px of travel (a click still opens it). The
   lifted row takes the elevated surface and grows 3%, the rows it passes slide aside by
-  transform, Home / Saved / New Feed dim (they stay pinned), and holding near the list's edge
+  transform, Home / Saved / New Feed dim, the New Feed icon in the sidebar included (they stay pinned), and holding near the list's edge
   auto-scrolls. On drop the store's `moveFeed` writes `PUT /home/order` optimistically (a
-  failure puts the old order back) and the row gets the tap flash as it settles; auto-animate is
+  failure re-reads `/home` rather than restoring a snapshot — overlapping moves, such as a held
+  Alt+↓, could otherwise have an early failure undo later moves the server kept) and the row gets the tap flash as it settles; auto-animate is
   paused for the drag so the drop doesn't fly the row in from where it started. **Alt+↑/↓** on a
   focused feed row moves it one place (listed under Keyboard shortcuts → Feeds).
 - **Data layer** — the `feeds` store loads `GET /home` once (in-flight-guarded; a failure is
@@ -371,8 +372,8 @@ own status: **read that file's § Status for what to build next.**
   the home screen's **Try again** or the next app boot) into `feeds` — each a group with its
   sources — behind a `loaded` gate and an `unreachable` flag. The feeds
   arrive in display order (the server sorts by its one order column) and the response carries no
-  order of its own; `moveFeed(uid, to)` reorders them optimistically and sends the whole list
-  to `PUT /home/order` — see Built → Home reorder.
+  order of its own; `moveFeed(uid, to)` reorders them optimistically, sends the whole list
+  to `PUT /home/order` and re-reads `/home` if that fails — see Built → Home reorder.
   `app/composables/usePostList.ts` cursor-pages `GET /feeds/{uid}/posts` (limit 10) behind a
   sentinel + VueUse `useIntersectionObserver` rooted on the viewport, so the same composable
   serves the mobile page scroll and the desktop pane; given a query it pages `GET /search`

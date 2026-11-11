@@ -160,9 +160,12 @@ const busy = computed(() => $apiPending.value > 0 && !wizardBusy.value)
         </NuxtLink>
       </li>
 
+      <!-- `dragging` so a slotted row's icon dims with Home's and Saved's
+           while a feed is lifted. -->
       <slot
         name="pinned"
         :row-class="rowClass"
+        :dragging="draggingUid !== null"
       />
     </ul>
 

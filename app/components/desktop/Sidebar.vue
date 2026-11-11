@@ -41,7 +41,7 @@ function iconClass(active: boolean) {
       <!-- New Feed rides the pinned rows' treatment, so it's a card beside
            them in cards mode, and stays selected like them while its wizard
            is open in the post pane. -->
-      <template #pinned="{ rowClass }">
+      <template #pinned="{ rowClass, dragging }">
         <li
           class="-mx-sm rounded-2xl transition-colors"
           :class="rowClass('add', onAdd)"
@@ -54,7 +54,7 @@ function iconClass(active: boolean) {
               v-if="icons"
               name="i-ph-plus-bold"
               class="size-5 shrink-0 transition-colors"
-              :class="iconClass(onAdd)"
+              :class="dragging ? 'text-dimmed' : iconClass(onAdd)"
             />
             <span class="truncate text-body">New Feed</span>
           </NuxtLink>

@@ -45,8 +45,8 @@ interface Feed {
   without a source needs a name.
 - Feeds are not nested, and the **Saved** feed is never a feed in this sense — it is app
   structure, not a row the user owns.
-- The home list is the feeds in display order. (`PUT /home/order` persists a reorder; no UI
-  drives it yet — see [current-state.md](./current-state.md).)
+- The home list is the feeds in display order. (`PUT /home/order` persists a reorder, driven by
+  hold-and-drag on the home list and desktop sidebar, plus Alt+↑/↓ — see [current-state.md](./current-state.md).)
 
 ## Source
 

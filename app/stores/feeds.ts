@@ -204,17 +204,18 @@ export const useFeedsStore = defineStore('feeds', () => {
   // The home order: moves one feed to a new place in the flat list and sends
   // the whole list, which is what PUT /home/order takes. Optimistic like the
   // other writes — the list is already in its new order by the time the drag
-  // lets go, and a failed write puts the old order back.
+  // lets go. A failed write re-reads /home rather than restoring a snapshot:
+  // moves overlap (Alt+↓ held down sends one PUT each), and an early failure
+  // restoring its own `previous` would undo later moves the server kept.
   function moveFeed(uid: string, to: number) {
-    const previous = feeds.value
-    const from = previous.findIndex(feed => feed.uid === uid)
-    if (from < 0 || to < 0 || to >= previous.length || to === from) return
-    const next = [...previous]
+    const from = feeds.value.findIndex(feed => feed.uid === uid)
+    if (from < 0 || to < 0 || to >= feeds.value.length || to === from) return
+    const next = [...feeds.value]
     next.splice(to, 0, ...next.splice(from, 1))
     feeds.value = next
     return commit(
       nuxtApp.$api('/home/order', { method: 'PUT', body: { uids: next.map(feed => feed.uid) } }),
-      () => { feeds.value = previous },
+      () => { reload() },
     )
   }
 
