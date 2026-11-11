@@ -24,7 +24,7 @@ layer, no color ramps — so Nuxt UI components and our own re-color together.
 | `bg-muted` | `bg-muted` | One more step: inputs, a post card's selected and hovered surface, pressed states, avatar placeholders. |
 | `text` | `text-default` / `text-highlighted` | Titles and body content. |
 | `text-muted` | `text-muted` | Secondary info: dates, counts, descriptions. |
-| `text-dimmed` | `text-dimmed` | Placeholders and disabled states **only** — never real content. |
+| `text-dimmed` | `text-dimmed` | Placeholders and disabled states **only** — never real content. The pinned rows' icons (Home, Saved, New Feed) count as disabled while a feed is being dragged. |
 | `border` | `border-default` | Translucent hairline: input outlines, focus rings, dividers. |
 | `primary` | `text-primary`, `bg-primary`, … | Accent: active states, links (a post's feed name is one, always underlined), key actions. |
 | `error` | `text-error`, … | Validation and destructive actions. |
